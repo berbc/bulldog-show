@@ -108,6 +108,39 @@ export default function Home() {
 
   useEffect(() => { if (user) loadData(); }, [user, loadData]);
 
+  const getYouTubeVideoId = (url) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]+)/);
+    return match ? match[1] : null;
+  };
+
+  const fetchYouTubeViews = async (url) => {
+    const videoId = getYouTubeVideoId(url);
+    if (!videoId) return null;
+    const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+    if (!apiKey) return null;
+    try {
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoId}&key=${apiKey}`);
+      const data = await res.json();
+      return parseInt(data?.items?.[0]?.statistics?.viewCount || 0);
+    } catch(e) { return null; }
+  };
+
+  const fetchAndUpdateViews = async (ep) => {
+    if (!ep.links?.length) return;
+    let updated = false;
+    const newLinks = await Promise.all(ep.links.map(async (link) => {
+      if (link.plataforma === 'YouTube' && link.url) {
+        const views = await fetchYouTubeViews(link.url);
+        if (views !== null && views !== link.views) { updated = true; return {...link, views}; }
+      }
+      return link;
+    }));
+    if (updated) {
+      const { data } = await supabase.from('episodes').update({links: newLinks}).eq('id', ep.id).select().single();
+      if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); if (statsEp?.id === ep.id) { setStatsEp(data); setStatsEdit({...data, links: data.links||[]}); } }
+    }
+  };
+
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
   const login = async () => {
     setLoginLoading(true); setLoginError("");
@@ -229,7 +262,7 @@ export default function Home() {
   const sortedEpisodes = [...episodes]
     .filter(e => epStatusFilter === "todos" || e.status === epStatusFilter)
     .sort((a, b) => {
-      if (epSort === "numero") return a.id - b.id;
+      if (epSort === "numero") { const na = parseInt((a.title.match(/\d+/) || [0])[0]); const nb = parseInt((b.title.match(/\d+/) || [0])[0]); return na - nb; }
       if (epSort === "data_asc") { if (!a.gravacao_data) return 1; if (!b.gravacao_data) return -1; return a.gravacao_data.localeCompare(b.gravacao_data); }
       if (epSort === "data_desc") { if (!a.gravacao_data) return 1; if (!b.gravacao_data) return -1; return b.gravacao_data.localeCompare(a.gravacao_data); }
       return 0;
@@ -558,9 +591,74 @@ export default function Home() {
               <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
               <StatCard label="Convidados Únicos" value={Object.keys(convidadoCount).length} />
               <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
+              <StatCard label="Total de Views (YT)" value={(() => { const t = episodes.flatMap(e=>e.links||[]).filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} color={ACCENT} />
               <StatCard label="Cortes Publicados" value={totalLinks} />
-              <StatCard label="Sem Participar Ainda" value={convidadosSemEp.length} color={MUTED} />
             </div>
+
+            {/* Gráfico: Views por episódio */}
+            {(() => {
+              const epsComViews = episodes.filter(e=>e.links?.some(l=>l.views>0));
+              if (epsComViews.length === 0) return null;
+              const maxViews = Math.max(...epsComViews.map(e=>e.links.reduce((s,l)=>s+(l.views||0),0)));
+              return (
+                <div style={{...card,padding:20,marginBottom:20}}>
+                  <div style={{fontSize:16,letterSpacing:2,marginBottom:4}}>📊 VIEWS POR EPISÓDIO</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginBottom:16}}>YouTube · clique para atualizar</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {[...episodes].filter(e=>e.links?.length>0).sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep=>{
+                      const ytViews = (ep.links||[]).filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
+                      const totalEpViews = (ep.links||[]).reduce((s,l)=>s+(l.views||0),0);
+                      const pct = maxViews>0 ? Math.round((ytViews/maxViews)*100) : 0;
+                      return (
+                        <div key={ep.id}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT}}>{ep.title}</div>
+                            <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                              {ytViews>0&&<span style={{fontFamily:"'DM Sans'",fontSize:12,color:ACCENT}}>▶ {ytViews.toLocaleString("pt-BR")} views</span>}
+                              <button onClick={()=>fetchAndUpdateViews(ep)} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,color:MUTED,borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10}}>↻ atualizar</button>
+                            </div>
+                          </div>
+                          <div style={{background:"#0A1F30",borderRadius:4,height:8,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .5s ease"}} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Gráfico: Investimento vs ROI */}
+            {(() => {
+              const epsComInv = episodes.filter(e=>(e.investimento||0)>0);
+              if (epsComInv.length === 0) return null;
+              const maxInv = Math.max(...epsComInv.map(e=>e.investimento||0));
+              return (
+                <div style={{...card,padding:20,marginBottom:20}}>
+                  <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>💰 INVESTIMENTO & ROI POR EPISÓDIO</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {epsComInv.sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep=>{
+                      const pct = maxInv>0?Math.round(((ep.investimento||0)/maxInv)*100):0;
+                      return (
+                        <div key={ep.id}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT}}>{ep.title}</div>
+                            <div style={{display:"flex",gap:16}}>
+                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"#F59E0B"}}>R$ {(ep.investimento||0).toLocaleString("pt-BR",{minimumFractionDigits:0})}</span>
+                              {(ep.roi||0)>0&&<span style={{fontFamily:"'DM Sans'",fontSize:12,color:"#10B981"}}>ROI {ep.roi}%</span>}
+                            </div>
+                          </div>
+                          <div style={{background:"#0A1F30",borderRadius:4,height:8,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#92400E,#F59E0B)",borderRadius:4,transition:"width .5s ease"}} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
 
