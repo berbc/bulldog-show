@@ -66,14 +66,13 @@ export const TIER_LISTS = [
 ];
 
 export const CONVIDADOS = [
-  "MC Gorila","Tília","LD Júnior","Egídio","Gamadinho","Gabily",
-  "Kamilla Fialho","Pimentel","Igorfina","Tettrem","Marcus Braz",
-  "Luana Zucoloto","Tabet","Treinador App","Rica Perrone",
-  "Samantha Alves","Latino","Mulher Melão","Elisa Sanches",
-  "Talita Galhardo","Léo Stronda","Dennis","Pedro Scooby",
-  "Viviane Araújo","Shana (filha do Maninho)","Renan (irmão da Anitta)",
-  "Raphael Ghanem","Neguere","Ninja Sincero","Nego Damoé",
-  "Pagodeiro","Muvuka"
+  "Dennis","Egídio","Elisa Sanches","Gabily","Gamadinho",
+  "Igorfina","Kamilla Fialho","Latino","LD Júnior","Léo Stronda",
+  "Luana Zucoloto","Marcus Braz","MC Gorila","Mulher Melão","Muvuka",
+  "Nego Damoé","Neguere","Ninja Sincero","Pagodeiro","Pedro Scooby",
+  "Pimentel","Raphael Ghanem","Renan (irmão da Anitta)","Rica Perrone",
+  "Samantha Alves","Shana (filha do Maninho)","Tabet","Talita Galhardo",
+  "Tettrem","Tília","Treinador App","Viviane Araújo"
 ];
 
 export const GAMES = [

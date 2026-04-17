@@ -1,17 +1,28 @@
-import { EPISODES } from "../../../lib/data";
-import { notFound } from "next/navigation";
+import { createClient } from '@supabase/supabase-js'
+import { notFound } from "next/navigation"
 
-export default function GuestPage({ params }) {
-  const ep = EPISODES.find(e => String(e.id) === String(params.id));
-  if (!ep) notFound();
+export const revalidate = 60
 
-  const dataFormatada = ep.gravacao.data
-    ? new Date(ep.gravacao.data + "T12:00:00").toLocaleDateString("pt-BR", {
+async function getEpisode(id) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+  const { data } = await supabase.from("episodes").select("*").eq("id", id).single()
+  return data
+}
+
+export default async function GuestPage({ params }) {
+  const ep = await getEpisode(params.id)
+  if (!ep) notFound()
+
+  const dataFormatada = ep.gravacao_data
+    ? new Date(ep.gravacao_data + "T12:00:00").toLocaleDateString("pt-BR", {
         weekday: "long", day: "2-digit", month: "long", year: "numeric"
       })
-    : null;
+    : null
 
-  const horarioLabel = ep.gravacao.horario === "10:00" ? "10h às 12h (manhã)" : "14h às 16h (tarde)";
+  const horarioLabel = ep.gravacao_horario === "10:00" ? "10h às 12h (manhã)" : "14h às 16h (tarde)"
 
   return (
     <div style={{minHeight:"100vh",background:"#081C2B",fontFamily:"'DM Sans',sans-serif",color:"#E8F4FF",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
@@ -26,14 +37,14 @@ export default function GuestPage({ params }) {
 
       <div style={{width:"100%",maxWidth:500}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/selo.png" alt="Bulldog Show" style={{width:100,height:100,objectFit:"contain",marginBottom:12}} />
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:11,color:"#5A8BA8",letterSpacing:2}}>Briefing do Convidado</div>
+          <img src="/logo.png" alt="Bulldog Show" style={{width:80,height:80,objectFit:"contain",marginBottom:12,borderRadius:"50%"}} />
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:"#E8F4FF",marginBottom:2}}>BULLDOG SHOW</div>
+          <div style={{fontSize:11,color:"#5A8BA8",letterSpacing:2}}>BRIEFING DO CONVIDADO</div>
         </div>
 
-        {ep.mensagemConvidado && (
+        {ep.mensagem_convidado && (
           <div className="card hi">
-            <div style={{fontSize:14,lineHeight:1.7,color:"#E8F4FF"}}>{ep.mensagemConvidado}</div>
+            <div style={{fontSize:14,lineHeight:1.7,color:"#E8F4FF"}}>{ep.mensagem_convidado}</div>
           </div>
         )}
 
@@ -45,40 +56,37 @@ export default function GuestPage({ params }) {
         <div className="card">
           <div style={{fontSize:10,color:"#7EC8F0",letterSpacing:2,textTransform:"uppercase",marginBottom:5,fontWeight:600}}>📅 Data & Horário</div>
           {dataFormatada
-            ? <>
-                <div style={{fontSize:14,marginBottom:5}}>{dataFormatada}</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:"#7EC8F0"}}>{horarioLabel}</div>
-              </>
+            ? <><div style={{fontSize:14,marginBottom:5}}>{dataFormatada}</div><div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:"#7EC8F0"}}>{horarioLabel}</div></>
             : <div style={{fontSize:14,color:"#1E4060"}}>A confirmar em breve</div>}
         </div>
 
-        {(ep.local || ep.endereco) && (
+        {ep.local && (
           <div className="card">
             <div style={{fontSize:10,color:"#7EC8F0",letterSpacing:2,textTransform:"uppercase",marginBottom:5,fontWeight:600}}>📍 Local</div>
-            {ep.local && <div style={{fontSize:14,fontWeight:600,marginBottom:3}}>{ep.local}</div>}
-            {ep.endereco && ep.endereco !== "A confirmar" && <div style={{fontSize:13,color:"#5A8BA8"}}>{ep.endereco}</div>}
+            <div style={{fontSize:14,fontWeight:600,marginBottom:3}}>{ep.local}</div>
+            {ep.endereco && <div style={{fontSize:13,color:"#5A8BA8"}}>{ep.endereco}</div>}
           </div>
         )}
 
-        {ep.convidados.length > 0 && (
+        {ep.convidados?.length > 0 && (
           <div className="card">
-            <div style={{fontSize:10,color:"#7EC8F0",letterSpacing:2,textTransform:"uppercase",marginBottom:8,fontWeight:600}}>👥 Quem vai estar no episódio</div>
-            <div>{ep.convidados.map((c,i)=><span key={i} className="tag">{c}</span>)}</div>
+            <div style={{fontSize:10,color:"#7EC8F0",letterSpacing:2,textTransform:"uppercase",marginBottom:8,fontWeight:600}}>👥 Quem vai estar</div>
+            <div>{ep.convidados.map((c,i) => <span key={i} className="tag">{c}</span>)}</div>
           </div>
         )}
 
         <div className="card">
           <div style={{fontSize:10,color:"#7EC8F0",letterSpacing:2,textTransform:"uppercase",marginBottom:8,fontWeight:600}}>🎬 O que vai rolar</div>
-          {ep.tierList && (<><div className="sl">🏆 Tier List</div><div style={{fontSize:14,lineHeight:1.5}}>{ep.tierList}</div></>)}
-          {ep.debate && ep.debate !== "A definir — aguardar tema em alta" && (<><div className="sl">💬 Debate</div><div style={{fontSize:14,lineHeight:1.5}}>{ep.debate}</div></>)}
-          {ep.game && (<><div className="sl">🎮 Game</div><div style={{fontSize:14,lineHeight:1.5}}>{ep.game}</div></>)}
-          {!ep.tierList && !ep.game && (!ep.debate || ep.debate === "A definir — aguardar tema em alta") && (
-            <div style={{fontSize:13,color:"#1E4060"}}>Pauta sendo finalizada — em breve você saberá tudo!</div>
+          {ep.tier_list && <><div className="sl">🏆 Tier List</div><div style={{fontSize:14,lineHeight:1.5}}>{ep.tier_list}</div></>}
+          {ep.debate && ep.debate !== "A definir — aguardar tema em alta" && <><div className="sl">💬 Debate</div><div style={{fontSize:14,lineHeight:1.5}}>{ep.debate}</div></>}
+          {ep.game && <><div className="sl">🎮 Game</div><div style={{fontSize:14,lineHeight:1.5}}>{ep.game}</div></>}
+          {!ep.tier_list && !ep.game && (!ep.debate || ep.debate === "A definir — aguardar tema em alta") && (
+            <div style={{fontSize:13,color:"#1E4060"}}>Pauta sendo finalizada — em breve!</div>
           )}
         </div>
 
         <div style={{textAlign:"center",marginTop:20,color:"#1E4060",fontSize:12}}>Dúvidas? Fala com a produção 🐶</div>
       </div>
     </div>
-  );
+  )
 }
