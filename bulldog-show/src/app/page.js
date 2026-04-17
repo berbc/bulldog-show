@@ -10,7 +10,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "🏆 Tier Lists", "👥 Convidados", "🎮 Games", "📅 Calendário"];
+const TABS = ["📋 Episódios", "🏆 Tier Lists", "👥 Convidados", "🎮 Games", "📅 Calendário", "📊 Estatísticas"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -26,6 +26,14 @@ const Stars = ({ value, onChange, readonly }) => (
     {[1,2,3,4,5].map(s => (
       <span key={s} onClick={()=>!readonly&&onChange(s)} style={{cursor:readonly?"default":"pointer",fontSize:16,color:s<=value?"#F59E0B":"#1E4060"}}>★</span>
     ))}
+  </div>
+);
+
+const StatCard = ({ label, value, sub, color }) => (
+  <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px"}}>
+    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{label}</div>
+    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:color||ACCENT}}>{value}</div>
+    {sub && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginTop:4}}>{sub}</div>}
   </div>
 );
 
@@ -50,22 +58,28 @@ export default function Home() {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(null);
 
-  // Bank states
   const [newTierList, setNewTierList] = useState("");
   const [newConvidado, setNewConvidado] = useState("");
   const [newGame, setNewGame] = useState({nome:"",descricao:"",jogadores:"",duracao:"",dificuldade:"Fácil",ideias:"",estrelas:0});
   const [addingGame, setAddingGame] = useState(false);
   const [editingGame, setEditingGame] = useState(null);
   const [expandedGame, setExpandedGame] = useState(null);
+  const [newEpConvidado, setNewEpConvidado] = useState("");
+  const [newEpTier, setNewEpTier] = useState("");
 
-  // Filter states
+  const [epSort, setEpSort] = useState("numero");
+  const [epStatusFilter, setEpStatusFilter] = useState("todos");
   const [tierSearch, setTierSearch] = useState("");
   const [tierSort, setTierSort] = useState("az");
   const [convSearch, setConvSearch] = useState("");
   const [gameSearch, setGameSearch] = useState("");
   const [gameSort, setGameSort] = useState("az");
 
-  // Check auth on mount
+  // Stats modal
+  const [statsEp, setStatsEp] = useState(null);
+  const [statsEdit, setStatsEdit] = useState(null);
+  const [statsEditMode, setStatsEditMode] = useState(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -95,17 +109,14 @@ export default function Home() {
   useEffect(() => { if (user) loadData(); }, [user, loadData]);
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-
   const login = async () => {
     setLoginLoading(true); setLoginError("");
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
     if (error) setLoginError("Email ou senha incorretos.");
     setLoginLoading(false);
   };
-
   const logout = () => supabase.auth.signOut();
 
-  // Episodes
   const addEpisode = async () => {
     const { data } = await supabase.from("episodes").insert({
       title: `Episódio ${episodes.length + 1}`, status: "planejado",
@@ -125,13 +136,17 @@ export default function Home() {
       endereco: editData.endereco, notas: editData.notas,
       mensagem_convidado: editData.mensagem_convidado,
       retroativo: editData.retroativo || false,
-      investimento: editData.investimento || 0, roi: editData.roi || 0,
-      links: editData.links || []
     }).eq("id", editData.id).select().single();
-    if (data) {
-      setEpisodes(prev => prev.map(e => e.id === data.id ? data : e));
-      setSelectedEp(data); setEditMode(false); flash();
-    }
+    if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setSelectedEp(data); setEditMode(false); flash(); }
+  };
+
+  const saveStats = async () => {
+    const { data } = await supabase.from("episodes").update({
+      investimento: statsEdit.investimento || 0,
+      roi: statsEdit.roi || 0,
+      links: statsEdit.links || []
+    }).eq("id", statsEdit.id).select().single();
+    if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setStatsEp(data); setStatsEditMode(false); flash(); }
   };
 
   const deleteEp = async (id) => {
@@ -142,37 +157,31 @@ export default function Home() {
 
   const openEp = (ep) => {
     setSelectedEp(ep);
-    setEditData({...ep, convidados: ep.convidados || [], links: ep.links || []});
+    setEditData({...ep, convidados: ep.convidados || []});
     setEditMode(false);
   };
 
-  // Tier Lists
+  const openStats = (ep) => {
+    setStatsEp(ep);
+    setStatsEdit({...ep, links: ep.links || []});
+    setStatsEditMode(false);
+  };
+
   const addTierList = async () => {
     if (!newTierList.trim()) return;
     const { data } = await supabase.from("tier_lists").insert({nome: newTierList.trim(), estrelas: 0}).select().single();
     if (data) { setTierLists(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewTierList(""); flash(); }
   };
-  const removeTierList = async (id) => {
-    await supabase.from("tier_lists").delete().eq("id", id);
-    setTierLists(prev => prev.filter(t => t.id !== id));
-  };
-  const updateTierStars = async (id, estrelas) => {
-    await supabase.from("tier_lists").update({estrelas}).eq("id", id);
-    setTierLists(prev => prev.map(t => t.id === id ? {...t, estrelas} : t));
-  };
+  const removeTierList = async (id) => { await supabase.from("tier_lists").delete().eq("id", id); setTierLists(prev => prev.filter(t => t.id !== id)); };
+  const updateTierStars = async (id, estrelas) => { await supabase.from("tier_lists").update({estrelas}).eq("id", id); setTierLists(prev => prev.map(t => t.id === id ? {...t, estrelas} : t)); };
 
-  // Convidados
   const addConvidado = async () => {
     if (!newConvidado.trim()) return;
     const { data } = await supabase.from("convidados").insert({nome: newConvidado.trim()}).select().single();
     if (data) { setConvidados(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewConvidado(""); flash(); }
   };
-  const removeConvidado = async (id) => {
-    await supabase.from("convidados").delete().eq("id", id);
-    setConvidados(prev => prev.filter(c => c.id !== id));
-  };
+  const removeConvidado = async (id) => { await supabase.from("convidados").delete().eq("id", id); setConvidados(prev => prev.filter(c => c.id !== id)); };
 
-  // Games
   const addGame = async () => {
     if (!newGame.nome.trim()) return;
     const { data } = await supabase.from("games").insert(newGame).select().single();
@@ -182,22 +191,9 @@ export default function Home() {
     const { data } = await supabase.from("games").update(editingGame).eq("id", editingGame.id).select().single();
     if (data) { setGames(prev => prev.map(g => g.id === data.id ? data : g).sort((a,b)=>a.nome.localeCompare(b.nome))); setEditingGame(null); flash(); }
   };
-  const removeGame = async (id) => {
-    await supabase.from("games").delete().eq("id", id);
-    setGames(prev => prev.filter(g => g.id !== id));
-  };
-  const updateGameStars = async (id, estrelas) => {
-    await supabase.from("games").update({estrelas}).eq("id", id);
-    setGames(prev => prev.map(g => g.id === id ? {...g, estrelas} : g));
-  };
+  const removeGame = async (id) => { await supabase.from("games").delete().eq("id", id); setGames(prev => prev.filter(g => g.id !== id)); };
+  const updateGameStars = async (id, estrelas) => { await supabase.from("games").update({estrelas}).eq("id", id); setGames(prev => prev.map(g => g.id === id ? {...g, estrelas} : g)); };
 
-  const copyLink = (id) => {
-    navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`);
-    setCopied(id); setTimeout(() => setCopied(null), 2000);
-  };
-
-  // Add new convidado directly in episode edit
-  const [newEpConvidado, setNewEpConvidado] = useState("");
   const addConvidadoInEp = async () => {
     if (!newEpConvidado.trim() || !editData) return;
     const nome = newEpConvidado.trim();
@@ -205,14 +201,10 @@ export default function Home() {
       const { data } = await supabase.from("convidados").insert({nome}).select().single();
       if (data) setConvidados(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
     }
-    if (!editData.convidados.includes(nome)) {
-      setEditData({...editData, convidados: [...editData.convidados, nome]});
-    }
+    if (!editData.convidados.includes(nome)) setEditData({...editData, convidados: [...editData.convidados, nome]});
     setNewEpConvidado("");
   };
 
-  // Add new tier list directly in episode edit
-  const [newEpTier, setNewEpTier] = useState("");
   const addTierInEp = async () => {
     if (!newEpTier.trim() || !editData) return;
     const nome = newEpTier.trim();
@@ -220,9 +212,10 @@ export default function Home() {
       const { data } = await supabase.from("tier_lists").insert({nome, estrelas:0}).select().single();
       if (data) setTierLists(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
     }
-    setEditData({...editData, tier_list: nome});
-    setNewEpTier("");
+    setEditData({...editData, tier_list: nome}); setNewEpTier("");
   };
+
+  const copyLink = (id) => { navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`); setCopied(id); setTimeout(() => setCopied(null), 2000); };
 
   const getNextWednesdays = () => {
     const weeks=[]; let d=new Date();
@@ -233,56 +226,51 @@ export default function Home() {
   const fmt = (d) => d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"});
   const epsByDate = (ds) => episodes.filter(e => e.gravacao_data === ds);
 
-  const sortedTierLists = [...tierLists]
-    .filter(t => t.nome.toLowerCase().includes(tierSearch.toLowerCase()))
-    .sort((a,b) => tierSort === "az" ? a.nome.localeCompare(b.nome) : tierSort === "za" ? b.nome.localeCompare(a.nome) : tierSort === "stars_desc" ? b.estrelas - a.estrelas : a.estrelas - b.estrelas);
+  const sortedEpisodes = [...episodes]
+    .filter(e => epStatusFilter === "todos" || e.status === epStatusFilter)
+    .sort((a, b) => {
+      if (epSort === "numero") return a.id - b.id;
+      if (epSort === "data_asc") { if (!a.gravacao_data) return 1; if (!b.gravacao_data) return -1; return a.gravacao_data.localeCompare(b.gravacao_data); }
+      if (epSort === "data_desc") { if (!a.gravacao_data) return 1; if (!b.gravacao_data) return -1; return b.gravacao_data.localeCompare(a.gravacao_data); }
+      return 0;
+    });
+  const sortedTierLists = [...tierLists].filter(t=>t.nome.toLowerCase().includes(tierSearch.toLowerCase())).sort((a,b)=>tierSort==="az"?a.nome.localeCompare(b.nome):tierSort==="za"?b.nome.localeCompare(a.nome):tierSort==="stars_desc"?b.estrelas-a.estrelas:a.estrelas-b.estrelas);
+  const sortedConvidados = [...convidados].filter(c=>c.nome.toLowerCase().includes(convSearch.toLowerCase())).sort((a,b)=>a.nome.localeCompare(b.nome));
+  const sortedGames = [...games].filter(g=>g.nome.toLowerCase().includes(gameSearch.toLowerCase())).sort((a,b)=>gameSort==="az"?a.nome.localeCompare(b.nome):gameSort==="za"?b.nome.localeCompare(a.nome):gameSort==="stars_desc"?b.estrelas-a.estrelas:a.estrelas-b.estrelas);
 
-  const sortedConvidados = [...convidados]
-    .filter(c => c.nome.toLowerCase().includes(convSearch.toLowerCase()))
-    .sort((a,b) => a.nome.localeCompare(b.nome));
+  // Statistics calculations
+  const publishedEps = episodes.filter(e => e.status === "publicado" || e.retroativo);
+  const allConvidadosInEps = episodes.flatMap(e => e.convidados || []);
+  const convidadoCount = allConvidadosInEps.reduce((acc, c) => { acc[c] = (acc[c]||0)+1; return acc; }, {});
+  const convidadoRanking = Object.entries(convidadoCount).sort((a,b)=>b[1]-a[1]);
+  const convidadosSemEp = convidados.filter(c => !allConvidadosInEps.includes(c.nome));
+  const tierListsUsadas = episodes.filter(e=>e.tier_list).map(e=>e.tier_list);
+  const tierListCount = tierListsUsadas.reduce((acc,t)=>{ acc[t]=(acc[t]||0)+1; return acc; },{});
+  const gamesUsados = episodes.filter(e=>e.game).map(e=>e.game);
+  const gameCount = gamesUsados.reduce((acc,g)=>{ acc[g]=(acc[g]||0)+1; return acc; },{});
+  const totalInvestido = episodes.reduce((sum,e)=>sum+(e.investimento||0),0);
+  const totalLinks = episodes.flatMap(e=>e.links||[]).length;
 
-  const sortedGames = [...games]
-    .filter(g => g.nome.toLowerCase().includes(gameSearch.toLowerCase()))
-    .sort((a,b) => gameSort === "az" ? a.nome.localeCompare(b.nome) : gameSort === "za" ? b.nome.localeCompare(a.nome) : gameSort === "stars_desc" ? b.estrelas - a.estrelas : a.estrelas - b.estrelas);
+  if (checkingAuth) return <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando...</div></div>;
 
-  // Loading / Auth check
-  if (checkingAuth) return (
-    <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando...</div>
-    </div>
-  );
-
-  // Login screen
   if (!user) return (
     <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans'",padding:20}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
       <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:16,padding:40,width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:32}}>
-          <img src="/logo.png" alt="Bulldog Show" style={{width:60,height:60,objectFit:"contain",marginBottom:12}} />
+          <img src="/logo.png" alt="Bulldog Show" style={{width:64,height:64,objectFit:"contain",marginBottom:12}} />
           <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:3,color:TEXT}}>BULLDOG SHOW</div>
           <div style={{fontSize:12,color:MUTED,letterSpacing:1,marginTop:4}}>PRODUCTION MANAGER</div>
         </div>
-        <div style={{marginBottom:16}}>
-          <div style={{...lbl,marginBottom:6}}>Email</div>
-          <input value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="seu@email.com" type="email" style={inp} />
-        </div>
-        <div style={{marginBottom:24}}>
-          <div style={{...lbl,marginBottom:6}}>Senha</div>
-          <input value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="••••••••" type="password" style={inp} />
-        </div>
+        <div style={{marginBottom:16}}><div style={{...lbl,marginBottom:6}}>Email</div><input value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="seu@email.com" type="email" style={inp} /></div>
+        <div style={{marginBottom:24}}><div style={{...lbl,marginBottom:6}}>Senha</div><input value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="••••••••" type="password" style={inp} /></div>
         {loginError && <div style={{color:"#EF4444",fontSize:12,fontFamily:"'DM Sans'",marginBottom:16,textAlign:"center"}}>{loginError}</div>}
-        <button onClick={login} disabled={loginLoading} style={{...btnBlue,width:"100%",padding:"12px",fontSize:16,opacity:loginLoading?0.7:1}}>
-          {loginLoading ? "Entrando..." : "ENTRAR"}
-        </button>
+        <button onClick={login} disabled={loginLoading} style={{...btnBlue,width:"100%",padding:"12px",fontSize:16,opacity:loginLoading?0.7:1}}>{loginLoading?"Entrando...":"ENTRAR"}</button>
       </div>
     </div>
   );
 
-  if (loading) return (
-    <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando dados...</div>
-    </div>
-  );
+  if (loading) return <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando dados...</div></div>;
 
   return (
     <div style={{minHeight:"100vh",background:BG,fontFamily:"'Bebas Neue','Impact',sans-serif",color:TEXT,paddingBottom:80}}>
@@ -295,8 +283,8 @@ export default function Home() {
         .bi:hover .xb{opacity:1}.xb{opacity:0;transition:opacity .2s}
         .cpb{background:rgba(27,104,150,0.15);border:1px solid rgba(27,104,150,0.5);color:#7EC8F0;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'DM Sans'}
         .cpb:hover{background:rgba(27,104,150,0.3)}
-        .filter-row{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;}
         select option{background:#0D2840;color:#E8F4FF;}
+        .stat-ep:hover{border-color:#2487BE !important;cursor:pointer;}
       `}</style>
 
       {/* HEADER */}
@@ -327,11 +315,26 @@ export default function Home() {
         {/* EPISÓDIOS */}
         {activeTab===0 && (
           <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-              <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({episodes.length})</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({sortedEpisodes.length})</span></div>
               <button style={btnBlue} onClick={addEpisode}>+ NOVO EPISÓDIO</button>
             </div>
-            {episodes.map(ep => {
+            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+              <select value={epStatusFilter} onChange={e=>setEpStatusFilter(e.target.value)} style={{...inp,width:"auto"}}>
+                <option value="todos">Todos os status</option>
+                <option value="planejado">Planejado</option>
+                <option value="confirmado">Confirmado</option>
+                <option value="gravado">Gravado</option>
+                <option value="editado">Editado</option>
+                <option value="publicado">Publicado</option>
+              </select>
+              <select value={epSort} onChange={e=>setEpSort(e.target.value)} style={{...inp,width:"auto"}}>
+                <option value="numero">Ordenar por número</option>
+                <option value="data_asc">Data ↑ (mais antiga)</option>
+                <option value="data_desc">Data ↓ (mais recente)</option>
+              </select>
+            </div>
+            {sortedEpisodes.map(ep => {
               const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
               return (
                 <div key={ep.id} className="epc" onClick={()=>openEp(ep)} style={{...card,cursor:"pointer",transition:"all .2s",display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"start"}}>
@@ -348,12 +351,8 @@ export default function Home() {
                     </div>
                   </div>
                   <div style={{textAlign:"right",fontFamily:"'DM Sans'",fontSize:12,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:7}}>
-                    {ep.gravacao_data
-                      ? <div><div style={{color:ACCENT,fontWeight:600}}>{new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</div><div style={{color:MUTED}}>{ep.gravacao_horario}</div></div>
-                      : <span style={{color:"#1A3A50"}}>Sem data</span>}
-                    <button className="cpb" onClick={e=>{e.stopPropagation();copyLink(ep.id);}}>
-                      {copied===ep.id?"✓ Copiado!":"🔗 Link convidado"}
-                    </button>
+                    {ep.gravacao_data ? <div><div style={{color:ACCENT,fontWeight:600}}>{new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</div><div style={{color:MUTED}}>{ep.gravacao_horario}</div></div> : <span style={{color:"#1A3A50"}}>Sem data</span>}
+                    <button className="cpb" onClick={e=>{e.stopPropagation();copyLink(ep.id);}}>{copied===ep.id?"✓ Copiado!":"🔗 Link convidado"}</button>
                   </div>
                 </div>
               );
@@ -369,13 +368,11 @@ export default function Home() {
               <input value={newTierList} onChange={e=>setNewTierList(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTierList()} placeholder="Nova tier list..." style={{...inp,flex:1}} />
               <button style={btnBlue} onClick={addTierList}>+ ADD</button>
             </div>
-            <div className="filter-row">
+            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
               <input value={tierSearch} onChange={e=>setTierSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200}} />
               <select value={tierSort} onChange={e=>setTierSort(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="az">A → Z</option>
-                <option value="za">Z → A</option>
-                <option value="stars_desc">★ Mais estrelas</option>
-                <option value="stars_asc">★ Menos estrelas</option>
+                <option value="az">A → Z</option><option value="za">Z → A</option>
+                <option value="stars_desc">★ Mais estrelas</option><option value="stars_asc">★ Menos estrelas</option>
               </select>
             </div>
             {sortedTierLists.map(tl => (
@@ -396,7 +393,7 @@ export default function Home() {
               <input value={newConvidado} onChange={e=>setNewConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidado()} placeholder="Novo convidado..." style={{...inp,flex:1}} />
               <button style={btnBlue} onClick={addConvidado}>+ ADD</button>
             </div>
-            <div className="filter-row">
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
               <input value={convSearch} onChange={e=>setConvSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200}} />
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:8}}>
@@ -429,27 +426,21 @@ export default function Home() {
                     <select value={newGame.dificuldade} onChange={e=>setNewGame({...newGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
                   </div>
                   <textarea value={newGame.ideias} onChange={e=>setNewGame({...newGame,ideias:e.target.value})} placeholder="Ideias..." style={{...inp,minHeight:60,resize:"vertical"}} />
-                  <div style={{display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{...lbl,margin:0}}>Estrelas</span>
-                    <Stars value={newGame.estrelas} onChange={v=>setNewGame({...newGame,estrelas:v})} />
-                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{...lbl,margin:0}}>Estrelas</span><Stars value={newGame.estrelas} onChange={v=>setNewGame({...newGame,estrelas:v})} /></div>
                   <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={addGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setAddingGame(false)}>Cancelar</button></div>
                 </div>
               </div>
             )}
-            <div className="filter-row">
+            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
               <input value={gameSearch} onChange={e=>setGameSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200}} />
               <select value={gameSort} onChange={e=>setGameSort(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="az">A → Z</option>
-                <option value="za">Z → A</option>
-                <option value="stars_desc">★ Mais estrelas</option>
-                <option value="stars_asc">★ Menos estrelas</option>
+                <option value="az">A → Z</option><option value="za">Z → A</option>
+                <option value="stars_desc">★ Mais estrelas</option><option value="stars_asc">★ Menos estrelas</option>
               </select>
             </div>
             {sortedGames.map(g => {
               const dc={Fácil:"#10B981",Médio:"#F59E0B",Difícil:"#EF4444"};
-              const isOpen=expandedGame===g.id;
-              const isEditing=editingGame?.id===g.id;
+              const isOpen=expandedGame===g.id, isEditing=editingGame?.id===g.id;
               return (
                 <div key={g.id} style={{...card,border:`1px solid ${isOpen?BL:BORDER}`,overflow:"hidden",padding:0,transition:"border-color .2s"}}>
                   <div onClick={()=>!isEditing&&setExpandedGame(isOpen?null:g.id)} style={{padding:"13px 17px",cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
@@ -459,7 +450,7 @@ export default function Home() {
                       {!isOpen&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{g.descricao?.slice(0,65)}…</div>}
                     </div>
                     <div style={{display:"flex",gap:7,alignItems:"center"}}>
-                      <Stars value={g.estrelas||0} onChange={v=>{updateGameStars(g.id,v);}} readonly={!isOpen} />
+                      <Stars value={g.estrelas||0} onChange={v=>updateGameStars(g.id,v)} readonly={!isOpen} />
                       {g.jogadores&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>👥 {g.jogadores}</span>}
                       {g.duracao&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>⏱ {g.duracao}</span>}
                       <span style={{background:`${dc[g.dificuldade]||"#888"}22`,color:dc[g.dificuldade]||"#888",borderRadius:4,padding:"2px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{g.dificuldade}</span>
@@ -503,9 +494,32 @@ export default function Home() {
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:6}}>CALENDÁRIO DE GRAVAÇÕES</div>
             <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:18}}>📅 Quartas-feiras · 10h–12h e 14h–16h · 2 eps por dia</div>
+
+            {/* Retroativos */}
+            {episodes.filter(e=>e.retroativo&&e.gravacao_data).length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>📼 Episódios Retroativos</div>
+                {[...episodes].filter(e=>e.retroativo&&e.gravacao_data).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data)).map(ep=>{
+                  const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                  return (
+                    <div key={ep.id} onClick={()=>openEp(ep)} style={{background:"rgba(139,92,246,0.08)",border:"1px solid rgba(139,92,246,0.25)",borderRadius:10,padding:"12px 17px",display:"grid",gridTemplateColumns:"115px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",marginBottom:6}}>
+                      <div><div style={{fontSize:17,letterSpacing:1,color:"#8B5CF6"}}>{new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"})}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Retroativo</div></div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:13,display:"flex",gap:9,alignItems:"center"}}>
+                        <span style={{color:"#8B5CF6",fontWeight:600}}>{ep.gravacao_horario}</span>
+                        <span style={{color:TEXT}}>{ep.title}</span>
+                        {ep.convidados?.length>0&&<span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
+                      </div>
+                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{sc.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Próximas gravações */}
+            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>📅 Próximas Gravações</div>
             {getNextWednesdays().map((wed,i) => {
-              const ds=wed.toISOString().split("T")[0];
-              const eps=epsByDate(ds);
+              const ds=wed.toISOString().split("T")[0], eps=epsByDate(ds);
               return (
                 <div key={i} style={{marginBottom:8}}>
                   {eps.length===0 ? (
@@ -513,23 +527,120 @@ export default function Home() {
                       <div><div style={{fontSize:18,letterSpacing:1,color:"#1A3A50"}}>{fmt(wed)}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:"#1A3A50"}}>Quarta-feira</div></div>
                       <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"#1A3A50"}}>Sem gravações agendadas</span>
                     </div>
-                  ) : (
-                    <div style={{display:"grid",gap:6}}>
-                      {eps.map(ep => (
-                        <div key={ep.id} onClick={()=>openEp(ep)} style={{background:"rgba(27,104,150,0.1)",border:`1px solid rgba(27,104,150,0.4)`,borderRadius:10,padding:"13px 17px",display:"grid",gridTemplateColumns:"115px 1fr",gap:14,alignItems:"center",cursor:"pointer"}}>
-                          <div><div style={{fontSize:18,letterSpacing:1,color:ACCENT}}>{fmt(wed)}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Quarta-feira</div></div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:13,display:"flex",gap:9,alignItems:"center"}}>
-                            <span style={{color:ACCENT,fontWeight:600}}>{ep.gravacao_horario}</span>
-                            <span style={{color:TEXT}}>{ep.title}</span>
-                            {ep.convidados?.length>0&&<span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
-                          </div>
+                  ) : eps.map(ep=>{
+                    const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                    return (
+                      <div key={ep.id} onClick={()=>openEp(ep)} style={{background:"rgba(27,104,150,0.1)",border:`1px solid rgba(27,104,150,0.4)`,borderRadius:10,padding:"13px 17px",display:"grid",gridTemplateColumns:"115px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",marginBottom:6}}>
+                        <div><div style={{fontSize:18,letterSpacing:1,color:ACCENT}}>{fmt(wed)}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Quarta-feira</div></div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:13,display:"flex",gap:9,alignItems:"center"}}>
+                          <span style={{color:ACCENT,fontWeight:600}}>{ep.gravacao_horario}</span>
+                          <span style={{color:TEXT}}>{ep.title}</span>
+                          {ep.convidados?.length>0&&<span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{sc.label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ESTATÍSTICAS */}
+        {activeTab===5 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
+
+            {/* Cards resumo */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,marginBottom:28}}>
+              <StatCard label="Total de Episódios" value={episodes.length} />
+              <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
+              <StatCard label="Convidados Únicos" value={Object.keys(convidadoCount).length} />
+              <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
+              <StatCard label="Cortes Publicados" value={totalLinks} />
+              <StatCard label="Sem Participar Ainda" value={convidadosSemEp.length} color={MUTED} />
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
+
+              {/* Ranking convidados */}
+              <div style={{...card,padding:20}}>
+                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>👥 RANKING DE CONVIDADOS</div>
+                {convidadoRanking.length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum episódio com convidados ainda</div>
+                  : convidadoRanking.slice(0,10).map(([nome,count],i)=>(
+                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:13}}>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <span style={{color:MUTED,fontSize:11,width:20}}>{i+1}.</span>
+                        <span>{nome}</span>
+                      </div>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600}}>{count}x</span>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Convidados sem episódio */}
+              <div style={{...card,padding:20}}>
+                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>⏳ NUNCA PARTICIPARAM</div>
+                {convidadosSemEp.length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:"#10B981"}}>Todos os convidados já participaram!</div>
+                  : <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{convidadosSemEp.map(c=><span key={c.id} className="tag">{c.nome}</span>)}</div>}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
+
+              {/* Tier lists usadas */}
+              <div style={{...card,padding:20}}>
+                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>🏆 TIER LISTS USADAS</div>
+                {Object.entries(tierListCount).length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhuma tier list usada ainda</div>
+                  : Object.entries(tierListCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
+                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                      <span style={{flex:1,marginRight:8}}>{nome.slice(0,50)}{nome.length>50?"…":""}</span>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600,flexShrink:0}}>{count}x</span>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Games usados */}
+              <div style={{...card,padding:20}}>
+                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>🎮 GAMES USADOS</div>
+                {Object.entries(gameCount).length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum game usado ainda</div>
+                  : Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
+                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                      <span>{nome}</span>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600}}>{count}x</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Performance por episódio */}
+            <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>📈 PERFORMANCE POR EPISÓDIO</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:14}}>Clica em um episódio para adicionar investimento, ROI e links de cortes</div>
+            {episodes.map(ep => (
+              <div key={ep.id} className="stat-ep" onClick={()=>openStats(ep)} style={{...card,transition:"border-color .2s",display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:16,alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:15,letterSpacing:1,marginBottom:4}}>{ep.title}</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>Investimento</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.investimento>0?"#F59E0B":MUTED}}>{ep.investimento>0?`R$ ${ep.investimento.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"—"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>ROI</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.roi>0?"#10B981":MUTED}}>{ep.roi>0?`${ep.roi}%`:"—"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>Cortes</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.links?.length>0?ACCENT:MUTED}}>{ep.links?.length||0}</div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -539,17 +650,14 @@ export default function Home() {
         <div onClick={e=>e.target===e.currentTarget&&(setSelectedEp(null),setEditMode(false))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:660,maxHeight:"90vh",overflowY:"auto",padding:26}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              {editMode
-                ? <input value={editData.title} onChange={e=>setEditData({...editData,title:e.target.value})} style={{...inp,fontSize:19,letterSpacing:2,background:"transparent",border:"none",borderBottom:`1px solid ${BL}`,borderRadius:0,padding:"3px 0",fontFamily:"'Bebas Neue'",width:"60%"}} />
-                : <div style={{fontSize:21,letterSpacing:2}}>{selectedEp.title}</div>}
+              {editMode ? <input value={editData.title} onChange={e=>setEditData({...editData,title:e.target.value})} style={{...inp,fontSize:19,letterSpacing:2,background:"transparent",border:"none",borderBottom:`1px solid ${BL}`,borderRadius:0,padding:"3px 0",fontFamily:"'Bebas Neue'",width:"60%"}} /> : <div style={{fontSize:21,letterSpacing:2}}>{selectedEp.title}</div>}
               <div style={{display:"flex",gap:8}}>
                 {!editMode&&<button style={btnBlue} onClick={()=>setEditMode(true)}>✏️ EDITAR</button>}
-                {editMode&&<><button style={btnBlue} onClick={saveEp}>💾 SALVAR</button><button style={btnGhost} onClick={()=>{setEditData({...selectedEp,convidados:selectedEp.convidados||[],links:selectedEp.links||[]});setEditMode(false);}}>Cancelar</button></>}
+                {editMode&&<><button style={btnBlue} onClick={saveEp}>💾 SALVAR</button><button style={btnGhost} onClick={()=>{setEditData({...selectedEp,convidados:selectedEp.convidados||[]});setEditMode(false);}}>Cancelar</button></>}
                 <button style={btnGhost} onClick={()=>{setSelectedEp(null);setEditMode(false);}}>✕</button>
               </div>
             </div>
 
-            {/* Link convidado */}
             <div style={{background:"rgba(27,104,150,0.08)",border:`1px solid rgba(27,104,150,0.25)`,borderRadius:8,padding:"11px 15px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
                 <div style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>🔗 Link para o convidado</div>
@@ -560,12 +668,10 @@ export default function Home() {
 
             {/* Status */}
             <div style={{marginBottom:16}}><div style={lbl}>Status</div>
-              {editMode
-                ? <select value={editData.status} onChange={e=>setEditData({...editData,status:e.target.value})} style={inp}>{Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>
-                : <span style={{background:STATUS_CONFIG[selectedEp.status]?.bg,color:STATUS_CONFIG[selectedEp.status]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_CONFIG[selectedEp.status]?.label}</span>}
+              {editMode ? <select value={editData.status} onChange={e=>setEditData({...editData,status:e.target.value})} style={inp}>{Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>
+              : <span style={{background:STATUS_CONFIG[selectedEp.status]?.bg,color:STATUS_CONFIG[selectedEp.status]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_CONFIG[selectedEp.status]?.label}</span>}
             </div>
 
-            {/* Retroativo */}
             {editMode && (
               <div style={{marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
                 <input type="checkbox" checked={editData.retroativo||false} onChange={e=>setEditData({...editData,retroativo:e.target.checked})} id="retro" style={{width:16,height:16}} />
@@ -577,9 +683,7 @@ export default function Home() {
             <div style={{marginBottom:16}}><div style={lbl}>Convidados</div>
               {editMode ? (
                 <div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:7}}>
-                    {editData.convidados.map((c,i)=><span key={i} className="tag" style={{cursor:"pointer"}} onClick={()=>setEditData({...editData,convidados:editData.convidados.filter((_,j)=>j!==i)})}>{c} ✕</span>)}
-                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:7}}>{editData.convidados.map((c,i)=><span key={i} className="tag" style={{cursor:"pointer"}} onClick={()=>setEditData({...editData,convidados:editData.convidados.filter((_,j)=>j!==i)})}>{c} ✕</span>)}</div>
                   <select onChange={e=>{if(e.target.value&&!editData.convidados.includes(e.target.value))setEditData({...editData,convidados:[...editData.convidados,e.target.value]});e.target.value="";}} style={{...inp,marginBottom:8}}>
                     <option value="">+ Selecionar do banco (A-Z)...</option>
                     {[...convidados].sort((a,b)=>a.nome.localeCompare(b.nome)).filter(c=>!editData.convidados.includes(c.nome)).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
@@ -615,16 +719,12 @@ export default function Home() {
 
             {/* Game */}
             <div style={{marginBottom:16}}><div style={lbl}>Game / Dinâmica</div>
-              {editMode
-                ? <select value={editData.game||""} onChange={e=>setEditData({...editData,game:e.target.value})} style={inp}>
-                    <option value="">Selecionar (A-Z)...</option>
-                    {[...games].sort((a,b)=>a.nome.localeCompare(b.nome)).map(g=><option key={g.id} value={g.nome}>{g.nome}</option>)}
-                  </select>
-                : <div style={val}>{selectedEp.game||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+              {editMode ? <select value={editData.game||""} onChange={e=>setEditData({...editData,game:e.target.value})} style={inp}><option value="">Selecionar (A-Z)...</option>{[...games].sort((a,b)=>a.nome.localeCompare(b.nome)).map(g=><option key={g.id} value={g.nome}>{g.nome}</option>)}</select>
+              : <div style={val}>{selectedEp.game||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
             </div>
 
             {/* Local e Endereço */}
-            {["local","endereco"].map(field => (
+            {["local","endereco"].map(field=>(
               <div key={field} style={{marginBottom:16}}><div style={lbl}>{field==="local"?"Local":"Endereço"}</div>
                 {editMode ? <input value={editData[field]||""} onChange={e=>setEditData({...editData,[field]:e.target.value})} style={inp} /> : <div style={val}>{selectedEp[field]||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
               </div>
@@ -632,52 +732,14 @@ export default function Home() {
 
             {/* Data & Horário */}
             <div style={{marginBottom:16}}><div style={lbl}>Data & Horário</div>
-              {editMode
-                ? <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                    <input type="date" value={editData.gravacao_data||""} onChange={e=>setEditData({...editData,gravacao_data:e.target.value})} style={inp} />
-                    <select value={editData.gravacao_horario||"10:00"} onChange={e=>setEditData({...editData,gravacao_horario:e.target.value})} style={inp}><option value="10:00">10:00 (manhã)</option><option value="14:00">14:00 (tarde)</option></select>
-                    <input value={editData.gravacao_duracao||""} onChange={e=>setEditData({...editData,gravacao_duracao:e.target.value})} style={inp} placeholder="Duração" />
-                  </div>
-                : <div style={val}>{selectedEp.gravacao_data?`${new Date(selectedEp.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})} · ${selectedEp.gravacao_horario}`:<span style={{color:"#1A3A50"}}>A definir</span>}</div>}
+              {editMode ? <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                <input type="date" value={editData.gravacao_data||""} onChange={e=>setEditData({...editData,gravacao_data:e.target.value})} style={inp} />
+                <select value={editData.gravacao_horario||"10:00"} onChange={e=>setEditData({...editData,gravacao_horario:e.target.value})} style={inp}><option value="10:00">10:00 (manhã)</option><option value="14:00">14:00 (tarde)</option></select>
+                <input value={editData.gravacao_duracao||""} onChange={e=>setEditData({...editData,gravacao_duracao:e.target.value})} style={inp} placeholder="Duração" />
+              </div> : <div style={val}>{selectedEp.gravacao_data?`${new Date(selectedEp.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})} · ${selectedEp.gravacao_horario}`:<span style={{color:"#1A3A50"}}>A definir</span>}</div>}
             </div>
 
-            {/* Investimento e ROI */}
-            <div style={{marginBottom:16,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div><div style={lbl}>💰 Investimento (R$)</div>
-                {editMode ? <input type="number" value={editData.investimento||0} onChange={e=>setEditData({...editData,investimento:parseFloat(e.target.value)||0})} style={inp} /> : <div style={val}>{selectedEp.investimento>0?`R$ ${selectedEp.investimento.toLocaleString("pt-BR",{minimumFractionDigits:2})}`:<span style={{color:"#1A3A50"}}>Não informado</span>}</div>}
-              </div>
-              <div><div style={lbl}>📈 ROI (%)</div>
-                {editMode ? <input type="number" value={editData.roi||0} onChange={e=>setEditData({...editData,roi:parseFloat(e.target.value)||0})} style={inp} /> : <div style={val}>{selectedEp.roi>0?`${selectedEp.roi}%`:<span style={{color:"#1A3A50"}}>Não informado</span>}</div>}
-              </div>
-            </div>
-
-            {/* Links de cortes */}
-            <div style={{marginBottom:16}}><div style={lbl}>🎬 Links de Cortes</div>
-              {editMode ? (
-                <div>
-                  {(editData.links||[]).map((link,i) => (
-                    <div key={i} style={{display:"flex",gap:8,marginBottom:6}}>
-                      <select value={link.plataforma} onChange={e=>{const l=[...editData.links];l[i]={...l[i],plataforma:e.target.value};setEditData({...editData,links:l});}} style={{...inp,width:"auto",flex:"0 0 120px"}}>
-                        <option>YouTube</option><option>Instagram</option><option>TikTok</option>
-                      </select>
-                      <input value={link.url} onChange={e=>{const l=[...editData.links];l[i]={...l[i],url:e.target.value};setEditData({...editData,links:l});}} placeholder="URL do corte..." style={{...inp,flex:1}} />
-                      <button onClick={()=>setEditData({...editData,links:editData.links.filter((_,j)=>j!==i)})} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
-                    </div>
-                  ))}
-                  <button onClick={()=>setEditData({...editData,links:[...(editData.links||[]),{plataforma:"YouTube",url:"",views:0}]})} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>+ Adicionar link</button>
-                </div>
-              ) : (
-                <div>
-                  {selectedEp.links?.length>0 ? selectedEp.links.map((l,i)=>(
-                    <div key={i} style={{fontFamily:"'DM Sans'",fontSize:12,color:ACCENT,marginBottom:4}}>
-                      {l.plataforma}: <a href={l.url} target="_blank" rel="noreferrer" style={{color:ACCENT}}>{l.url.slice(0,50)}…</a>
-                    </div>
-                  )) : <span style={{color:"#1A3A50",fontFamily:"'DM Sans'",fontSize:13}}>Nenhum link adicionado</span>}
-                </div>
-              )}
-            </div>
-
-            {/* Mensagem convidado */}
+            {/* Mensagem */}
             <div style={{marginBottom:16}}><div style={lbl}>Mensagem para o Convidado</div>
               {editMode ? <textarea value={editData.mensagem_convidado||""} onChange={e=>setEditData({...editData,mensagem_convidado:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}} /> : <div style={val}>{selectedEp.mensagem_convidado||<span style={{color:"#1A3A50"}}>Nenhuma</span>}</div>}
             </div>
@@ -688,6 +750,76 @@ export default function Home() {
             </div>
 
             {!editMode&&<button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ESTATÍSTICAS DO EPISÓDIO */}
+      {statsEp&&statsEdit&&(
+        <div onClick={e=>e.target===e.currentTarget&&(setStatsEp(null),setStatsEditMode(false))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:580,maxHeight:"90vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <div>
+                <div style={{fontSize:21,letterSpacing:2}}>{statsEp.title}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>Performance & Financeiro</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {!statsEditMode&&<button style={btnBlue} onClick={()=>setStatsEditMode(true)}>✏️ EDITAR</button>}
+                {statsEditMode&&<><button style={btnBlue} onClick={saveStats}>💾 SALVAR</button><button style={btnGhost} onClick={()=>{setStatsEdit({...statsEp,links:statsEp.links||[]});setStatsEditMode(false);}}>Cancelar</button></>}
+                <button style={btnGhost} onClick={()=>{setStatsEp(null);setStatsEditMode(false);}}>✕</button>
+              </div>
+            </div>
+
+            {/* Investimento e ROI */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+              <div><div style={lbl}>💰 Investimento (R$)</div>
+                {statsEditMode ? <input type="number" value={statsEdit.investimento||0} onChange={e=>setStatsEdit({...statsEdit,investimento:parseFloat(e.target.value)||0})} style={inp} /> : <div style={{...val,fontSize:20,fontFamily:"'Bebas Neue'",letterSpacing:1,color:"#F59E0B"}}>{statsEp.investimento>0?`R$ ${statsEp.investimento.toLocaleString("pt-BR",{minimumFractionDigits:2})}`:"—"}</div>}
+              </div>
+              <div><div style={lbl}>📈 ROI (%)</div>
+                {statsEditMode ? <input type="number" value={statsEdit.roi||0} onChange={e=>setStatsEdit({...statsEdit,roi:parseFloat(e.target.value)||0})} style={inp} /> : <div style={{...val,fontSize:20,fontFamily:"'Bebas Neue'",letterSpacing:1,color:"#10B981"}}>{statsEp.roi>0?`${statsEp.roi}%`:"—"}</div>}
+              </div>
+            </div>
+
+            {/* Links de cortes */}
+            <div style={{marginBottom:20}}><div style={lbl}>🎬 Links de Cortes</div>
+              {statsEditMode ? (
+                <div>
+                  {(statsEdit.links||[]).map((link,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,marginBottom:8}}>
+                      <select value={link.plataforma} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,width:"auto",flex:"0 0 120px"}}>
+                        <option>YouTube</option><option>Instagram</option><option>TikTok</option>
+                      </select>
+                      <input value={link.url} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL do corte..." style={{...inp,flex:1}} />
+                      <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:100,flex:"0 0 100px"}} />
+                      <button onClick={()=>setStatsEdit({...statsEdit,links:statsEdit.links.filter((_,j)=>j!==i)})} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
+                    </div>
+                  ))}
+                  <button onClick={()=>setStatsEdit({...statsEdit,links:[...(statsEdit.links||[]),{plataforma:"YouTube",url:"",views:0}]})} style={{...btnGhost,fontSize:11,padding:"6px 14px"}}>+ Adicionar link</button>
+                </div>
+              ) : (
+                <div>
+                  {statsEp.links?.length>0 ? statsEp.links.map((l,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:13}}>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11}}>{l.plataforma}</span>
+                        <a href={l.url} target="_blank" rel="noreferrer" style={{color:ACCENT,fontSize:12}}>{l.url.slice(0,45)}{l.url.length>45?"…":""}</a>
+                      </div>
+                      {l.views>0&&<span style={{color:"#F59E0B",fontWeight:600}}>{l.views.toLocaleString("pt-BR")} views</span>}
+                    </div>
+                  )) : <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum link adicionado ainda</div>}
+                </div>
+              )}
+            </div>
+
+            {/* Total de views */}
+            {statsEp.links?.some(l=>l.views>0) && (
+              <div style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 16px"}}>
+                <div style={lbl}>Total de Views</div>
+                <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:ACCENT}}>
+                  {statsEp.links.reduce((sum,l)=>sum+(l.views||0),0).toLocaleString("pt-BR")}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
