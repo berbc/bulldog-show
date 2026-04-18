@@ -258,12 +258,21 @@ export default function Home() {
   };
 
   const saveStats = async () => {
+    // Auto-fetch YouTube views for any YouTube links
+    let links = statsEdit.links || [];
+    const updatedLinks = await Promise.all(links.map(async (link) => {
+      if (link.plataforma === 'YouTube' && link.url && !link.views) {
+        const views = await fetchYouTubeViews(link.url);
+        if (views !== null) return {...link, views};
+      }
+      return link;
+    }));
     const { data } = await supabase.from("episodes").update({
       investimento: statsEdit.investimento || 0,
       roi: statsEdit.roi || 0,
-      links: statsEdit.links || []
+      links: updatedLinks
     }).eq("id", statsEdit.id).select().single();
-    if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setStatsEp(data); setStatsEditMode(false); flash(); }
+    if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setStatsEp(data); setStatsEdit({...data, links: data.links||[]}); setStatsEditMode(false); flash(); }
   };
 
   const deleteEp = async (id) => {
@@ -845,6 +854,9 @@ export default function Home() {
                   <div style={lbl}>Cortes</div>
                   <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.links?.length>0?ACCENT:MUTED}}>{ep.links?.length||0}</div>
                 </div>
+                {ep.links?.some(l=>l.plataforma==="YouTube"&&l.url)&&(
+                  <button onClick={e=>{e.stopPropagation();fetchAndUpdateViews(ep);}} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,color:MUTED,borderRadius:4,padding:"4px 10px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:11}}>↻ YT</button>
+                )}
               </div>
             ))}
           </div>
