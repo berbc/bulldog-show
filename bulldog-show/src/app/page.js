@@ -2,6 +2,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
+const STATUS_EDICAO_CONFIG = {
+  pendente:   { label: "Pendente",   color: "#5A8BA8", bg: "rgba(90,139,168,0.15)" },
+  editando:   { label: "Editando",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  revisao:    { label: "Em Revisão", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
+  aprovado:   { label: "Aprovado",   color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
+};
+
 const STATUS_CONFIG = {
   planejado: { label: "Planejado", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
   confirmado: { label: "Confirmado", color: "#10B981", bg: "rgba(16,185,129,0.15)" },
@@ -82,6 +90,16 @@ export default function Home() {
   const [statsEdit, setStatsEdit] = useState(null);
   const [statsEditMode, setStatsEditMode] = useState(false);
 
+  // Equipe, comentarios, pautas
+  const [equipe, setEquipe] = useState([]);
+  const [comentarios, setComentarios] = useState([]);
+  const [pautas, setPautas] = useState([]);
+  const [newPauta, setNewPauta] = useState({titulo:"",descricao:"",estrelas:0});
+  const [newComentario, setNewComentario] = useState("");
+  const [newMembro, setNewMembro] = useState({nome:"",funcao:""});
+  const [addingMembro, setAddingMembro] = useState(false);
+  const [comentarioAutor, setComentarioAutor] = useState("");
+
   // Postagem calendar
   const [postagemWeekOffset, setPostagemWeekOffset] = useState(0);
   const [postagemModal, setPostagemModal] = useState(null);
@@ -159,6 +177,74 @@ export default function Home() {
 
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
+  const loadEquipe = useCallback(async () => {
+    const { data } = await supabase.from("equipe").select("*").order("nome");
+    if (data) setEquipe(data);
+  }, []);
+  useEffect(() => { if (user) loadEquipe(); }, [user, loadEquipe]);
+
+  const loadPautas = useCallback(async () => {
+    const { data } = await supabase.from("pautas").select("*").order("estrelas", {ascending:false});
+    if (data) setPautas(data);
+  }, []);
+  useEffect(() => { if (user) loadPautas(); }, [user, loadPautas]);
+
+  const loadComentarios = useCallback(async (epId) => {
+    const { data } = await supabase.from("comentarios").select("*").eq("episodio_id", epId).order("created_at");
+    if (data) setComentarios(data);
+  }, []);
+
+  const addComentario = async (epId) => {
+    if (!newComentario.trim() || !comentarioAutor.trim()) return;
+    const { data } = await supabase.from("comentarios").insert({
+      episodio_id: epId, autor: comentarioAutor, texto: newComentario.trim()
+    }).select().single();
+    if (data) { setComentarios(prev => [...prev, data]); setNewComentario(""); flash(); }
+  };
+
+  const deleteComentario = async (id) => {
+    await supabase.from("comentarios").delete().eq("id", id);
+    setComentarios(prev => prev.filter(c => c.id !== id));
+  };
+
+  const addMembro = async () => {
+    if (!newMembro.nome.trim()) return;
+    const { data } = await supabase.from("equipe").insert(newMembro).select().single();
+    if (data) { setEquipe(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewMembro({nome:"",funcao:""}); setAddingMembro(false); flash(); }
+  };
+
+  const removeMembro = async (id) => {
+    await supabase.from("equipe").delete().eq("id", id);
+    setEquipe(prev => prev.filter(m => m.id !== id));
+  };
+
+  const addPauta = async () => {
+    if (!newPauta.titulo.trim()) return;
+    const { data } = await supabase.from("pautas").insert(newPauta).select().single();
+    if (data) { setPautas(prev => [...prev, data]); setNewPauta({titulo:"",descricao:"",estrelas:0}); flash(); }
+  };
+
+  const removePauta = async (id) => {
+    await supabase.from("pautas").delete().eq("id", id);
+    setPautas(prev => prev.filter(p => p.id !== id));
+  };
+
+  const updatePautaStars = async (id, estrelas) => {
+    await supabase.from("pautas").update({estrelas}).eq("id", id);
+    setPautas(prev => prev.map(p => p.id === id ? {...p, estrelas} : p));
+  };
+
+  const togglePautaUsado = async (id, usado) => {
+    await supabase.from("pautas").update({usado}).eq("id", id);
+    setPautas(prev => prev.map(p => p.id === id ? {...p, usado} : p));
+  };
+
+  const saveChecklist = async (epId, checklist) => {
+    await supabase.from("episodes").update({checklist}).eq("id", epId);
+    setEpisodes(prev => prev.map(e => e.id === epId ? {...e, checklist} : e));
+    if (selectedEp?.id === epId) setSelectedEp(prev => ({...prev, checklist}));
+  };
+
   const WEEK_SCHEDULE = [
     { dow: 1, label: "Segunda", tipo: "Corte" },
     { dow: 2, label: "Terça",   tipo: "Tier List" },
@@ -202,7 +288,8 @@ export default function Home() {
       link: postagemEdit.link || "",
       notas: postagemEdit.notas || "",
       views: views,
-      drive_link: postagemEdit.drive_link || ""
+      drive_link: postagemEdit.drive_link || "",
+      responsavel: postagemEdit.responsavel || ""
     };
     let data;
     if (postagemEdit.id) {
@@ -256,6 +343,7 @@ export default function Home() {
       mensagem_convidado: editData.mensagem_convidado,
       retroativo: editData.retroativo || false,
       drive_link: editData.drive_link || "",
+      status_edicao: editData.status_edicao || "pendente",
     }).eq("id", editData.id).select().single();
     if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setSelectedEp(data); setEditMode(false); flash(); }
   };
@@ -288,6 +376,8 @@ export default function Home() {
     setSelectedEp(ep);
     setEditData({...ep, convidados: ep.convidados || []});
     setEditMode(false);
+    setComentarios([]);
+    loadComentarios(ep.id);
   };
 
   const openStats = (ep) => {
@@ -481,6 +571,7 @@ export default function Home() {
                       <span style={{fontSize:17,letterSpacing:1}}>{ep.title}</span>
                       <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
                       {ep.retroativo && <span style={{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>Retroativo</span>}
+                      {ep.status_edicao&&ep.status_edicao!=="pendente"&&<span style={{background:STATUS_EDICAO_CONFIG[ep.status_edicao]?.bg,color:STATUS_EDICAO_CONFIG[ep.status_edicao]?.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>{STATUS_EDICAO_CONFIG[ep.status_edicao]?.label}</span>}
                     </div>
                     <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,display:"flex",flexWrap:"wrap",gap:6}}>
                       {ep.convidados?.length>0&&<span>👥 {ep.convidados.join(", ")}</span>}
@@ -502,6 +593,34 @@ export default function Home() {
         {activeTab===4 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>💡 BANCO DE IDEIAS</div>
+
+            {/* EQUIPE */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>👥 EQUIPE <span style={{color:BL}}>({equipe.length})</span></div>
+                <button style={{...btnGhost,fontSize:11,padding:"5px 12px"}} onClick={()=>setAddingMembro(!addingMembro)}>+ Membro</button>
+              </div>
+              {addingMembro&&(
+                <div style={{display:"flex",gap:8,marginBottom:12}}>
+                  <input value={newMembro.nome} onChange={e=>setNewMembro({...newMembro,nome:e.target.value})} placeholder="Nome *" style={{...inp,flex:1}} />
+                  <input value={newMembro.funcao} onChange={e=>setNewMembro({...newMembro,funcao:e.target.value})} placeholder="Função (ex: Editor)" style={{...inp,flex:1}} />
+                  <button style={btnBlue} onClick={addMembro}>+ ADD</button>
+                  <button style={btnGhost} onClick={()=>setAddingMembro(false)}>✕</button>
+                </div>
+              )}
+              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {equipe.map(m=>(
+                  <div key={m.id} className="bi" style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}>
+                    <div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{m.nome}</div>
+                      {m.funcao&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{m.funcao}</div>}
+                    </div>
+                    <button className="xb" onClick={()=>removeMembro(m.id)} style={{...btnGhost,padding:"2px 6px",fontSize:10,color:BL}}>✕</button>
+                  </div>
+                ))}
+                {equipe.length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum membro cadastrado ainda</div>}
+              </div>
+            </div>
 
             {/* CONVIDADOS */}
             <div style={{...card,padding:20,marginBottom:16}}>
@@ -546,6 +665,31 @@ export default function Home() {
                   <span style={{fontFamily:"'DM Sans'",fontSize:13,flex:1}}>🏆 {tl.nome}</span>
                   <Stars value={tl.estrelas||0} onChange={v=>updateTierStars(tl.id,v)} />
                   <button className="xb" onClick={()=>removeTierList(tl.id)} style={{...btnGhost,padding:"3px 9px",fontSize:11,color:BL}}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            {/* PAUTAS */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>💬 PAUTAS & DEBATES <span style={{color:BL}}>({pautas.length})</span></div>
+              </div>
+              <div style={{display:"grid",gap:8,marginBottom:12}}>
+                <input value={newPauta.titulo} onChange={e=>setNewPauta({...newPauta,titulo:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addPauta()} placeholder="Tema do debate..." style={inp} />
+                <div style={{display:"flex",gap:8}}>
+                  <input value={newPauta.descricao} onChange={e=>setNewPauta({...newPauta,descricao:e.target.value})} placeholder="Descrição (opcional)..." style={{...inp,flex:1}} />
+                  <button style={btnBlue} onClick={addPauta}>+ ADD</button>
+                </div>
+              </div>
+              {pautas.map(p=>(
+                <div key={p.id} className="bi" style={{background:p.usado?"rgba(16,185,129,0.06)":"rgba(27,104,150,0.08)",border:`1px solid ${p.usado?"rgba(16,185,129,0.2)":BORDER}`,borderRadius:7,padding:"10px 14px",display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:13,color:p.usado?MUTED:TEXT,textDecoration:p.usado?"line-through":"none"}}>{p.titulo}</div>
+                    {p.descricao&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{p.descricao}</div>}
+                  </div>
+                  <Stars value={p.estrelas||0} onChange={v=>updatePautaStars(p.id,v)} />
+                  <button onClick={()=>togglePautaUsado(p.id,!p.usado)} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:p.usado?"#10B981":MUTED}}>{p.usado?"✓ usado":"marcar usado"}</button>
+                  <button className="xb" onClick={()=>removePauta(p.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL}}>✕</button>
                 </div>
               ))}
             </div>
@@ -1172,9 +1316,77 @@ export default function Home() {
             </div>
 
             {/* Drive */}
-            <div style={{marginBottom:20}}><div style={lbl}>📁 Link do Google Drive</div>
+            <div style={{marginBottom:16}}><div style={lbl}>📁 Link do Google Drive</div>
               {editMode ? <input value={editData.drive_link||""} onChange={e=>setEditData({...editData,drive_link:e.target.value})} style={inp} placeholder="https://drive.google.com/..." /> : <div style={val}>{selectedEp.drive_link ? <a href={selectedEp.drive_link} target="_blank" rel="noreferrer" style={{color:"#10B981"}}>📁 Abrir pasta no Drive</a> : <span style={{color:"#1A3A50"}}>Sem link</span>}</div>}
             </div>
+
+            {/* Status de Edição */}
+            <div style={{marginBottom:16}}><div style={lbl}>🎬 Status de Edição / Pós-produção</div>
+              {editMode
+                ? <select value={editData.status_edicao||"pendente"} onChange={e=>setEditData({...editData,status_edicao:e.target.value})} style={inp}>
+                    {Object.entries(STATUS_EDICAO_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                : <span style={{background:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.bg,color:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.label}</span>}
+            </div>
+
+            {/* Checklist */}
+            {!editMode && (
+              <div style={{marginBottom:16}}>
+                <div style={lbl}>✅ Checklist de Produção</div>
+                {[
+                  {key:"gravar",label:"🎙 Gravação"},
+                  {key:"editar",label:"✂️ Edição"},
+                  {key:"thumbnail",label:"🖼 Thumbnail"},
+                  {key:"legenda",label:"📝 Legenda / Descrição"},
+                  {key:"postar",label:"📤 Postagem"}
+                ].map(item => {
+                  const checklist = selectedEp.checklist || [];
+                  const done = checklist.includes(item.key);
+                  return (
+                    <div key={item.key} onClick={()=>{
+                      const newList = done ? checklist.filter(c=>c!==item.key) : [...checklist, item.key];
+                      saveChecklist(selectedEp.id, newList);
+                    }} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13}}>
+                      <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10B981":BORDER}`,background:done?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}}>
+                        {done&&<span style={{color:"#fff",fontSize:11}}>✓</span>}
+                      </div>
+                      <span style={{color:done?MUTED:TEXT,textDecoration:done?"line-through":"none"}}>{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Comentários */}
+            {!editMode && (
+              <div style={{marginBottom:16}}>
+                <div style={lbl}>💬 Comentários Internos</div>
+                <div style={{maxHeight:200,overflowY:"auto",marginBottom:10}}>
+                  {comentarios.length===0
+                    ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum comentário ainda</div>
+                    : comentarios.map(c=>(
+                      <div key={c.id} style={{background:"rgba(27,104,150,0.08)",borderRadius:7,padding:"8px 12px",marginBottom:6}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:ACCENT}}>{c.autor}</span>
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{new Date(c.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                            <button onClick={()=>deleteComentario(c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10}}>✕</button>
+                          </div>
+                        </div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,lineHeight:1.5}}>{c.texto}</div>
+                      </div>
+                    ))}
+                </div>
+                <div style={{display:"flex",gap:8,marginBottom:6}}>
+                  <select value={comentarioAutor} onChange={e=>setComentarioAutor(e.target.value)} style={{...inp,width:"auto",flex:"0 0 140px"}}>
+                    <option value="">Seu nome...</option>
+                    {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                  </select>
+                  <input value={newComentario} onChange={e=>setNewComentario(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addComentario(selectedEp.id)} placeholder="Escrever comentário..." style={{...inp,flex:1}} />
+                  <button style={btnBlue} onClick={()=>addComentario(selectedEp.id)}>Enviar</button>
+                </div>
+              </div>
+            )}
 
             {!editMode&&<button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>}
           </div>
@@ -1306,6 +1518,14 @@ export default function Home() {
             <div style={{marginBottom:14}}>
               <div style={lbl}>Views (Instagram/TikTok — YouTube busca automaticamente)</div>
               <input type="number" value={postagemEdit.views||0} onChange={e=>setPostagemEdit({...postagemEdit,views:parseInt(e.target.value)||0})} style={inp} />
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>👤 Responsável</div>
+              <select value={postagemEdit.responsavel||""} onChange={e=>setPostagemEdit({...postagemEdit,responsavel:e.target.value})} style={inp}>
+                <option value="">Selecionar responsável...</option>
+                {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome} {m.funcao?`· ${m.funcao}`:""}</option>)}
+              </select>
             </div>
 
             <div style={{marginBottom:14}}>
