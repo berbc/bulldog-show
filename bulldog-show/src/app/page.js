@@ -327,7 +327,10 @@ export default function Home() {
 
   const getNextWednesdays = () => {
     const weeks=[]; let d=new Date();
-    d.setDate(d.getDate()+((3-d.getDay()+7)%7||7));
+    const dow = d.getDay();
+    const diff = (3 - dow + 7) % 7;
+    // If today is not Wednesday, go to next Wednesday; if today is Wednesday include today
+    d.setDate(d.getDate() + (diff === 0 ? 0 : diff));
     for(let i=0;i<12;i++){weeks.push(new Date(d));d.setDate(d.getDate()+7);}
     return weeks;
   };
@@ -757,13 +760,7 @@ export default function Home() {
                   ))}
               </div>
 
-              {/* Convidados sem episódio */}
-              <div style={{...card,padding:20}}>
-                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>⏳ NUNCA PARTICIPARAM</div>
-                {convidadosSemEp.length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:"#10B981"}}>Todos os convidados já participaram!</div>
-                  : <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{convidadosSemEp.map(c=><span key={c.id} className="tag">{c.nome}</span>)}</div>}
-              </div>
+
             </div>
 
             <div style={{...card,padding:20,marginBottom:20}}>
