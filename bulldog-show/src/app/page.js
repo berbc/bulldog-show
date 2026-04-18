@@ -931,6 +931,7 @@ export default function Home() {
           </div>
         )}
 
+      </div>
       {/* MODAL EPISÓDIO */}
       {selectedEp&&editData&&(
         <div onClick={e=>e.target===e.currentTarget&&(setSelectedEp(null),setEditMode(false))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
