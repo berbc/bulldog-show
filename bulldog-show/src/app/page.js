@@ -96,6 +96,14 @@ export default function Home() {
   const [pautas, setPautas] = useState([]);
   const [newPauta, setNewPauta] = useState({titulo:"",descricao:"",estrelas:0});
   const [editingPauta, setEditingPauta] = useState(null);
+
+  // Cronômetro de gravação
+  const [cronoEpId, setCronoEpId] = useState(null);
+  const [cronoRunning, setCronoRunning] = useState(false);
+  const [cronoTime, setCronoTime] = useState(0);
+  const [cronoInterval, setCronoInterval] = useState(null);
+  const [cronoNota, setCronoNota] = useState("");
+  const [cronoNotaAtiva, setCronoNotaAtiva] = useState(null);
   const [newComentario, setNewComentario] = useState("");
   const [newMembro, setNewMembro] = useState({nome:"",funcao:""});
   const [addingMembro, setAddingMembro] = useState(false);
@@ -246,6 +254,54 @@ export default function Home() {
       titulo: editingPauta.titulo, descricao: editingPauta.descricao
     }).eq("id", editingPauta.id).select().single();
     if (data) { setPautas(prev => prev.map(p => p.id === data.id ? data : p)); setEditingPauta(null); flash(); }
+  };
+
+  const cronoStart = (epId) => {
+    if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); }
+    setCronoRunning(true);
+    const interval = setInterval(() => setCronoTime(t => t + 1), 1000);
+    setCronoInterval(interval);
+  };
+
+  const cronoPause = () => {
+    setCronoRunning(false);
+    clearInterval(cronoInterval);
+    setCronoInterval(null);
+  };
+
+  const cronoReset = (epId) => {
+    cronoPause();
+    setCronoTime(0);
+    setCronoEpId(epId);
+  };
+
+  const cronoFmt = (s) => {
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    const sec = s%60;
+    if (h > 0) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  };
+
+  const marcarCorte = (ep) => {
+    setCronoNotaAtiva({time: cronoTime, timeStr: cronoFmt(cronoTime), nota: ""});
+  };
+
+  const salvarCorte = async (ep) => {
+    if (!cronoNotaAtiva) return;
+    const cortes = ep.cortes_gravacao || [];
+    const novoCorte = {id: Date.now(), time: cronoNotaAtiva.time, timeStr: cronoNotaAtiva.timeStr, nota: cronoNotaAtiva.nota, criadoEm: new Date().toISOString()};
+    const novosCortes = [...cortes, novoCorte].sort((a,b) => a.time - b.time);
+    await supabase.from("episodes").update({cortes_gravacao: novosCortes}).eq("id", ep.id);
+    setEpisodes(prev => prev.map(e => e.id === ep.id ? {...e, cortes_gravacao: novosCortes} : e));
+    setCronoNotaAtiva(null);
+    flash();
+  };
+
+  const deletarCorte = async (ep, corteId) => {
+    const novosCortes = (ep.cortes_gravacao || []).filter(c => c.id !== corteId);
+    await supabase.from("episodes").update({cortes_gravacao: novosCortes}).eq("id", ep.id);
+    setEpisodes(prev => prev.map(e => e.id === ep.id ? {...e, cortes_gravacao: novosCortes} : e));
   };
 
   const saveChecklist = async (epId, checklist) => {
@@ -654,6 +710,61 @@ export default function Home() {
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* CRONÔMETRO DE GRAVAÇÃO */}
+                  <div style={{marginTop:14,padding:"14px 16px",background:"rgba(27,104,150,0.06)",borderRadius:8,border:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:3,color:cronoEpId===ep.id?ACCENT:MUTED,minWidth:90}}>
+                          {cronoFmt(cronoEpId===ep.id?cronoTime:0)}
+                        </div>
+                        {cronoEpId===ep.id&&cronoRunning
+                          ? <button onClick={cronoPause} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>⏸ Pausar</button>
+                          : <button onClick={()=>cronoStart(ep.id)} style={{...btnBlue,padding:"6px 14px",fontSize:12}}>▶ {cronoEpId===ep.id?"Continuar":"Iniciar"}</button>
+                        }
+                        <button onClick={()=>cronoReset(ep.id)} style={{...btnGhost,padding:"6px 10px",fontSize:11}}>↺ Reset</button>
+                      </div>
+                      <button
+                        onClick={()=>marcarCorte(ep)}
+                        disabled={cronoEpId!==ep.id||cronoTime===0}
+                        style={{background:cronoEpId===ep.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"8px 18px",cursor:cronoEpId===ep.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1}}>
+                        ✂️ MARCAR CORTE
+                      </button>
+                    </div>
+
+                    {/* Nota do corte ativo */}
+                    {cronoNotaAtiva&&cronoEpId===ep.id&&(
+                      <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
+                        <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0}}>✂️ {cronoNotaAtiva.timeStr}</div>
+                        <input
+                          value={cronoNotaAtiva.nota}
+                          onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})}
+                          onKeyDown={e=>e.key==="Enter"&&salvarCorte(ep)}
+                          placeholder="Descreve o corte... (Enter para salvar)"
+                          style={{...inp,flex:1}}
+                          autoFocus
+                        />
+                        <button onClick={()=>salvarCorte(ep)} style={btnBlue}>💾</button>
+                        <button onClick={()=>setCronoNotaAtiva(null)} style={btnGhost}>✕</button>
+                      </div>
+                    )}
+
+                    {/* Lista de cortes marcados */}
+                    {(ep.cortes_gravacao||[]).length>0&&(
+                      <div style={{marginTop:12}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes marcados ({ep.cortes_gravacao.length})</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:180,overflowY:"auto"}}>
+                          {ep.cortes_gravacao.map(c=>(
+                            <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:"rgba(239,68,68,0.06)",borderRadius:5,border:"1px solid rgba(239,68,68,0.2)"}}>
+                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"#EF4444",flexShrink:0,minWidth:50}}>{c.timeStr}</span>
+                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{c.nota||<span style={{color:MUTED}}>Sem nota</span>}</span>
+                              <button onClick={()=>deletarCorte(ep,c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:11,flexShrink:0}}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
