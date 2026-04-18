@@ -149,8 +149,10 @@ export default function Home() {
 
   // Load postagens
   const loadPostagens = useCallback(async () => {
-    const { data } = await supabase.from("postagens").select("*").order("data");
-    if (data) setPostagens(data);
+    try {
+      const { data, error } = await supabase.from("postagens").select("*").order("data");
+      if (!error && data) setPostagens(data);
+    } catch(e) {}
   }, []);
 
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
@@ -330,7 +332,12 @@ export default function Home() {
     return weeks;
   };
   const fmt = (d) => d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"});
-  const epsByDate = (ds) => episodes.filter(e => e.gravacao_data === ds);
+  const epsByDate = (ds) => episodes.filter(e => {
+    if (!e.gravacao_data) return false;
+    // normalize date - handle both YYYY-MM-DD and other formats
+    const epDate = e.gravacao_data.split("T")[0];
+    return epDate === ds;
+  });
 
   const sortedEpisodes = [...episodes]
     .filter(e => epStatusFilter === "todos" || e.status === epStatusFilter)
