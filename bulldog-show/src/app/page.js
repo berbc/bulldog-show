@@ -78,6 +78,7 @@ export default function Home() {
   // Stats modal
   const [statsEp, setStatsEp] = useState(null);
   const [showAllConvidados, setShowAllConvidados] = useState(false);
+  const [showAllViews, setShowAllViews] = useState(false);
   const [statsEdit, setStatsEdit] = useState(null);
   const [statsEditMode, setStatsEditMode] = useState(false);
 
@@ -753,37 +754,71 @@ export default function Home() {
               );
             })()}
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
+            {/* Rankings side by side */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
 
               {/* Ranking convidados */}
-              <div style={{...card,padding:20}}>
-                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>👥 RANKING DE CONVIDADOS</div>
+              <div style={{...card,padding:20,marginBottom:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontSize:15,letterSpacing:2}}>👥 CONVIDADOS</div>
+                  {convidadoRanking.length>5&&<button onClick={()=>setShowAllConvidados(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllConvidados?"▲ menos":"▼ todos"}</button>}
+                </div>
                 {convidadoRanking.length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum episódio com convidados ainda</div>
-                  : convidadoRanking.slice(0,10).map(([nome,count],i)=>(
-                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:13}}>
-                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                        <span style={{color:MUTED,fontSize:11,width:20}}>{i+1}.</span>
-                        <span>{nome}</span>
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum convidado ainda</div>
+                  : (showAllConvidados?convidadoRanking:convidadoRanking.slice(0,5)).map(([nome,count],i)=>(
+                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{color:MUTED,fontSize:10,width:16}}>{i+1}.</span>
+                        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{nome}</span>
                       </div>
-                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600}}>{count}x</span>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600,flexShrink:0}}>{count}x</span>
                     </div>
                   ))}
               </div>
 
-
+              {/* Ranking de views */}
+              {(() => {
+                const viewsRanking = episodes
+                  .flatMap(ep => (ep.links||[]).map(l => ({
+                    titulo: l.url ? (l.url.includes("youtu") ? `▶ ${ep.title}` : l.url.includes("instagram") ? `📸 ${ep.title}` : `🎵 ${ep.title}`) : ep.title,
+                    views: l.views||0,
+                    plataforma: l.plataforma,
+                    ep: ep.title
+                  })))
+                  .filter(l => l.views > 0)
+                  .sort((a,b) => b.views - a.views);
+                return (
+                  <div style={{...card,padding:20,marginBottom:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                      <div style={{fontSize:15,letterSpacing:2}}>📊 VIEWS</div>
+                      {viewsRanking.length>5&&<button onClick={()=>setShowAllViews(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllViews?"▲ menos":"▼ todos"}</button>}
+                    </div>
+                    {viewsRanking.length===0
+                      ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view registrado ainda</div>
+                      : (showAllViews?viewsRanking:viewsRanking.slice(0,5)).map((item,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            <span style={{color:MUTED,fontSize:10,width:16}}>{i+1}.</span>
+                            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{item.titulo}</span>
+                          </div>
+                          <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600,flexShrink:0}}>{item.views.toLocaleString("pt-BR")}</span>
+                        </div>
+                      ))}
+                  </div>
+                );
+              })()}
             </div>
 
-            <div style={{...card,padding:20,marginBottom:20}}>
-              <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>🎮 GAMES USADOS</div>
+            {/* Games usados */}
+            <div style={{...card,padding:16,marginBottom:20}}>
+              <div style={{fontSize:14,letterSpacing:2,marginBottom:12}}>🎮 GAMES USADOS</div>
               {Object.entries(gameCount).length===0
-                ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum game usado ainda</div>
-                : Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
-                  <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
-                    <span>{nome}</span>
-                    <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600}}>{count}x</span>
-                  </div>
-                ))}
+                ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum game usado ainda</div>
+                : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
+                  <span key={nome} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,borderRadius:6,padding:"4px 10px",fontFamily:"'DM Sans'",fontSize:12,color:TEXT}}>
+                    {nome} <span style={{color:ACCENT,fontWeight:600}}>{count}x</span>
+                  </span>
+                ))}</div>}
             </div>
 
             {/* Performance por episódio */}
