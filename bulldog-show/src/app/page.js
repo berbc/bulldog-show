@@ -826,18 +826,20 @@ export default function Home() {
                 const tipoColor = slot.tipo === "Full" ? "#8B5CF6" : slot.tipo === "Tier List" ? "#F59E0B" : ACCENT;
                 const isToday = slot.date === new Date().toISOString().split("T")[0];
                 return (
-                  <div key={slot.date} onClick={()=>{ setPostagemModal(slot); setPostagemEdit(p ? {...p} : {data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:""}); }} style={{background:statusBg,border:`1px solid ${isToday?"rgba(27,104,150,0.8)":p?.status==="postado"?"rgba(16,185,129,0.3)":BORDER}`,borderRadius:10,padding:"14px 18px",display:"grid",gridTemplateColumns:"130px 80px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",transition:"border-color .15s"}}>
-                    <div>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:isToday?ACCENT:TEXT}}>{slot.label}{isToday&&<span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,marginLeft:6}}>HOJE</span>}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} · 18h</div>
-                    </div>
-                    <div><span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"3px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{slot.tipo}</span></div>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:13}}>
-                      {p?.episodio_title ? <span style={{color:TEXT}}>{p.episodio_title}</span> : <span style={{color:"#1A3A50"}}>Sem episódio vinculado</span>}
-                      {p?.link && <div style={{fontSize:11,color:ACCENT,marginTop:2}}>🔗 {p.link.slice(0,50)}…</div>}
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <span style={{background:statusBg,color:statusColor,border:`1px solid ${statusColor}44`,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,textTransform:"uppercase"}}>{p?.status||"pendente"}</span>
+                  <div key={slot.date} onClick={()=>{ setPostagemModal(slot); setPostagemEdit(p ? {...p} : {data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:""}); }} style={{background:statusBg,border:`1px solid ${isToday?"rgba(27,104,150,0.8)":p?.status==="postado"?"rgba(16,185,129,0.3)":BORDER}`,borderRadius:10,padding:"16px 20px",cursor:"pointer",transition:"border-color .15s"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:16,flex:1,minWidth:0}}>
+                        <div style={{flexShrink:0,minWidth:110}}>
+                          <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:isToday?ACCENT:TEXT}}>{slot.label}{isToday&&<span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,marginLeft:6}}>HOJE</span>}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} · 18h</div>
+                        </div>
+                        <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,flexShrink:0}}>{p?.tipo||slot.tipo}</span>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:13,flex:1,minWidth:0,overflow:"hidden"}}>
+                          {p?.episodio_title ? <div style={{color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title}</div> : <span style={{color:"#1A3A50"}}>Sem episódio vinculado</span>}
+                          {p?.link && <div style={{fontSize:11,color:ACCENT,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🔗 {p.link}</div>}
+                        </div>
+                      </div>
+                      <span style={{background:statusBg,color:statusColor,border:`1px solid ${statusColor}44`,borderRadius:4,padding:"4px 12px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,textTransform:"uppercase",flexShrink:0,whiteSpace:"nowrap"}}>{p?.status||"pendente"}</span>
                     </div>
                   </div>
                 );
