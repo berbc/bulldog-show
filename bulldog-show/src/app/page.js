@@ -152,7 +152,7 @@ export default function Home() {
   // Load postagens
   const loadPostagens = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from("postagens").select("*").order("data");
+      const { data, error } = await supabase.from("postagens").select("*").order("data,id");
       if (!error && data) setPostagens(data);
     } catch(e) {}
   }, []);
@@ -186,27 +186,28 @@ export default function Home() {
 
   const savePostagem = async () => {
     if (!postagemEdit) return;
+    // Auto-fetch YouTube views if link is YouTube
+    let views = postagemEdit.views || 0;
+    if (postagemEdit.link && postagemEdit.link.includes("youtu")) {
+      const fetched = await fetchYouTubeViews(postagemEdit.link);
+      if (fetched !== null) views = fetched;
+    }
+    const payload = {
+      episodio_id: postagemEdit.episodio_id || null,
+      episodio_title: postagemEdit.episodio_title || "",
+      tipo: postagemEdit.tipo,
+      status: postagemEdit.status,
+      link: postagemEdit.link || "",
+      notas: postagemEdit.notas || "",
+      views: views,
+      drive_link: postagemEdit.drive_link || ""
+    };
     let data;
     if (postagemEdit.id) {
-      const res = await supabase.from("postagens").update({
-        episodio_id: postagemEdit.episodio_id || null,
-        episodio_title: postagemEdit.episodio_title || "",
-        tipo: postagemEdit.tipo,
-        status: postagemEdit.status,
-        link: postagemEdit.link || "",
-        notas: postagemEdit.notas || ""
-      }).eq("id", postagemEdit.id).select().single();
+      const res = await supabase.from("postagens").update(payload).eq("id", postagemEdit.id).select().single();
       data = res.data;
     } else {
-      const res = await supabase.from("postagens").insert({
-        data: postagemEdit.data,
-        tipo: postagemEdit.tipo,
-        episodio_id: postagemEdit.episodio_id || null,
-        episodio_title: postagemEdit.episodio_title || "",
-        status: postagemEdit.status || "pendente",
-        link: postagemEdit.link || "",
-        notas: postagemEdit.notas || ""
-      }).select().single();
+      const res = await supabase.from("postagens").insert({...payload, data: postagemEdit.data}).select().single();
       data = res.data;
     }
     if (data) {
@@ -693,36 +694,55 @@ export default function Home() {
               <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
               <StatCard label="Convidados Únicos" value={Object.keys(convidadoCount).length} />
               <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
-              <StatCard label="Total de Views (YT)" value={(() => { const t = episodes.flatMap(e=>e.links||[]).filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} color={ACCENT} />
+              <StatCard label="Total de Views" value={(() => { const t = postagens.reduce((s,p)=>s+(p.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} color={ACCENT} />
               <StatCard label="Cortes Publicados" value={totalLinks} />
               <StatCard label="Games Usados" value={Object.keys(gameCount).length} color="#8B5CF6" />
             </div>
 
-            {/* Gráfico: Views por episódio */}
+            {/* Gráfico: Views por episódio com breakdown por tipo */}
             {(() => {
-              const epsComViews = episodes.filter(e=>e.links?.some(l=>l.views>0));
-              if (epsComViews.length === 0) return null;
-              const maxViews = Math.max(...epsComViews.map(e=>e.links.reduce((s,l)=>s+(l.views||0),0)));
+              const epIds = [...new Set(postagens.filter(p=>p.episodio_id&&p.views>0).map(p=>p.episodio_id))];
+              if (epIds.length === 0) return null;
+              const epData = epIds.map(id => {
+                const ep = episodes.find(e=>e.id===id);
+                const posts = postagens.filter(p=>p.episodio_id===id&&p.views>0);
+                const full = posts.filter(p=>p.tipo==="Full").reduce((s,p)=>s+(p.views||0),0);
+                const corte = posts.filter(p=>p.tipo==="Corte").reduce((s,p)=>s+(p.views||0),0);
+                const tier = posts.filter(p=>p.tipo==="Tier List").reduce((s,p)=>s+(p.views||0),0);
+                const total = full+corte+tier;
+                return {id, title: ep?.title||`Ep ${id}`, full, corte, tier, total};
+              }).sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; });
+              const maxTotal = Math.max(...epData.map(e=>e.total));
               return (
                 <div style={{...card,padding:20,marginBottom:20}}>
                   <div style={{fontSize:16,letterSpacing:2,marginBottom:4}}>📊 VIEWS POR EPISÓDIO</div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginBottom:16}}>YouTube · clique para atualizar</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    {[...episodes].filter(e=>e.links?.length>0).sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep=>{
-                      const ytViews = (ep.links||[]).filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
-                      const totalEpViews = (ep.links||[]).reduce((s,l)=>s+(l.views||0),0);
-                      const pct = maxViews>0 ? Math.round((ytViews/maxViews)*100) : 0;
+                  <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
+                    {[["Full","#8B5CF6"],["Corte",ACCENT],["Tier List","#F59E0B"]].map(([t,c])=>(
+                      <div key={t} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:c}} />{t}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                    {epData.map(ep=>{
+                      const fullPct = maxTotal>0?Math.round((ep.full/maxTotal)*100):0;
+                      const cortePct = maxTotal>0?Math.round((ep.corte/maxTotal)*100):0;
+                      const tierPct = maxTotal>0?Math.round((ep.tier/maxTotal)*100):0;
                       return (
                         <div key={ep.id}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT}}>{ep.title}</div>
-                            <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                              {ytViews>0&&<span style={{fontFamily:"'DM Sans'",fontSize:12,color:ACCENT}}>▶ {ytViews.toLocaleString("pt-BR")} views</span>}
-                              <button onClick={()=>fetchAndUpdateViews(ep)} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,color:MUTED,borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10}}>↻ atualizar</button>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,fontWeight:600}}>{ep.title}</div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,display:"flex",gap:12}}>
+                              {ep.full>0&&<span style={{color:"#8B5CF6"}}>Full: {ep.full.toLocaleString("pt-BR")}</span>}
+                              {ep.corte>0&&<span style={{color:ACCENT}}>Cortes: {ep.corte.toLocaleString("pt-BR")}</span>}
+                              {ep.tier>0&&<span style={{color:"#F59E0B"}}>Tier: {ep.tier.toLocaleString("pt-BR")}</span>}
+                              <span style={{color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} total</span>
                             </div>
                           </div>
-                          <div style={{background:"#0A1F30",borderRadius:4,height:8,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .5s ease"}} />
+                          <div style={{background:"#0A1F30",borderRadius:4,height:12,overflow:"hidden",display:"flex"}}>
+                            {ep.full>0&&<div style={{height:"100%",width:`${fullPct}%`,background:"#8B5CF6",transition:"width .5s ease"}} />}
+                            {ep.corte>0&&<div style={{height:"100%",width:`${cortePct}%`,background:ACCENT,transition:"width .5s ease"}} />}
+                            {ep.tier>0&&<div style={{height:"100%",width:`${tierPct}%`,background:"#F59E0B",transition:"width .5s ease"}} />}
                           </div>
                         </div>
                       );
@@ -787,14 +807,10 @@ export default function Home() {
 
               {/* Ranking de views */}
               {(() => {
-                const viewsRanking = episodes
-                  .flatMap(ep => (ep.links||[]).map(l => ({
-                    titulo: l.url ? (l.url.includes("youtu") ? `▶ ${ep.title}` : l.url.includes("instagram") ? `📸 ${ep.title}` : `🎵 ${ep.title}`) : ep.title,
-                    views: l.views||0,
-                    plataforma: l.plataforma,
-                    ep: ep.title
-                  })))
-                  .filter(l => l.views > 0)
+                const tipoColor = (tipo) => tipo==="Full"?"#8B5CF6":tipo==="Tier List"?"#F59E0B":ACCENT;
+                const plataformaIcon = (link) => link?.includes("youtu")?"▶":link?.includes("instagram")?"📸":link?.includes("tiktok")?"🎵":"🔗";
+                const viewsRanking = [...postagens]
+                  .filter(p => p.views > 0)
                   .sort((a,b) => b.views - a.views);
                 return (
                   <div style={{...card,padding:20,marginBottom:0}}>
@@ -804,13 +820,17 @@ export default function Home() {
                     </div>
                     {viewsRanking.length===0
                       ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view registrado ainda</div>
-                      : (showAllViews?viewsRanking:viewsRanking.slice(0,5)).map((item,i)=>(
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            <span style={{color:MUTED,fontSize:10,width:16}}>{i+1}.</span>
-                            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{item.titulo}</span>
+                      : (showAllViews?viewsRanking:viewsRanking.slice(0,5)).map((p,i)=>(
+                        <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
+                          <div style={{display:"flex",gap:8,alignItems:"center",flex:1,minWidth:0}}>
+                            <span style={{color:MUTED,fontSize:10,width:16,flexShrink:0}}>{i+1}.</span>
+                            <span style={{background:`${tipoColor(p.tipo)}22`,color:tipoColor(p.tipo),borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
+                            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{p.episodio_title||"—"}</span>
                           </div>
-                          <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600,flexShrink:0}}>{item.views.toLocaleString("pt-BR")}</span>
+                          <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                            <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{p.views.toLocaleString("pt-BR")}</span>
+                            {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{plataformaIcon(p.link)}</a>}
+                          </div>
                         </div>
                       ))}
                   </div>
@@ -902,7 +922,8 @@ export default function Home() {
                           <span style={{background:ts.bg,color:ts.color,borderRadius:4,padding:"2px 10px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
                           <div style={{flex:1,minWidth:0,fontFamily:"'DM Sans'",fontSize:13}}>
                             {p.episodio_title ? <span style={{color:TEXT}}>{p.episodio_title}</span> : <span style={{color:"#1A3A50"}}>Sem episódio</span>}
-                            {ep?.drive_link && <a href={ep.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:10,fontSize:11,color:"#10B981"}}>📁 Drive</a>}
+                            {ep?.drive_link && <a href={ep.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:10,fontSize:11,color:"#10B981"}}>📁 Drive ep</a>}
+                          {p.drive_link && <a href={p.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:6,fontSize:11,color:"#F59E0B"}}>📁 Material</a>}
                           </div>
                           <span style={{color:statusColor,fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,textTransform:"uppercase",flexShrink:0}}>{p.status}</span>
                           <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"rgba(27,104,150,0.2)",border:`1px solid ${BORDER}`,color:ACCENT,borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,flexShrink:0}}>✏️</button>
@@ -1154,8 +1175,18 @@ export default function Home() {
             </div>
 
             <div style={{marginBottom:14}}>
-              <div style={lbl}>Link do post (YouTube)</div>
+              <div style={lbl}>Link do post</div>
               <input value={postagemEdit.link||""} onChange={e=>setPostagemEdit({...postagemEdit,link:e.target.value})} placeholder="https://youtube.com/..." style={inp} />
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Views (Instagram/TikTok — YouTube busca automaticamente)</div>
+              <input type="number" value={postagemEdit.views||0} onChange={e=>setPostagemEdit({...postagemEdit,views:parseInt(e.target.value)||0})} style={inp} />
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>📁 Link do Material no Google Drive</div>
+              <input value={postagemEdit.drive_link||""} onChange={e=>setPostagemEdit({...postagemEdit,drive_link:e.target.value})} placeholder="https://drive.google.com/..." style={inp} />
             </div>
 
             <div style={{marginBottom:20}}>
