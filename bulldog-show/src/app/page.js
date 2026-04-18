@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "📅 Calendário", "📆 Cronograma", "📊 Estatísticas", "🎬 Produção", "💡 Banco de Ideias"];
+const TABS = ["📋 Episódios", "📅 Calendário", "🎬 Produção", "📆 Cronograma", "📊 Estatísticas", "💡 Banco de Ideias"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
