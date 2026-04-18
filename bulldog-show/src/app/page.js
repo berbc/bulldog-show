@@ -10,7 +10,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "🏆 Tier Lists", "👥 Convidados", "🎮 Games", "📅 Calendário", "📊 Estatísticas"];
+const TABS = ["📋 Episódios", "🏆 Tier Lists", "👥 Convidados", "🎮 Games", "📅 Calendário", "📊 Estatísticas", "📆 Postagem"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -80,6 +80,12 @@ export default function Home() {
   const [statsEdit, setStatsEdit] = useState(null);
   const [statsEditMode, setStatsEditMode] = useState(false);
 
+  // Postagem calendar
+  const [postagemWeekOffset, setPostagemWeekOffset] = useState(0);
+  const [postagemModal, setPostagemModal] = useState(null);
+  const [postagemEdit, setPostagemEdit] = useState(null);
+  const [postagens, setPostagens] = useState([]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -138,6 +144,73 @@ export default function Home() {
     if (updated) {
       const { data } = await supabase.from('episodes').update({links: newLinks}).eq('id', ep.id).select().single();
       if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); if (statsEp?.id === ep.id) { setStatsEp(data); setStatsEdit({...data, links: data.links||[]}); } }
+    }
+  };
+
+  // Load postagens
+  const loadPostagens = useCallback(async () => {
+    const { data } = await supabase.from("postagens").select("*").order("data");
+    if (data) setPostagens(data);
+  }, []);
+
+  useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
+
+  const WEEK_SCHEDULE = [
+    { dow: 1, label: "Segunda", tipo: "Corte" },
+    { dow: 2, label: "Terça",   tipo: "Tier List" },
+    { dow: 3, label: "Quarta",  tipo: "Corte" },
+    { dow: 4, label: "Quinta",  tipo: "Full" },
+    { dow: 5, label: "Sexta",   tipo: "Corte" },
+    { dow: 6, label: "Sábado",  tipo: "Corte" },
+    { dow: 0, label: "Domingo", tipo: "Corte" },
+  ];
+
+  const getWeekDates = (offset) => {
+    const today = new Date();
+    const dow = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+    return WEEK_SCHEDULE.map(s => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + (s.dow === 0 ? 6 : s.dow - 1));
+      return { ...s, date: d.toISOString().split("T")[0], dateObj: d };
+    });
+  };
+
+  const getPostagem = (date) => postagens.find(p => p.data === date);
+
+  const savePostagem = async () => {
+    if (!postagemEdit) return;
+    const existing = getPostagem(postagemEdit.data);
+    let data;
+    if (existing) {
+      const res = await supabase.from("postagens").update({
+        episodio_id: postagemEdit.episodio_id || null,
+        episodio_title: postagemEdit.episodio_title || "",
+        tipo: postagemEdit.tipo,
+        status: postagemEdit.status,
+        link: postagemEdit.link || "",
+        notas: postagemEdit.notas || ""
+      }).eq("id", existing.id).select().single();
+      data = res.data;
+    } else {
+      const res = await supabase.from("postagens").insert({
+        data: postagemEdit.data,
+        tipo: postagemEdit.tipo,
+        episodio_id: postagemEdit.episodio_id || null,
+        episodio_title: postagemEdit.episodio_title || "",
+        status: postagemEdit.status || "pendente",
+        link: postagemEdit.link || "",
+        notas: postagemEdit.notas || ""
+      }).select().single();
+      data = res.data;
+    }
+    if (data) {
+      setPostagens(prev => {
+        const filtered = prev.filter(p => p.data !== data.data);
+        return [...filtered, data].sort((a,b) => a.data.localeCompare(b.data));
+      });
+      setPostagemModal(null); setPostagemEdit(null); flash();
     }
   };
 
@@ -276,9 +349,6 @@ export default function Home() {
   const allConvidadosInEps = episodes.flatMap(e => e.convidados || []);
   const convidadoCount = allConvidadosInEps.reduce((acc, c) => { acc[c] = (acc[c]||0)+1; return acc; }, {});
   const convidadoRanking = Object.entries(convidadoCount).sort((a,b)=>b[1]-a[1]);
-  const convidadosSemEp = convidados.filter(c => !allConvidadosInEps.includes(c.nome));
-  const tierListsUsadas = episodes.filter(e=>e.tier_list).map(e=>e.tier_list);
-  const tierListCount = tierListsUsadas.reduce((acc,t)=>{ acc[t]=(acc[t]||0)+1; return acc; },{});
   const gamesUsados = episodes.filter(e=>e.game).map(e=>e.game);
   const gameCount = gamesUsados.reduce((acc,g)=>{ acc[g]=(acc[g]||0)+1; return acc; },{});
   const totalInvestido = episodes.reduce((sum,e)=>sum+(e.investimento||0),0);
@@ -593,6 +663,7 @@ export default function Home() {
               <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
               <StatCard label="Total de Views (YT)" value={(() => { const t = episodes.flatMap(e=>e.links||[]).filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} color={ACCENT} />
               <StatCard label="Cortes Publicados" value={totalLinks} />
+              <StatCard label="Games Usados" value={Object.keys(gameCount).length} color="#8B5CF6" />
             </div>
 
             {/* Gráfico: Views por episódio */}
@@ -687,33 +758,16 @@ export default function Home() {
               </div>
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
-
-              {/* Tier lists usadas */}
-              <div style={{...card,padding:20}}>
-                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>🏆 TIER LISTS USADAS</div>
-                {Object.entries(tierListCount).length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhuma tier list usada ainda</div>
-                  : Object.entries(tierListCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
-                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
-                      <span style={{flex:1,marginRight:8}}>{nome.slice(0,50)}{nome.length>50?"…":""}</span>
-                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600,flexShrink:0}}>{count}x</span>
-                    </div>
-                  ))}
-              </div>
-
-              {/* Games usados */}
-              <div style={{...card,padding:20}}>
-                <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>🎮 GAMES USADOS</div>
-                {Object.entries(gameCount).length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum game usado ainda</div>
-                  : Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
-                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
-                      <span>{nome}</span>
-                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600}}>{count}x</span>
-                    </div>
-                  ))}
-              </div>
+            <div style={{...card,padding:20,marginBottom:20}}>
+              <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>🎮 GAMES USADOS</div>
+              {Object.entries(gameCount).length===0
+                ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum game usado ainda</div>
+                : Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
+                  <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                    <span>{nome}</span>
+                    <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:600}}>{count}x</span>
+                  </div>
+                ))}
             </div>
 
             {/* Performance por episódio */}
@@ -742,6 +796,60 @@ export default function Home() {
           </div>
         )}
       </div>
+
+        {/* POSTAGEM */}
+        {activeTab===6 && (
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:20,letterSpacing:2}}>CALENDÁRIO DE POSTAGEM <span style={{color:BL}}>YOUTUBE</span></div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 12px",fontSize:13}}>← Anterior</button>
+                <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 12px",fontSize:12}}>Hoje</button>
+                <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 12px",fontSize:13}}>Próxima →</button>
+              </div>
+            </div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:20}}>🕕 18h · Postagem diária no YouTube</div>
+            <div style={{display:"grid",gap:10}}>
+              {getWeekDates(postagemWeekOffset).map(slot => {
+                const p = getPostagem(slot.date);
+                const statusColor = p?.status === "postado" ? "#10B981" : p?.status === "agendado" ? "#F59E0B" : MUTED;
+                const statusBg = p?.status === "postado" ? "rgba(16,185,129,0.1)" : p?.status === "agendado" ? "rgba(245,158,11,0.1)" : "rgba(27,104,150,0.05)";
+                const tipoColor = slot.tipo === "Full" ? "#8B5CF6" : slot.tipo === "Tier List" ? "#F59E0B" : ACCENT;
+                const isToday = slot.date === new Date().toISOString().split("T")[0];
+                return (
+                  <div key={slot.date} onClick={()=>{ setPostagemModal(slot); setPostagemEdit(p ? {...p} : {data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:""}); }} style={{background:statusBg,border:`1px solid ${isToday?"rgba(27,104,150,0.8)":p?.status==="postado"?"rgba(16,185,129,0.3)":BORDER}`,borderRadius:10,padding:"14px 18px",display:"grid",gridTemplateColumns:"130px 80px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",transition:"border-color .15s"}}>
+                    <div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:isToday?ACCENT:TEXT}}>{slot.label}{isToday&&<span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,marginLeft:6}}>HOJE</span>}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} · 18h</div>
+                    </div>
+                    <div><span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"3px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{slot.tipo}</span></div>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:13}}>
+                      {p?.episodio_title ? <span style={{color:TEXT}}>{p.episodio_title}</span> : <span style={{color:"#1A3A50"}}>Sem episódio vinculado</span>}
+                      {p?.link && <div style={{fontSize:11,color:ACCENT,marginTop:2}}>🔗 {p.link.slice(0,50)}…</div>}
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <span style={{background:statusBg,color:statusColor,border:`1px solid ${statusColor}44`,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,textTransform:"uppercase"}}>{p?.status||"pendente"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Resumo da semana */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:24}}>
+              {["postado","agendado","pendente"].map(s => {
+                const count = getWeekDates(postagemWeekOffset).filter(slot => (getPostagem(slot.date)?.status||"pendente") === s).length;
+                const color = s==="postado"?"#10B981":s==="agendado"?"#F59E0B":MUTED;
+                return (
+                  <div key={s} style={{...card,padding:"14px 16px",textAlign:"center"}}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{s}</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color}}>{count}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       {/* MODAL EPISÓDIO */}
       {selectedEp&&editData&&(
@@ -922,5 +1030,59 @@ export default function Home() {
         </div>
       )}
     </div>
+
+      {/* MODAL POSTAGEM */}
+      {postagemModal&&postagemEdit&&(
+        <div onClick={e=>e.target===e.currentTarget&&(setPostagemModal(null),setPostagemEdit(null))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:520,padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div>
+                <div style={{fontSize:20,letterSpacing:2}}>{postagemModal.label.toUpperCase()}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(postagemModal.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})} · 18h</div>
+              </div>
+              <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>✕</button>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Tipo</div>
+              <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}>
+                <option>Corte</option><option>Tier List</option><option>Full</option>
+              </select>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Status</div>
+              <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}>
+                <option value="pendente">Pendente</option>
+                <option value="agendado">Agendado</option>
+                <option value="postado">Postado</option>
+              </select>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Episódio vinculado</div>
+              <select value={postagemEdit.episodio_id||""} onChange={e=>{const ep=episodes.find(ep=>String(ep.id)===e.target.value);setPostagemEdit({...postagemEdit,episodio_id:ep?.id||null,episodio_title:ep?.title||""}); }} style={inp}>
+                <option value="">Selecionar episódio...</option>
+                {[...episodes].sort((a,b)=>{const na=parseInt((a.title.match(/\d+/)||[0])[0]);const nb=parseInt((b.title.match(/\d+/)||[0])[0]);return na-nb;}).map(ep=><option key={ep.id} value={ep.id}>{ep.title}{ep.convidados?.length>0?` · ${ep.convidados.join(", ")}`:""}</option>)}
+              </select>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Link do post (YouTube)</div>
+              <input value={postagemEdit.link||""} onChange={e=>setPostagemEdit({...postagemEdit,link:e.target.value})} placeholder="https://youtube.com/..." style={inp} />
+            </div>
+
+            <div style={{marginBottom:20}}>
+              <div style={lbl}>Notas</div>
+              <textarea value={postagemEdit.notas||""} onChange={e=>setPostagemEdit({...postagemEdit,notas:e.target.value})} style={{...inp,minHeight:60,resize:"vertical"}} placeholder="Observações sobre essa postagem..." />
+            </div>
+
+            <div style={{display:"flex",gap:8}}>
+              <button style={btnBlue} onClick={savePostagem}>💾 SALVAR</button>
+              <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
   );
 }
