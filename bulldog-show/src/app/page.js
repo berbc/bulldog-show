@@ -1029,7 +1029,7 @@ export default function Home() {
           </div>
         </div>
       )}
-    </div>
+
 
       {/* MODAL POSTAGEM */}
       {postagemModal&&postagemEdit&&(
@@ -1084,5 +1084,6 @@ export default function Home() {
           </div>
         </div>
       )}
+    </div>
   );
 }
