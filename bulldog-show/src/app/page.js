@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const STATUS_EDICAO_CONFIG = {
@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "📅 Calendário", "🎬 Produção", "📆 Cronograma", "📊 Estatísticas", "💡 Banco de Ideias"];
+const TABS = ["🏠 Dashboard", "📋 Episódios", "📅 Calendário", "🎬 Produção", "📆 Cronograma", "📊 Estatísticas", "💡 Banco de Ideias"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -65,6 +65,8 @@ export default function Home() {
   const [editData, setEditData] = useState(null);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [newTierList, setNewTierList] = useState("");
   const [newConvidado, setNewConvidado] = useState("");
@@ -101,7 +103,7 @@ export default function Home() {
   const [cronoEpId, setCronoEpId] = useState(null);
   const [cronoRunning, setCronoRunning] = useState(false);
   const [cronoTime, setCronoTime] = useState(0);
-  const [cronoInterval, setCronoInterval] = useState(null);
+  const cronoIntervalRef = useRef(null);
   const [cronoNota, setCronoNota] = useState("");
   const [cronoNotaAtiva, setCronoNotaAtiva] = useState(null);
   const [newComentario, setNewComentario] = useState("");
@@ -259,14 +261,13 @@ export default function Home() {
   const cronoStart = (epId) => {
     if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); }
     setCronoRunning(true);
-    const interval = setInterval(() => setCronoTime(t => t + 1), 1000);
-    setCronoInterval(interval);
+    if (cronoIntervalRef.current) clearInterval(cronoIntervalRef.current);
+    cronoIntervalRef.current = setInterval(() => setCronoTime(t => t + 1), 1000);
   };
 
   const cronoPause = () => {
     setCronoRunning(false);
-    clearInterval(cronoInterval);
-    setCronoInterval(null);
+    if (cronoIntervalRef.current) { clearInterval(cronoIntervalRef.current); cronoIntervalRef.current = null; }
   };
 
   const cronoReset = (epId) => {
@@ -274,6 +275,40 @@ export default function Home() {
     setCronoTime(0);
     setCronoEpId(epId);
   };
+
+  // Cleanup on unmount
+  useEffect(() => () => { if (cronoIntervalRef.current) clearInterval(cronoIntervalRef.current); }, []);
+
+  // CMD+K global search
+  useEffect(() => {
+    const handleGlobalKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(s => !s);
+        setSearchQuery("");
+      }
+      if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(""); }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, []);
+
+  // Keyboard shortcuts for cronômetro
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.code === 'Space' && cronoEpId) {
+        e.preventDefault();
+        cronoRunning ? cronoPause() : cronoStart(cronoEpId);
+      }
+      if (e.code === 'KeyC' && cronoEpId && cronoTime > 0 && !cronoNotaAtiva) {
+        const ep = episodes.find(ep => ep.id === cronoEpId);
+        if (ep) marcarCorte(ep);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [cronoEpId, cronoRunning, cronoTime, cronoNotaAtiva, episodes]);
 
   const cronoFmt = (s) => {
     const h = Math.floor(s/3600);
@@ -379,7 +414,9 @@ export default function Home() {
     flash();
   };
 
+  const [errorMsg, setErrorMsg] = useState("");
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  const flashError = (msg) => { setErrorMsg(msg); setTimeout(() => setErrorMsg(""), 4000); };
   const login = async () => {
     setLoginLoading(true); setLoginError("");
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
@@ -501,6 +538,13 @@ export default function Home() {
 
   const copyLink = (id) => { navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`); setCopied(id); setTimeout(() => setCopied(null), 2000); };
 
+  const searchResults = searchQuery.trim().length > 1 ? [
+    ...episodes.filter(e => e.title?.toLowerCase().includes(searchQuery.toLowerCase()) || e.convidados?.some(c=>c.toLowerCase().includes(searchQuery.toLowerCase()))).map(e=>({type:"Episódio",label:e.title,sub:e.convidados?.join(", ")||"",action:()=>{openEp(e);setActiveTab(0);setSearchOpen(false);}})),
+    ...convidados.filter(c=>c.nome.toLowerCase().includes(searchQuery.toLowerCase())).map(c=>({type:"Convidado",label:c.nome,sub:"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
+    ...pautas.filter(p=>p.titulo.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Pauta",label:p.titulo,sub:p.descricao||"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
+    ...postagens.filter(p=>p.episodio_title?.toLowerCase().includes(searchQuery.toLowerCase())||p.notas?.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Post",label:`${p.tipo} · ${p.episodio_title||"Sem ep"}`,sub:p.data,action:()=>{setActiveTab(3);setSearchOpen(false);}})),
+  ].slice(0, 8) : [];
+
   const toLocalDate = (d) => {
     const y = d.getFullYear();
     const m = String(d.getMonth()+1).padStart(2,'0');
@@ -572,6 +616,10 @@ export default function Home() {
         *{box-sizing:border-box;}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#040E18}::-webkit-scrollbar-thumb{background:#1B6896;border-radius:2px}
         .epc:hover{transform:translateY(-2px);border-color:#2487BE !important;}
+        @media(max-width:768px){
+          .desktop-only{display:none!important;}
+          .tab-label{display:none;}
+        }
         .tag{display:inline-block;background:rgba(27,104,150,0.2);border:1px solid rgba(27,104,150,0.6);color:#7EC8F0;border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;font-family:'DM Sans'}
         .bi:hover .xb{opacity:1}.xb{opacity:0;transition:opacity .2s}
         .cpb{background:rgba(27,104,150,0.15);border:1px solid rgba(27,104,150,0.5);color:#7EC8F0;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'DM Sans'}
@@ -591,7 +639,9 @@ export default function Home() {
             </div>
             <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:12}}>
               {saved && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#10B981",background:"rgba(16,185,129,0.1)",padding:"4px 12px",borderRadius:20}}>✓ Salvo</div>}
+              {errorMsg && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#EF4444",background:"rgba(239,68,68,0.1)",padding:"4px 12px",borderRadius:20}}>⚠️ {errorMsg}</div>}
               <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>{user.email}</div>
+              <button onClick={()=>setSearchOpen(true)} style={{...btnGhost,fontSize:11,padding:"5px 12px",display:"flex",alignItems:"center",gap:5}}>🔍 <span style={{opacity:0.6,fontSize:10}}>⌘K</span></button>
               <button onClick={logout} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>Sair</button>
             </div>
           </div>
@@ -605,8 +655,104 @@ export default function Home() {
 
       <div style={{maxWidth:1400,margin:"0 auto",padding:"22px 20px"}}>
 
-        {/* EPISÓDIOS */}
+        {/* DASHBOARD */}
         {activeTab===0 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🏠 BOM DIA, <span style={{color:BL}}>BULLDOG SHOW</span></div>
+            {/* Próxima gravação */}
+            {(() => {
+              const proxima = [...episodes].filter(e=>e.gravacao_data&&!e.retroativo).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data))[0];
+              const hoje = toLocalDate(new Date());
+              const postsHoje = postagens.filter(p=>p.data===hoje);
+              const postsSemana = postagens.filter(p=>{
+                const d = new Date(p.data+"T12:00:00");
+                const now = new Date();
+                const diff = (d - now) / (1000*60*60*24);
+                return diff >= 0 && diff <= 7;
+              });
+              const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
+              const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
+              return (
+                <div>
+                  {/* Cards de hoje */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
+                    <div style={{...card,padding:20,border:`1px solid rgba(36,135,190,0.5)`}}>
+                      <div style={lbl}>📅 Próxima Gravação</div>
+                      {proxima ? (
+                        <div>
+                          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ACCENT}}>{new Date(proxima.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,marginTop:4}}>{proxima.title} · {proxima.gravacao_horario}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{proxima.convidados?.join(", ")||"Sem convidados"}</div>
+                        </div>
+                      ) : <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma gravação agendada</div>}
+                    </div>
+                    <div style={{...card,padding:20}}>
+                      <div style={lbl}>📤 Posts Esta Semana</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:postsSemana.filter(p=>p.status==="postado").length===postsSemana.length&&postsSemana.length>0?"#10B981":ACCENT}}>{postsSemana.filter(p=>p.status==="postado").length}/{postsSemana.length}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>postados esta semana</div>
+                    </div>
+                    <div style={{...card,padding:20}}>
+                      <div style={lbl}>▶ Views YouTube Total</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>views acumulados</div>
+                    </div>
+                    <div style={{...card,padding:20,border:epsSemChecklist.length>0?`1px solid rgba(245,158,11,0.4)`:undefined}}>
+                      <div style={lbl}>⚠️ Checklists Incompletos</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:epsSemChecklist.length>0?"#F59E0B":"#10B981"}}>{epsSemChecklist.length}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>episódios com tarefas pendentes</div>
+                    </div>
+                  </div>
+
+                  {/* Posts pendentes esta semana */}
+                  {postsSemana.filter(p=>p.status!=="postado").length>0&&(
+                    <div style={{...card,padding:20,marginBottom:16}}>
+                      <div style={{fontSize:15,letterSpacing:2,marginBottom:14}}>📆 POSTS PENDENTES ESTA SEMANA</div>
+                      {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+                        const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                        const statusColor = p.status==="agendado"?"#F59E0B":MUTED;
+                        return (
+                          <div key={p.id} onClick={()=>{setActiveTab(4);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,width:80,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
+                            <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.episodio_title||"Sem episódio"}</span>
+                            {p.responsavel&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:statusColor,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Episódios com checklist incompleto */}
+                  {epsSemChecklist.length>0&&(
+                    <div style={{...card,padding:20}}>
+                      <div style={{fontSize:15,letterSpacing:2,marginBottom:14}}>⚠️ EPISÓDIOS COM TAREFAS PENDENTES</div>
+                      {epsSemChecklist.slice(0,5).map(ep=>{
+                        const done = (ep.checklist||[]).length;
+                        const pct = Math.round((done/10)*100);
+                        return (
+                          <div key={ep.id} onClick={()=>{openEp(ep);setActiveTab(1);}} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{ep.title}</div>
+                              <div style={{background:"#0A1F30",borderRadius:3,height:4,overflow:"hidden",marginTop:4,width:120}}>
+                                <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:3}} />
+                              </div>
+                            </div>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{done}/10</span>
+                            <span style={{background:STATUS_CONFIG[ep.status]?.bg,color:STATUS_CONFIG[ep.status]?.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{STATUS_CONFIG[ep.status]?.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* EPISÓDIOS */}
+        {activeTab===1 && (
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({sortedEpisodes.length})</span></div>
@@ -655,7 +801,7 @@ export default function Home() {
         )}
 
         {/* PRODUÇÃO */}
-        {activeTab===4 && (
+        {activeTab===3 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE EPISÓDIOS</span></div>
             {[...episodes].sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep => {
@@ -724,6 +870,7 @@ export default function Home() {
                           : <button onClick={()=>cronoStart(ep.id)} style={{...btnBlue,padding:"6px 14px",fontSize:12}}>▶ {cronoEpId===ep.id?"Continuar":"Iniciar"}</button>
                         }
                         <button onClick={()=>cronoReset(ep.id)} style={{...btnGhost,padding:"6px 10px",fontSize:11}}>↺ Reset</button>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Espaço=pause · C=corte</span>
                       </div>
                       <button
                         onClick={()=>marcarCorte(ep)}
@@ -773,7 +920,7 @@ export default function Home() {
         )}
 
         {/* BANCO DE IDEIAS */}
-        {activeTab===5 && (
+        {activeTab===6 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>💡 BANCO DE IDEIAS</div>
 
@@ -971,117 +1118,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* placeholder */}
-        {activeTab===999 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:16}}>BANCO DE TIER LISTS <span style={{color:BL}}>({tierLists.length})</span></div>
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              <input value={newTierList} onChange={e=>setNewTierList(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTierList()} placeholder="Nova tier list..." style={{...inp,flex:1}} />
-              <button style={btnBlue} onClick={addTierList}>+ ADD</button>
-            </div>
-            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-              <input value={tierSearch} onChange={e=>setTierSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200}} />
-              <select value={tierSort} onChange={e=>setTierSort(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="az">A → Z</option><option value="za">Z → A</option>
-                <option value="stars_desc">★ Mais estrelas</option><option value="stars_asc">★ Menos estrelas</option>
-              </select>
-            </div>
-            {sortedTierLists.map(tl => (
-              <div key={tl.id} className="bi" style={{...card,padding:"11px 15px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-                <span style={{fontFamily:"'DM Sans'",fontSize:13,flex:1}}>🏆 {tl.nome}</span>
-                <Stars value={tl.estrelas||0} onChange={v=>updateTierStars(tl.id,v)} />
-                <button className="xb" onClick={()=>removeTierList(tl.id)} style={{...btnGhost,padding:"3px 9px",fontSize:11,color:BL}}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-
-
-        {/* GAMES */}
-        {activeTab===6 && (
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:20,letterSpacing:2}}>BANCO DE GAMES <span style={{color:BL}}>({games.length})</span></div>
-              <button style={btnBlue} onClick={()=>setAddingGame(!addingGame)}>+ NOVO GAME</button>
-            </div>
-            {addingGame && (
-              <div style={{...card,border:`1px solid ${BL}`,marginBottom:16}}>
-                <div style={{fontSize:15,letterSpacing:1,marginBottom:14,color:ACCENT}}>NOVO GAME</div>
-                <div style={{display:"grid",gap:10}}>
-                  <input value={newGame.nome} onChange={e=>setNewGame({...newGame,nome:e.target.value})} placeholder="Nome *" style={inp} />
-                  <textarea value={newGame.descricao} onChange={e=>setNewGame({...newGame,descricao:e.target.value})} placeholder="Como funciona..." style={{...inp,minHeight:70,resize:"vertical"}} />
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                    <input value={newGame.jogadores} onChange={e=>setNewGame({...newGame,jogadores:e.target.value})} placeholder="Jogadores" style={inp} />
-                    <input value={newGame.duracao} onChange={e=>setNewGame({...newGame,duracao:e.target.value})} placeholder="Duração" style={inp} />
-                    <select value={newGame.dificuldade} onChange={e=>setNewGame({...newGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
-                  </div>
-                  <textarea value={newGame.ideias} onChange={e=>setNewGame({...newGame,ideias:e.target.value})} placeholder="Ideias..." style={{...inp,minHeight:60,resize:"vertical"}} />
-                  <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{...lbl,margin:0}}>Estrelas</span><Stars value={newGame.estrelas} onChange={v=>setNewGame({...newGame,estrelas:v})} /></div>
-                  <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={addGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setAddingGame(false)}>Cancelar</button></div>
-                </div>
-              </div>
-            )}
-            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-              <input value={gameSearch} onChange={e=>setGameSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200}} />
-              <select value={gameSort} onChange={e=>setGameSort(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="az">A → Z</option><option value="za">Z → A</option>
-                <option value="stars_desc">★ Mais estrelas</option><option value="stars_asc">★ Menos estrelas</option>
-              </select>
-            </div>
-            {sortedGames.map(g => {
-              const dc={Fácil:"#10B981",Médio:"#F59E0B",Difícil:"#EF4444"};
-              const isOpen=expandedGame===g.id, isEditing=editingGame?.id===g.id;
-              return (
-                <div key={g.id} style={{...card,border:`1px solid ${isOpen?BL:BORDER}`,overflow:"hidden",padding:0,transition:"border-color .2s"}}>
-                  <div onClick={()=>!isEditing&&setExpandedGame(isOpen?null:g.id)} style={{padding:"13px 17px",cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
-                    <span style={{fontSize:20}}>🎮</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:16,letterSpacing:1}}>{g.nome}</div>
-                      {!isOpen&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{g.descricao?.slice(0,65)}…</div>}
-                    </div>
-                    <div style={{display:"flex",gap:7,alignItems:"center"}}>
-                      <Stars value={g.estrelas||0} onChange={v=>updateGameStars(g.id,v)} readonly={!isOpen} />
-                      {g.jogadores&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>👥 {g.jogadores}</span>}
-                      {g.duracao&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>⏱ {g.duracao}</span>}
-                      <span style={{background:`${dc[g.dificuldade]||"#888"}22`,color:dc[g.dificuldade]||"#888",borderRadius:4,padding:"2px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{g.dificuldade}</span>
-                      <span style={{color:MUTED,fontSize:11}}>{isOpen?"▲":"▼"}</span>
-                    </div>
-                  </div>
-                  {isOpen&&(
-                    <div style={{padding:"0 17px 17px",borderTop:`1px solid ${BORDER}`}}>
-                      {isEditing ? (
-                        <div style={{paddingTop:12,display:"grid",gap:10}}>
-                          <input value={editingGame.nome} onChange={e=>setEditingGame({...editingGame,nome:e.target.value})} style={inp} />
-                          <textarea value={editingGame.descricao} onChange={e=>setEditingGame({...editingGame,descricao:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}} />
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                            <input value={editingGame.jogadores} onChange={e=>setEditingGame({...editingGame,jogadores:e.target.value})} placeholder="Jogadores" style={inp} />
-                            <input value={editingGame.duracao} onChange={e=>setEditingGame({...editingGame,duracao:e.target.value})} placeholder="Duração" style={inp} />
-                            <select value={editingGame.dificuldade} onChange={e=>setEditingGame({...editingGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
-                          </div>
-                          <textarea value={editingGame.ideias} onChange={e=>setEditingGame({...editingGame,ideias:e.target.value})} style={{...inp,minHeight:60,resize:"vertical"}} />
-                          <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={saveGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setEditingGame(null)}>Cancelar</button></div>
-                        </div>
-                      ) : (
-                        <div style={{paddingTop:12,display:"grid",gap:12}}>
-                          <div><div style={lbl}>Como funciona</div><div style={{...val,fontSize:13,lineHeight:1.6}}>{g.descricao}</div></div>
-                          {g.ideias&&<div><div style={lbl}>💡 Ideias</div><div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,lineHeight:1.6}}>{g.ideias}</div></div>}
-                          <div style={{display:"flex",gap:8}}>
-                            <button style={{...btnBlue,fontSize:11}} onClick={()=>setEditingGame({...g})}>✏️ EDITAR</button>
-                            <button onClick={()=>removeGame(g.id)} style={{...btnGhost,fontSize:11}}>🗑 Remover</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* CALENDÁRIO */}
-        {activeTab===1 && (
+        {activeTab===2 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:6}}>CALENDÁRIO DE GRAVAÇÕES</div>
             <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:18}}>📅 Quartas-feiras · 10h–12h e 14h–16h · 2 eps por dia</div>
@@ -1139,7 +1177,7 @@ export default function Home() {
         )}
 
         {/* ESTATÍSTICAS */}
-        {activeTab===3 && (
+        {activeTab===5 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
 
@@ -1345,7 +1383,7 @@ export default function Home() {
         )}
 
         {/* POSTAGEM */}
-        {activeTab===2 && (
+        {activeTab===4 && (
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <div style={{fontSize:20,letterSpacing:2}}>CALENDÁRIO DE POSTAGEM</div>
@@ -1672,6 +1710,45 @@ export default function Home() {
         </div>
       )}
 
+
+      {/* SEARCH MODAL */}
+      {searchOpen&&(
+        <div onClick={e=>e.target===e.currentTarget&&setSearchOpen(false)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.85)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:80}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:560,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 18px",borderBottom:`1px solid ${BORDER}`}}>
+              <span style={{fontSize:16}}>🔍</span>
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={e=>setSearchQuery(e.target.value)}
+                placeholder="Buscar episódios, convidados, pautas, posts..."
+                style={{...inp,border:"none",background:"transparent",fontSize:15,padding:0}}
+              />
+              <kbd style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,background:"rgba(27,104,150,0.2)",padding:"2px 6px",borderRadius:3}}>ESC</kbd>
+            </div>
+            {searchResults.length>0&&(
+              <div>
+                {searchResults.map((r,i)=>(
+                  <div key={i} onClick={r.action} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,transition:"background .1s"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(27,104,150,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{r.type}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{r.label}</div>
+                      {r.sub&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.sub}</div>}
+                    </div>
+                    <span style={{color:MUTED,fontSize:12}}>→</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {searchQuery.trim().length>1&&searchResults.length===0&&(
+              <div style={{padding:"20px 18px",fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center"}}>Nenhum resultado para "{searchQuery}"</div>
+            )}
+            {searchQuery.trim().length<=1&&(
+              <div style={{padding:"16px 18px",fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Digite para buscar episódios, convidados, pautas e posts...</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* MODAL POSTAGEM */}
       {postagemModal&&postagemEdit&&(
