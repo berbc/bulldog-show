@@ -325,11 +325,16 @@ export default function Home() {
 
   const copyLink = (id) => { navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`); setCopied(id); setTimeout(() => setCopied(null), 2000); };
 
+  const toLocalDate = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
   const getNextWednesdays = () => {
     const weeks=[]; let d=new Date();
     const dow = d.getDay();
     const diff = (3 - dow + 7) % 7;
-    // If today is not Wednesday, go to next Wednesday; if today is Wednesday include today
     d.setDate(d.getDate() + (diff === 0 ? 0 : diff));
     for(let i=0;i<12;i++){weeks.push(new Date(d));d.setDate(d.getDate()+7);}
     return weeks;
@@ -337,9 +342,7 @@ export default function Home() {
   const fmt = (d) => d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"});
   const epsByDate = (ds) => episodes.filter(e => {
     if (!e.gravacao_data) return false;
-    // normalize date - handle both YYYY-MM-DD and other formats
-    const epDate = e.gravacao_data.split("T")[0];
-    return epDate === ds;
+    return e.gravacao_data.split("T")[0] === ds;
   });
 
   const sortedEpisodes = [...episodes]
@@ -633,7 +636,7 @@ export default function Home() {
             {/* Próximas gravações */}
             <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>📅 Próximas Gravações</div>
             {getNextWednesdays().map((wed,i) => {
-              const ds=wed.toISOString().split("T")[0], eps=epsByDate(ds);
+              const ds=toLocalDate(wed), eps=epsByDate(ds);
               return (
                 <div key={i} style={{marginBottom:8}}>
                   {eps.length===0 ? (
