@@ -1167,11 +1167,15 @@ export default function Home() {
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
               <div><div style={lbl}>Status</div>
-              <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}>
-                <option value="pendente">Pendente</option>
-                <option value="agendado">Agendado</option>
-                <option value="postado">Postado</option>
-              </select>
+                <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}>
+                  <option value="pendente">Pendente</option>
+                  <option value="agendado">Agendado</option>
+                  <option value="postado">Postado</option>
+                </select>
+              </div>
+              <div><div style={lbl}>Horário</div>
+                <input type="time" value={postagemEdit.horario||"18:00"} onChange={e=>setPostagemEdit({...postagemEdit,horario:e.target.value})} style={inp} />
+              </div>
             </div>
 
             <div style={{marginBottom:14}}>
