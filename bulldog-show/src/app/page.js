@@ -849,7 +849,6 @@ export default function Home() {
             ))}
           </div>
         )}
-      </div>
 
         {/* POSTAGEM */}
         {activeTab===2 && (
