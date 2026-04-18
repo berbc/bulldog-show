@@ -356,6 +356,7 @@ export default function Home() {
   const allConvidadosInEps = episodes.flatMap(e => e.convidados || []);
   const convidadoCount = allConvidadosInEps.reduce((acc, c) => { acc[c] = (acc[c]||0)+1; return acc; }, {});
   const convidadoRanking = Object.entries(convidadoCount).sort((a,b)=>b[1]-a[1]);
+  const convidadosSemEp = convidados.filter(c => !allConvidadosInEps.includes(c.nome));
   const gamesUsados = episodes.filter(e=>e.game).map(e=>e.game);
   const gameCount = gamesUsados.reduce((acc,g)=>{ acc[g]=(acc[g]||0)+1; return acc; },{});
   const totalInvestido = episodes.reduce((sum,e)=>sum+(e.investimento||0),0);
