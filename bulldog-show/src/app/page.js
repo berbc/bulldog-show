@@ -197,6 +197,8 @@ export default function Home() {
       episodio_title: postagemEdit.episodio_title || "",
       tipo: postagemEdit.tipo,
       status: postagemEdit.status,
+      plataforma: postagemEdit.plataforma || "YouTube",
+      horario: postagemEdit.horario || "18:00",
       link: postagemEdit.link || "",
       notas: postagemEdit.notas || "",
       views: views,
@@ -694,7 +696,7 @@ export default function Home() {
               <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
               <StatCard label="Convidados Únicos" value={Object.keys(convidadoCount).length} />
               <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
-              <StatCard label="Total de Views" value={(() => { const t = postagens.reduce((s,p)=>s+(p.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} color={ACCENT} />
+              <StatCard label="Total de Views" value={(() => { const t = postagens.reduce((s,p)=>s+(p.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} sub="YouTube + Instagram + TikTok" color={ACCENT} />
               <StatCard label="Cortes Publicados" value={totalLinks} />
               <StatCard label="Games Usados" value={Object.keys(gameCount).length} color="#8B5CF6" />
             </div>
@@ -886,14 +888,14 @@ export default function Home() {
         {activeTab===2 && (
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontSize:20,letterSpacing:2}}>CALENDÁRIO DE POSTAGEM <span style={{color:BL}}>YOUTUBE</span></div>
+              <div style={{fontSize:20,letterSpacing:2}}>CALENDÁRIO DE POSTAGEM</div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 12px",fontSize:13}}>← Anterior</button>
                 <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 12px",fontSize:12}}>Hoje</button>
                 <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 12px",fontSize:13}}>Próxima →</button>
               </div>
             </div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:20}}>🕕 18h · Postagem diária no YouTube</div>
+            
             <div style={{display:"grid",gap:10}}>
               {getWeekDates(postagemWeekOffset).map(slot => {
                 const slotPostagens = getPostagens(slot.date);
@@ -1150,15 +1152,21 @@ export default function Home() {
               <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>✕</button>
             </div>
 
-            <div style={{marginBottom:14}}>
-              <div style={lbl}>Tipo</div>
-              <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}>
-                <option>Corte</option><option>Tier List</option><option>Full</option>
-              </select>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              <div><div style={lbl}>Tipo</div>
+                <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}>
+                  <option>Corte</option><option>Tier List</option><option>Full</option>
+                </select>
+              </div>
+              <div><div style={lbl}>Plataforma</div>
+                <select value={postagemEdit.plataforma||"YouTube"} onChange={e=>setPostagemEdit({...postagemEdit,plataforma:e.target.value})} style={inp}>
+                  <option>YouTube</option><option>Instagram</option><option>TikTok</option>
+                </select>
+              </div>
             </div>
 
-            <div style={{marginBottom:14}}>
-              <div style={lbl}>Status</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              <div><div style={lbl}>Status</div>
               <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}>
                 <option value="pendente">Pendente</option>
                 <option value="agendado">Agendado</option>
