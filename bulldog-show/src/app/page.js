@@ -10,7 +10,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "📅 Calendário", "📆 Cronograma", "📊 Estatísticas", "👥 Convidados", "🏆 Tier Lists", "🎮 Games"];
+const TABS = ["📋 Episódios", "📅 Calendário", "📆 Cronograma", "📊 Estatísticas", "💡 Banco de Ideias"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -387,7 +387,7 @@ export default function Home() {
   const gamesUsados = episodes.filter(e=>e.game).map(e=>e.game);
   const gameCount = gamesUsados.reduce((acc,g)=>{ acc[g]=(acc[g]||0)+1; return acc; },{});
   const totalInvestido = episodes.reduce((sum,e)=>sum+(e.investimento||0),0);
-  const totalLinks = episodes.flatMap(e=>e.links||[]).length;
+  const totalLinks = postagens.filter(p=>p.status==="postado").length;
 
   if (checkingAuth) return <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando...</div></div>;
 
@@ -498,8 +498,140 @@ export default function Home() {
           </div>
         )}
 
-        {/* TIER LISTS */}
-        {activeTab===5 && (
+        {/* BANCO DE IDEIAS */}
+        {activeTab===4 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>💡 BANCO DE IDEIAS</div>
+
+            {/* CONVIDADOS */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>👥 CONVIDADOS <span style={{color:BL}}>({convidados.length})</span></div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={convSearch} onChange={e=>setConvSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
+                  <button style={btnBlue} onClick={addConvidado}>+ ADD</button>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <input value={newConvidado} onChange={e=>setNewConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidado()} placeholder="Nome do convidado..." style={{...inp,flex:1}} />
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
+                {sortedConvidados.map(c => (
+                  <div key={c.id} className="bi" style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BORDER}`,borderRadius:7,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontFamily:"'DM Sans'",fontSize:12}}>👤 {c.nome}</span>
+                    <button className="xb" onClick={()=>removeConvidado(c.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL,marginLeft:4}}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* TIER LISTS */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>🏆 TIER LISTS <span style={{color:BL}}>({tierLists.length})</span></div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={tierSearch} onChange={e=>setTierSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
+                  <select value={tierSort} onChange={e=>setTierSort(e.target.value)} style={{...inp,width:"auto"}}>
+                    <option value="az">A → Z</option><option value="za">Z → A</option>
+                    <option value="stars_desc">★ Top</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <input value={newTierList} onChange={e=>setNewTierList(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTierList()} placeholder="Nova tier list..." style={{...inp,flex:1}} />
+                <button style={btnBlue} onClick={addTierList}>+ ADD</button>
+              </div>
+              {sortedTierLists.map(tl => (
+                <div key={tl.id} className="bi" style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BORDER}`,borderRadius:7,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:6}}>
+                  <span style={{fontFamily:"'DM Sans'",fontSize:13,flex:1}}>🏆 {tl.nome}</span>
+                  <Stars value={tl.estrelas||0} onChange={v=>updateTierStars(tl.id,v)} />
+                  <button className="xb" onClick={()=>removeTierList(tl.id)} style={{...btnGhost,padding:"3px 9px",fontSize:11,color:BL}}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            {/* GAMES */}
+            <div style={{...card,padding:20}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>🎮 GAMES <span style={{color:BL}}>({games.length})</span></div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={gameSearch} onChange={e=>setGameSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
+                  <select value={gameSort} onChange={e=>setGameSort(e.target.value)} style={{...inp,width:"auto"}}>
+                    <option value="az">A → Z</option><option value="za">Z → A</option>
+                    <option value="stars_desc">★ Top</option>
+                  </select>
+                  <button style={btnBlue} onClick={()=>setAddingGame(!addingGame)}>+ ADD</button>
+                </div>
+              </div>
+              {addingGame && (
+                <div style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BL}`,borderRadius:8,padding:16,marginBottom:14}}>
+                  <div style={{display:"grid",gap:10}}>
+                    <input value={newGame.nome} onChange={e=>setNewGame({...newGame,nome:e.target.value})} placeholder="Nome *" style={inp} />
+                    <textarea value={newGame.descricao} onChange={e=>setNewGame({...newGame,descricao:e.target.value})} placeholder="Como funciona..." style={{...inp,minHeight:60,resize:"vertical"}} />
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                      <input value={newGame.jogadores} onChange={e=>setNewGame({...newGame,jogadores:e.target.value})} placeholder="Jogadores" style={inp} />
+                      <input value={newGame.duracao} onChange={e=>setNewGame({...newGame,duracao:e.target.value})} placeholder="Duração" style={inp} />
+                      <select value={newGame.dificuldade} onChange={e=>setNewGame({...newGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
+                    </div>
+                    <textarea value={newGame.ideias} onChange={e=>setNewGame({...newGame,ideias:e.target.value})} placeholder="Ideias de variações..." style={{...inp,minHeight:50,resize:"vertical"}} />
+                    <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{...lbl,margin:0}}>Estrelas</span><Stars value={newGame.estrelas} onChange={v=>setNewGame({...newGame,estrelas:v})} /></div>
+                    <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={addGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setAddingGame(false)}>Cancelar</button></div>
+                  </div>
+                </div>
+              )}
+              {sortedGames.map(g => {
+                const dc={Fácil:"#10B981",Médio:"#F59E0B",Difícil:"#EF4444"};
+                const isOpen=expandedGame===g.id, isEditing=editingGame?.id===g.id;
+                return (
+                  <div key={g.id} style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${isOpen?BL:BORDER}`,borderRadius:8,overflow:"hidden",marginBottom:6,transition:"border-color .2s"}}>
+                    <div onClick={()=>!isEditing&&setExpandedGame(isOpen?null:g.id)} style={{padding:"11px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:18}}>🎮</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,letterSpacing:1}}>{g.nome}</div>
+                        {!isOpen&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>{g.descricao?.slice(0,60)}…</div>}
+                      </div>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <Stars value={g.estrelas||0} onChange={v=>updateGameStars(g.id,v)} readonly={!isOpen} />
+                        {g.jogadores&&<span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>👥{g.jogadores}</span>}
+                        <span style={{background:`${dc[g.dificuldade]||"#888"}22`,color:dc[g.dificuldade]||"#888",borderRadius:4,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{g.dificuldade}</span>
+                        <span style={{color:MUTED,fontSize:10}}>{isOpen?"▲":"▼"}</span>
+                      </div>
+                    </div>
+                    {isOpen&&(
+                      <div style={{padding:"0 14px 14px",borderTop:`1px solid ${BORDER}`}}>
+                        {isEditing ? (
+                          <div style={{paddingTop:10,display:"grid",gap:8}}>
+                            <input value={editingGame.nome} onChange={e=>setEditingGame({...editingGame,nome:e.target.value})} style={inp} />
+                            <textarea value={editingGame.descricao} onChange={e=>setEditingGame({...editingGame,descricao:e.target.value})} style={{...inp,minHeight:60,resize:"vertical"}} />
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                              <input value={editingGame.jogadores} onChange={e=>setEditingGame({...editingGame,jogadores:e.target.value})} placeholder="Jogadores" style={inp} />
+                              <input value={editingGame.duracao} onChange={e=>setEditingGame({...editingGame,duracao:e.target.value})} placeholder="Duração" style={inp} />
+                              <select value={editingGame.dificuldade} onChange={e=>setEditingGame({...editingGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
+                            </div>
+                            <textarea value={editingGame.ideias} onChange={e=>setEditingGame({...editingGame,ideias:e.target.value})} style={{...inp,minHeight:50,resize:"vertical"}} />
+                            <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={saveGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setEditingGame(null)}>Cancelar</button></div>
+                          </div>
+                        ) : (
+                          <div style={{paddingTop:10,display:"grid",gap:10}}>
+                            <div><div style={lbl}>Como funciona</div><div style={{...val,fontSize:12,lineHeight:1.6}}>{g.descricao}</div></div>
+                            {g.ideias&&<div><div style={lbl}>💡 Variações</div><div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,lineHeight:1.6}}>{g.ideias}</div></div>}
+                            <div style={{display:"flex",gap:8}}>
+                              <button style={{...btnBlue,fontSize:11}} onClick={()=>setEditingGame({...g})}>✏️ EDITAR</button>
+                              <button onClick={()=>removeGame(g.id)} style={{...btnGhost,fontSize:11}}>🗑 Remover</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* OLD TIER LISTS - now inside banco de ideias */}
+        {activeTab===999 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:16}}>BANCO DE TIER LISTS <span style={{color:BL}}>({tierLists.length})</span></div>
             <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -523,27 +655,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* CONVIDADOS */}
-        {activeTab===4 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:16}}>BANCO DE CONVIDADOS <span style={{color:BL}}>({convidados.length})</span></div>
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              <input value={newConvidado} onChange={e=>setNewConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidado()} placeholder="Novo convidado..." style={{...inp,flex:1}} />
-              <button style={btnBlue} onClick={addConvidado}>+ ADD</button>
-            </div>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <input value={convSearch} onChange={e=>setConvSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200}} />
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:8}}>
-              {sortedConvidados.map(c => (
-                <div key={c.id} className="bi" style={{...card,padding:"9px 13px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <span style={{fontFamily:"'DM Sans'",fontSize:12}}>👤 {c.nome}</span>
-                  <button className="xb" onClick={()=>removeConvidado(c.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL,marginLeft:4}}>✕</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* GAMES */}
         {activeTab===6 && (
@@ -694,10 +806,10 @@ export default function Home() {
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,marginBottom:28}}>
               <StatCard label="Total de Episódios" value={episodes.length} />
               <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
-              <StatCard label="Convidados Únicos" value={Object.keys(convidadoCount).length} />
+              <StatCard label="Tier Lists Publicadas" value={postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length} color="#F59E0B" />
               <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
               <StatCard label="Total de Views" value={(() => { const t = postagens.reduce((s,p)=>s+(p.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} sub="YouTube + Instagram + TikTok" color={ACCENT} />
-              <StatCard label="Cortes Publicados" value={totalLinks} />
+              <StatCard label="Posts Publicados" value={totalLinks} />
               <StatCard label="Games Usados" value={Object.keys(gameCount).length} color="#8B5CF6" />
             </div>
 
