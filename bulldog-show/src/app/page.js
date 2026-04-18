@@ -10,7 +10,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "🏆 Tier Lists", "👥 Convidados", "🎮 Games", "📅 Calendário", "📊 Estatísticas", "📆 Postagem"];
+const TABS = ["📋 Episódios", "📅 Calendário", "📆 Cronograma", "📊 Estatísticas", "👥 Convidados", "🏆 Tier Lists", "🎮 Games"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -77,6 +77,7 @@ export default function Home() {
 
   // Stats modal
   const [statsEp, setStatsEp] = useState(null);
+  const [showAllConvidados, setShowAllConvidados] = useState(false);
   const [statsEdit, setStatsEdit] = useState(null);
   const [statsEditMode, setStatsEditMode] = useState(false);
 
@@ -478,7 +479,7 @@ export default function Home() {
         )}
 
         {/* TIER LISTS */}
-        {activeTab===1 && (
+        {activeTab===5 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:16}}>BANCO DE TIER LISTS <span style={{color:BL}}>({tierLists.length})</span></div>
             <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -503,7 +504,7 @@ export default function Home() {
         )}
 
         {/* CONVIDADOS */}
-        {activeTab===2 && (
+        {activeTab===4 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:16}}>BANCO DE CONVIDADOS <span style={{color:BL}}>({convidados.length})</span></div>
             <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -525,7 +526,7 @@ export default function Home() {
         )}
 
         {/* GAMES */}
-        {activeTab===3 && (
+        {activeTab===6 && (
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div style={{fontSize:20,letterSpacing:2}}>BANCO DE GAMES <span style={{color:BL}}>({games.length})</span></div>
@@ -607,7 +608,7 @@ export default function Home() {
         )}
 
         {/* CALENDÁRIO */}
-        {activeTab===4 && (
+        {activeTab===1 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:6}}>CALENDÁRIO DE GRAVAÇÕES</div>
             <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:18}}>📅 Quartas-feiras · 10h–12h e 14h–16h · 2 eps por dia</div>
@@ -665,7 +666,7 @@ export default function Home() {
         )}
 
         {/* ESTATÍSTICAS */}
-        {activeTab===5 && (
+        {activeTab===3 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
 
@@ -806,7 +807,7 @@ export default function Home() {
       </div>
 
         {/* POSTAGEM */}
-        {activeTab===6 && (
+        {activeTab===2 && (
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <div style={{fontSize:20,letterSpacing:2}}>CALENDÁRIO DE POSTAGEM <span style={{color:BL}}>YOUTUBE</span></div>
