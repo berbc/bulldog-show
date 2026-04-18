@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 
-const TABS = ["📋 Episódios", "📅 Calendário", "📆 Cronograma", "📊 Estatísticas", "💡 Banco de Ideias"];
+const TABS = ["📋 Episódios", "📅 Calendário", "📆 Cronograma", "📊 Estatísticas", "🎬 Produção", "💡 Banco de Ideias"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -95,6 +95,7 @@ export default function Home() {
   const [comentarios, setComentarios] = useState([]);
   const [pautas, setPautas] = useState([]);
   const [newPauta, setNewPauta] = useState({titulo:"",descricao:"",estrelas:0});
+  const [editingPauta, setEditingPauta] = useState(null);
   const [newComentario, setNewComentario] = useState("");
   const [newMembro, setNewMembro] = useState({nome:"",funcao:""});
   const [addingMembro, setAddingMembro] = useState(false);
@@ -237,6 +238,14 @@ export default function Home() {
   const togglePautaUsado = async (id, usado) => {
     await supabase.from("pautas").update({usado}).eq("id", id);
     setPautas(prev => prev.map(p => p.id === id ? {...p, usado} : p));
+  };
+
+  const savePauta = async () => {
+    if (!editingPauta) return;
+    const { data } = await supabase.from("pautas").update({
+      titulo: editingPauta.titulo, descricao: editingPauta.descricao
+    }).eq("id", editingPauta.id).select().single();
+    if (data) { setPautas(prev => prev.map(p => p.id === data.id ? data : p)); setEditingPauta(null); flash(); }
   };
 
   const saveChecklist = async (epId, checklist) => {
@@ -589,8 +598,71 @@ export default function Home() {
           </div>
         )}
 
-        {/* BANCO DE IDEIAS */}
+        {/* PRODUÇÃO */}
         {activeTab===4 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE EPISÓDIOS</span></div>
+            {[...episodes].sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep => {
+              const checklist = ep.checklist || [];
+              const ITEMS = [
+                {key:"convidados",label:"👥 Convidados"},
+                {key:"tema_tier",label:"🏆 Tema Tier List"},
+                {key:"tema_programa",label:"📺 Tema do Programa"},
+                {key:"producao_tier",label:"⚙️ Produção Tier List"},
+                {key:"pauta",label:"📋 Pauta"},
+                {key:"gravar",label:"🎙 Gravação"},
+                {key:"editar",label:"✂️ Edição"},
+                {key:"thumbnail",label:"🖼 Thumbnail"},
+                {key:"legenda",label:"📝 Legenda / Descrição"},
+                {key:"postar",label:"📤 Postagem"}
+              ];
+              const done = checklist.length;
+              const total = ITEMS.length;
+              const pct = Math.round((done/total)*100);
+              const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
+              const sConfig = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+              return (
+                <div key={ep.id} style={{...card,padding:20,marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
+                      <span style={{background:sConfig.bg,color:sConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sConfig.label}</span>
+                      <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>🎬 {seConfig.label}</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontFamily:"'DM Sans'",fontSize:12,color:pct===100?"#10B981":MUTED}}>{done}/{total} tarefas</span>
+                      <button onClick={()=>openEp(ep)} style={{...btnGhost,fontSize:11,padding:"4px 10px"}}>Abrir episódio</button>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{background:"#0A1F30",borderRadius:4,height:6,overflow:"hidden",marginBottom:14}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s ease"}} />
+                  </div>
+                  {/* Checklist grid */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+                    {ITEMS.map(item => {
+                      const isDone = checklist.includes(item.key);
+                      return (
+                        <div key={item.key} onClick={()=>{
+                          const newList = isDone ? checklist.filter(c=>c!==item.key) : [...checklist, item.key];
+                          saveChecklist(ep.id, newList);
+                        }} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:6,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`,transition:"all .15s"}}>
+                          <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                            {isDone&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
+                          </div>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* BANCO DE IDEIAS */}
+        {activeTab===5 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>💡 BANCO DE IDEIAS</div>
 
@@ -682,14 +754,28 @@ export default function Home() {
                 </div>
               </div>
               {pautas.map(p=>(
-                <div key={p.id} className="bi" style={{background:p.usado?"rgba(16,185,129,0.06)":"rgba(27,104,150,0.08)",border:`1px solid ${p.usado?"rgba(16,185,129,0.2)":BORDER}`,borderRadius:7,padding:"10px 14px",display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:13,color:p.usado?MUTED:TEXT,textDecoration:p.usado?"line-through":"none"}}>{p.titulo}</div>
-                    {p.descricao&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{p.descricao}</div>}
-                  </div>
-                  <Stars value={p.estrelas||0} onChange={v=>updatePautaStars(p.id,v)} />
-                  <button onClick={()=>togglePautaUsado(p.id,!p.usado)} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:p.usado?"#10B981":MUTED}}>{p.usado?"✓ usado":"marcar usado"}</button>
-                  <button className="xb" onClick={()=>removePauta(p.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL}}>✕</button>
+                <div key={p.id} style={{background:p.usado?"rgba(16,185,129,0.06)":"rgba(27,104,150,0.08)",border:`1px solid ${p.usado?"rgba(16,185,129,0.2)":BORDER}`,borderRadius:7,padding:"10px 14px",marginBottom:6}}>
+                  {editingPauta?.id===p.id ? (
+                    <div style={{display:"grid",gap:8}}>
+                      <input value={editingPauta.titulo} onChange={e=>setEditingPauta({...editingPauta,titulo:e.target.value})} style={inp} />
+                      <input value={editingPauta.descricao} onChange={e=>setEditingPauta({...editingPauta,descricao:e.target.value})} placeholder="Descrição..." style={inp} />
+                      <div style={{display:"flex",gap:8}}>
+                        <button style={btnBlue} onClick={savePauta}>💾 SALVAR</button>
+                        <button style={btnGhost} onClick={()=>setEditingPauta(null)}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:13,color:p.usado?MUTED:TEXT,textDecoration:p.usado?"line-through":"none"}}>{p.titulo}</div>
+                        {p.descricao&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{p.descricao}</div>}
+                      </div>
+                      <Stars value={p.estrelas||0} onChange={v=>updatePautaStars(p.id,v)} />
+                      <button onClick={()=>setEditingPauta({...p})} style={{...btnGhost,padding:"2px 8px",fontSize:10}}>✏️</button>
+                      <button onClick={()=>togglePautaUsado(p.id,!p.usado)} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:p.usado?"#10B981":MUTED}}>{p.usado?"✓ usado":"usar"}</button>
+                      <button onClick={()=>removePauta(p.id)} style={{...btnGhost,padding:"2px 7px",fontSize:10,color:BL}}>✕</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -774,7 +860,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* OLD TIER LISTS - now inside banco de ideias */}
+        {/* placeholder */}
         {activeTab===999 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:16}}>BANCO DE TIER LISTS <span style={{color:BL}}>({tierLists.length})</span></div>
@@ -947,15 +1033,22 @@ export default function Home() {
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
 
             {/* Cards resumo */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12,marginBottom:28}}>
-              <StatCard label="Total de Episódios" value={episodes.length} />
-              <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
-              <StatCard label="Tier Lists Publicadas" value={postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length} color="#F59E0B" />
-              <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
-              <StatCard label="Total de Views" value={(() => { const t = postagens.reduce((s,p)=>s+(p.views||0),0); return t>0?t.toLocaleString("pt-BR"):"0"; })()} sub="YouTube + Instagram + TikTok" color={ACCENT} />
-              <StatCard label="Posts Publicados" value={totalLinks} />
-              <StatCard label="Games Usados" value={Object.keys(gameCount).length} color="#8B5CF6" />
-            </div>
+            {(() => {
+              const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
+              const socialViews = postagens.filter(p=>p.plataforma==="Instagram"||p.plataforma==="TikTok").reduce((s,p)=>s+(p.views||0),0);
+              const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
+              return (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
+                  <StatCard label="Episódios Gravados" value={gravados} />
+                  <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
+                  <StatCard label="Cortes Publicados" value={postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length} color={ACCENT} />
+                  <StatCard label="Tier Lists Publicadas" value={postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length} color="#F59E0B" />
+                  <StatCard label="Views YouTube" value={ytViews>0?ytViews.toLocaleString("pt-BR"):"0"} color="#EF4444" />
+                  <StatCard label="Views Redes Sociais" value={socialViews>0?socialViews.toLocaleString("pt-BR"):"0"} color="#8B5CF6" />
+                  <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
+                </div>
+              );
+            })()}
 
             {/* Gráfico: Views por episódio com breakdown por tipo */}
             {(() => {
@@ -1334,6 +1427,11 @@ export default function Home() {
               <div style={{marginBottom:16}}>
                 <div style={lbl}>✅ Checklist de Produção</div>
                 {[
+                  {key:"convidados",label:"👥 Convidados"},
+                  {key:"tema_tier",label:"🏆 Tema Tier List"},
+                  {key:"tema_programa",label:"📺 Tema do Programa"},
+                  {key:"producao_tier",label:"⚙️ Produção Tier List"},
+                  {key:"pauta",label:"📋 Pauta"},
                   {key:"gravar",label:"🎙 Gravação"},
                   {key:"editar",label:"✂️ Edição"},
                   {key:"thumbnail",label:"🖼 Thumbnail"},
