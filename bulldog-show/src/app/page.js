@@ -256,6 +256,7 @@ export default function Home() {
         gravacao_duracao: editData.gravacao_duracao || "",
         local: editData.local || "",
         endereco: editData.endereco || "",
+        pauta: editData.pauta || "",
         notas: editData.notas || "",
         mensagem_convidado: editData.mensagem_convidado || "",
         retroativo: editData.retroativo || false,
@@ -894,104 +895,113 @@ export default function Home() {
         {activeTab===3 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE CONTEÚDO</span></div>
-
-            {/* EPISÓDIOS - só os não 100% publicados */}
-            {[...episodes].filter(ep => {
-              if (ep.status === "publicado") return false;
-              const cl = ep.checklist || [];
-              if (cl.length >= CHECKLIST_ITEMS.length) return false;
-              return true;
-            }).sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep => {
-              const checklist = ep.checklist || [];
-              const done = checklist.length;
-              const pct = Math.round((done/CHECKLIST_ITEMS.length)*100);
-              const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
-              const sConfig = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
-              const proxPost = [...postagens].filter(p=>p.episodio_id===ep.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0];
-              const diasLabel = () => {
-                if (!proxPost) return null;
-                const dias = Math.ceil((new Date(proxPost.data+"T12:00:00")-new Date())/(1000*60*60*24));
-                const cor = dias <= 2?"#EF4444":dias <= 5?"#F59E0B":"#10B981";
-                const txt = dias < 0?"atrasado":dias === 0?"hoje":dias === 1?"amanhã":`${dias} dias`;
-                return <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>📤 {txt}</span>;
+            {(() => {
+              const COLS = [
+                {key:"tema",label:"Tema",color:ACCENT},
+                {key:"convidados",label:"Convidados",color:"#60A5FA"},
+                {key:"tema_tier",label:"Tema Tier List",color:"#F59E0B"},
+                {key:"producao_tier",label:"Prod. Tier List",color:"#F59E0B"},
+                {key:"pauta",label:"Pauta",color:"#A78BFA"},
+                {key:"gravar",label:"Gravação",color:"#E8F4FF"},
+                {key:"editar",label:"Edição",color:"#8B5CF6"},
+                {key:"thumbnail",label:"Thumbnail",color:"#EC4899"},
+                {key:"legenda",label:"Legenda / Desc.",color:"#10B981"},
+                {key:"postar",label:"Postagem",color:"#34D399"},
+              ];
+              const getColIdx = (ep) => {
+                const cl = ep.checklist || [];
+                let idx = 0;
+                for (let i = 0; i < COLS.length; i++) { if (cl.includes(COLS[i].key)) idx = i + 1; }
+                return Math.min(idx, COLS.length - 1);
               };
+              const getCorteColIdx = (p) => {
+                const clItems = getCorteChecklist(p.tipo, p.plataforma);
+                const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
+                const keyMap = {edicao:"editar",thumbnail:"thumbnail",descricao:"legenda",postagem:"postar"};
+                let idx = 6;
+                for (const item of clItems) {
+                  const colKey = keyMap[item.key];
+                  if (done.includes(item.key) && colKey) {
+                    const ci = COLS.findIndex(c=>c.key===colKey);
+                    if (ci >= idx) idx = ci + 1;
+                  }
+                }
+                return Math.min(idx, COLS.length - 1);
+              };
+              const advance = async (item, isPost) => {
+                if (isPost) {
+                  const clItems = getCorteChecklist(item.tipo, item.plataforma);
+                  const done = (() => { try { return JSON.parse(item.notas_checklist||"[]"); } catch(e) { return []; } })();
+                  const next = clItems.find(i => !done.includes(i.key));
+                  if (next) await saveCorteChecklist(item.id, [...done, next.key]);
+                } else {
+                  const cl = item.checklist || [];
+                  const next = COLS.find(c => !cl.includes(c.key));
+                  if (next) await saveChecklist(item.id, [...cl, next.key]);
+                }
+              };
+              const goBack = async (item, isPost) => {
+                if (isPost) {
+                  const done = (() => { try { return JSON.parse(item.notas_checklist||"[]"); } catch(e) { return []; } })();
+                  if (done.length > 0) await saveCorteChecklist(item.id, done.slice(0,-1));
+                } else {
+                  const cl = item.checklist || [];
+                  if (cl.length > 0) await saveChecklist(item.id, cl.slice(0,-1));
+                }
+              };
+              const allItems = [
+                ...episodes.filter(e=>e.status!=="publicado").map(e=>({...e,_isPost:false})),
+                ...postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List")).map(p=>({...p,_isPost:true}))
+              ];
               return (
-                <div key={ep.id} style={{...card,padding:20,marginBottom:12}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                      <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
-                      <span style={{background:sConfig.bg,color:sConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sConfig.label}</span>
-                      <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>
-                      {diasLabel()}
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <span style={{fontFamily:"'DM Sans'",fontSize:12,color:pct===100?"#10B981":MUTED}}>{done}/{CHECKLIST_ITEMS.length}</span>
-                      <button onClick={()=>openEp(ep)} style={{...btnGhost,fontSize:11,padding:"4px 10px"}}>Abrir episódio</button>
-                    </div>
-                  </div>
-                  <div style={{background:"#0A1F30",borderRadius:4,height:6,overflow:"hidden",marginBottom:14}}>
-                    <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:6,marginBottom:14}}>
-                    {CHECKLIST_ITEMS.map(item => {
-                      const isDone = checklist.includes(item.key);
+                <div style={{overflowX:"auto",paddingBottom:12}}>
+                  <div style={{display:"grid",gridTemplateColumns:`repeat(${COLS.length},minmax(170px,1fr))`,gap:8,minWidth:1700}}>
+                    {COLS.map((col,ci) => {
+                      const items = allItems.filter(item => (item._isPost?getCorteColIdx(item):getColIdx(item))===ci);
                       return (
-                        <div key={item.key} onClick={()=>{
-                          const newList = isDone?checklist.filter(c=>c!==item.key):[...checklist,item.key];
-                          saveChecklist(ep.id,newList);
-                        }} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:6,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`,transition:"all .15s"}}>
-                          <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                            {isDone && <span style={{color:"#fff",fontSize:9}}>✓</span>}
+                        <div key={col.key} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden"}}>
+                          <div style={{padding:"10px 12px",borderBottom:`2px solid ${col.color}`,background:`${col.color}18`}}>
+                            <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:col.color}}>{col.label}</div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:2}}>{items.length} {items.length===1?"item":"itens"}</div>
                           </div>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
+                          <div style={{padding:8,display:"flex",flexDirection:"column",gap:6,minHeight:120}}>
+                            {items.map(item => {
+                              const isPost = item._isPost;
+                              const tipoColor = isPost?(item.tipo==="Full"?"#8B5CF6":item.tipo==="Tier List"?"#F59E0B":ACCENT):null;
+                              const proxPost = !isPost?[...postagens].filter(p=>p.episodio_id===item.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0]:null;
+                              const dData = isPost?item.data:proxPost?.data;
+                              const dias = dData?Math.ceil((new Date(dData+"T12:00:00")-new Date())/(1000*60*60*24)):null;
+                              const diasCor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
+                              const diasTxt = dias===null?null:dias<0?"atrasado":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
+                              return (
+                                <div key={`${isPost?"p":"e"}-${item.id}`} onClick={()=>{if(!isPost)openEp(item);}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:7,padding:"10px 10px 8px",cursor:!isPost?"pointer":"default",transition:"border-color .15s"}} onMouseEnter={e=>{if(!isPost)e.currentTarget.style.borderColor=BL;}} onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(27,104,150,0.3)";}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5,flexWrap:"wrap"}}>
+                                    {isPost
+                                      ? <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontFamily:"'Bebas Neue'",fontSize:11}}>{item.tipo}</span>
+                                      : <span style={{background:"rgba(36,135,190,0.2)",color:"#7EC8F0",borderRadius:3,padding:"1px 6px",fontFamily:"'Bebas Neue'",fontSize:11}}>EP</span>
+                                    }
+                                    {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"1px 5px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤 {diasTxt}</span>}
+                                  </div>
+                                  <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,lineHeight:1.2,marginBottom:2}}>
+                                    {isPost?(item.episodio_title||"Sem episódio"):item.title}
+                                  </div>
+                                  {isPost&&(item.titulo_yt||item.notas)&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>{item.titulo_yt||item.notas}</div>}
+                                  {!isPost&&item.convidados?.length>0&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginBottom:4}}>👤 {item.convidados.join(", ")}</div>}
+                                  <div style={{display:"flex",gap:4,marginTop:6}} onClick={e=>e.stopPropagation()}>
+                                    {ci>0&&<button onClick={()=>goBack(item,isPost)} style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,color:MUTED,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,flex:1}}>← Voltar</button>}
+                                    {ci<COLS.length-1&&<button onClick={()=>advance(item,isPost)} style={{background:`${col.color}22`,border:`1px solid ${col.color}44`,color:col.color,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,flex:1,fontWeight:600}}>Avançar →</button>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-                  {/* CRONÔMETRO */}
-                  <div style={{padding:"14px 16px",background:"rgba(27,104,150,0.06)",borderRadius:8,border:`1px solid ${BORDER}`}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:12}}>
-                        <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:3,color:cronoEpId===ep.id?ACCENT:MUTED,minWidth:90}}>
-                          {cronoFmt(cronoEpId===ep.id?cronoTime:0)}
-                        </div>
-                        {cronoEpId===ep.id&&cronoRunning
-                          ? <button onClick={cronoPause} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>⏸ Pausar</button>
-                          : <button onClick={()=>cronoStart(ep.id)} style={{...btnBlue,padding:"6px 14px",fontSize:12}}>▶ {cronoEpId===ep.id?"Continuar":"Iniciar"}</button>
-                        }
-                        <button onClick={()=>cronoReset(ep.id)} style={{...btnGhost,padding:"6px 10px",fontSize:11}}>↺ Reset</button>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Espaço=pause · C=corte</span>
-                      </div>
-                      <button onClick={()=>marcarCorte(ep)} disabled={cronoEpId!==ep.id||cronoTime===0} style={{background:cronoEpId===ep.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"8px 18px",cursor:cronoEpId===ep.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1}}>
-                        ✂️ MARCAR CORTE
-                      </button>
-                    </div>
-                    {cronoNotaAtiva&&cronoEpId===ep.id && (
-                      <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
-                        <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0}}>✂️ {cronoNotaAtiva.timeStr}</div>
-                        <input value={cronoNotaAtiva.nota} onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})} onKeyDown={e=>e.key==="Enter"&&salvarCorte(ep)} placeholder="Descreve o corte... (Enter para salvar)" style={{...inp,flex:1}} autoFocus />
-                        <button onClick={()=>salvarCorte(ep)} style={btnBlue}>💾</button>
-                        <button onClick={()=>setCronoNotaAtiva(null)} style={btnGhost}>✕</button>
-                      </div>
-                    )}
-                    {(ep.cortes_gravacao||[]).length>0 && (
-                      <div style={{marginTop:12}}>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes ({ep.cortes_gravacao.length})</div>
-                        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:180,overflowY:"auto"}}>
-                          {ep.cortes_gravacao.map(c=>(
-                            <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:"rgba(239,68,68,0.06)",borderRadius:5,border:"1px solid rgba(239,68,68,0.2)"}}>
-                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"#EF4444",flexShrink:0,minWidth:50}}>{c.timeStr}</span>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{c.nota||<span style={{color:MUTED}}>Sem nota</span>}</span>
-                              <button onClick={()=>deletarCorte(ep,c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:11}}>✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               );
-            })}
+            })()}
 
             {/* CORTES DO CRONOGRAMA */}
             {(() => {
@@ -1051,6 +1061,7 @@ export default function Home() {
                 </div>
               );
             })()}
+
           </div>
         )}
 
@@ -1480,6 +1491,15 @@ export default function Home() {
                 <label htmlFor="retro" style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,cursor:"pointer"}}>Episódio Retroativo</label>
               </div>
             )}
+            {/* Pauta */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>📋 Pauta do Episódio</div>
+              {editMode
+                ? <textarea value={editData.pauta||""} onChange={e=>setEditData({...editData,pauta:e.target.value})} style={{...inp,minHeight:200,resize:"vertical",lineHeight:1.7}} placeholder="Cole a pauta aqui... parágrafos serão preservados."/>
+                : selectedEp.pauta
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,lineHeight:1.8,whiteSpace:"pre-wrap",background:"rgba(27,104,150,0.06)",borderRadius:8,padding:"14px 16px",border:`1px solid ${BORDER}`}}>{selectedEp.pauta}</div>
+                  : <span style={{color:"#1A3A50",fontFamily:"'DM Sans'",fontSize:13}}>Sem pauta</span>}
+            </div>
             {/* Notas */}
             <div style={{marginBottom:16}}>
               <div style={lbl}>Notas</div>
