@@ -897,108 +897,103 @@ export default function Home() {
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE CONTEÚDO</span></div>
             {(() => {
               const COLS = [
-                {key:"tema",label:"Tema",color:ACCENT},
-                {key:"convidados",label:"Convidados",color:"#60A5FA"},
-                {key:"tema_tier",label:"Tema Tier List",color:"#F59E0B"},
-                {key:"producao_tier",label:"Prod. Tier List",color:"#F59E0B"},
-                {key:"pauta",label:"Pauta",color:"#A78BFA"},
-                {key:"gravar",label:"Gravação",color:"#E8F4FF"},
-                {key:"editar",label:"Edição",color:"#8B5CF6"},
-                {key:"thumbnail",label:"Thumbnail",color:"#EC4899"},
-                {key:"legenda",label:"Legenda / Desc.",color:"#10B981"},
-                {key:"postar",label:"Postagem",color:"#34D399"},
+                {key:"tema",       label:"Tema",       color:"#7EC8F0"},
+                {key:"convidados", label:"Convidados", color:"#60A5FA"},
+                {key:"tema_tier",  label:"Tier List",  color:"#F59E0B"},
+                {key:"pauta",      label:"Pauta",      color:"#A78BFA"},
+                {key:"gravar",     label:"Gravação",   color:"#E8F4FF"},
+                {key:"editar",     label:"Edição",     color:"#8B5CF6"},
+                {key:"thumbnail",  label:"Thumbnail",  color:"#EC4899"},
+                {key:"postar",     label:"Postagem",   color:"#34D399"},
               ];
               const getColIdx = (ep) => {
                 const cl = ep.checklist || [];
                 let idx = 0;
-                for (let i = 0; i < COLS.length; i++) { if (cl.includes(COLS[i].key)) idx = i + 1; }
-                return Math.min(idx, COLS.length - 1);
+                for (let i = 0; i < COLS.length; i++) { if (cl.includes(COLS[i].key)) idx = i+1; }
+                return Math.min(idx, COLS.length-1);
               };
               const getCorteColIdx = (p) => {
                 const clItems = getCorteChecklist(p.tipo, p.plataforma);
                 const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
-                const keyMap = {edicao:"editar",thumbnail:"thumbnail",descricao:"legenda",postagem:"postar"};
-                let idx = 6;
+                const keyMap = {edicao:"editar",thumbnail:"thumbnail",descricao:"thumbnail",postagem:"postar"};
+                let idx = 5;
                 for (const item of clItems) {
                   const colKey = keyMap[item.key];
                   if (done.includes(item.key) && colKey) {
                     const ci = COLS.findIndex(c=>c.key===colKey);
-                    if (ci >= idx) idx = ci + 1;
+                    if (ci >= idx) idx = ci+1;
                   }
                 }
-                return Math.min(idx, COLS.length - 1);
+                return Math.min(idx, COLS.length-1);
               };
-              const advance = async (item, isPost) => {
+              const moveToCol = async (item, isPost, toIdx) => {
                 if (isPost) {
                   const clItems = getCorteChecklist(item.tipo, item.plataforma);
-                  const done = (() => { try { return JSON.parse(item.notas_checklist||"[]"); } catch(e) { return []; } })();
-                  const next = clItems.find(i => !done.includes(i.key));
-                  if (next) await saveCorteChecklist(item.id, [...done, next.key]);
+                  const corteColStart = 5;
+                  const stepsToMark = Math.max(0, toIdx - corteColStart);
+                  const newDone = clItems.slice(0, stepsToMark).map(i=>i.key);
+                  await saveCorteChecklist(item.id, newDone);
                 } else {
-                  const cl = item.checklist || [];
-                  const next = COLS.find(c => !cl.includes(c.key));
-                  if (next) await saveChecklist(item.id, [...cl, next.key]);
-                }
-              };
-              const goBack = async (item, isPost) => {
-                if (isPost) {
-                  const done = (() => { try { return JSON.parse(item.notas_checklist||"[]"); } catch(e) { return []; } })();
-                  if (done.length > 0) await saveCorteChecklist(item.id, done.slice(0,-1));
-                } else {
-                  const cl = item.checklist || [];
-                  if (cl.length > 0) await saveChecklist(item.id, cl.slice(0,-1));
+                  const newCl = COLS.slice(0, toIdx).map(c=>c.key);
+                  await saveChecklist(item.id, newCl);
                 }
               };
               const allItems = [
-                ...episodes.filter(e=>e.status!=="publicado").map(e=>({...e,_isPost:false})),
-                ...postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List")).map(p=>({...p,_isPost:true}))
+                ...episodes.filter(e=>e.status!=="publicado").map(e=>({...e,_isPost:false,_uid:"e-"+e.id})),
+                ...postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List")).map(p=>({...p,_isPost:true,_uid:"p-"+p.id}))
               ];
               return (
-                <div style={{overflowX:"auto",paddingBottom:12}}>
-                  <div style={{display:"grid",gridTemplateColumns:`repeat(${COLS.length},minmax(170px,1fr))`,gap:8,minWidth:1700}}>
-                    {COLS.map((col,ci) => {
-                      const items = allItems.filter(item => (item._isPost?getCorteColIdx(item):getColIdx(item))===ci);
-                      return (
-                        <div key={col.key} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden"}}>
-                          <div style={{padding:"10px 12px",borderBottom:`2px solid ${col.color}`,background:`${col.color}18`}}>
-                            <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:col.color}}>{col.label}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:2}}>{items.length} {items.length===1?"item":"itens"}</div>
-                          </div>
-                          <div style={{padding:8,display:"flex",flexDirection:"column",gap:6,minHeight:120}}>
-                            {items.map(item => {
-                              const isPost = item._isPost;
-                              const tipoColor = isPost?(item.tipo==="Full"?"#8B5CF6":item.tipo==="Tier List"?"#F59E0B":ACCENT):null;
-                              const proxPost = !isPost?[...postagens].filter(p=>p.episodio_id===item.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0]:null;
-                              const dData = isPost?item.data:proxPost?.data;
-                              const dias = dData?Math.ceil((new Date(dData+"T12:00:00")-new Date())/(1000*60*60*24)):null;
-                              const diasCor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
-                              const diasTxt = dias===null?null:dias<0?"atrasado":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
-                              return (
-                                <div key={`${isPost?"p":"e"}-${item.id}`} onClick={()=>{if(!isPost)openEp(item);}} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:7,padding:"10px 10px 8px",cursor:!isPost?"pointer":"default",transition:"border-color .15s"}} onMouseEnter={e=>{if(!isPost)e.currentTarget.style.borderColor=BL;}} onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(27,104,150,0.3)";}}>
-                                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5,flexWrap:"wrap"}}>
-                                    {isPost
-                                      ? <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontFamily:"'Bebas Neue'",fontSize:11}}>{item.tipo}</span>
-                                      : <span style={{background:"rgba(36,135,190,0.2)",color:"#7EC8F0",borderRadius:3,padding:"1px 6px",fontFamily:"'Bebas Neue'",fontSize:11}}>EP</span>
-                                    }
-                                    {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"1px 5px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤 {diasTxt}</span>}
-                                  </div>
-                                  <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,lineHeight:1.2,marginBottom:2}}>
-                                    {isPost?(item.episodio_title||"Sem episódio"):item.title}
-                                  </div>
-                                  {isPost&&(item.titulo_yt||item.notas)&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>{item.titulo_yt||item.notas}</div>}
-                                  {!isPost&&item.convidados?.length>0&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginBottom:4}}>👤 {item.convidados.join(", ")}</div>}
-                                  <div style={{display:"flex",gap:4,marginTop:6}} onClick={e=>e.stopPropagation()}>
-                                    {ci>0&&<button onClick={()=>goBack(item,isPost)} style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,color:MUTED,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,flex:1}}>← Voltar</button>}
-                                    {ci<COLS.length-1&&<button onClick={()=>advance(item,isPost)} style={{background:`${col.color}22`,border:`1px solid ${col.color}44`,color:col.color,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,flex:1,fontWeight:600}}>Avançar →</button>}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:8}}>
+                  {COLS.map((col,ci) => {
+                    const items = allItems.filter(item=>(item._isPost?getCorteColIdx(item):getColIdx(item))===ci);
+                    return (
+                      <div key={col.key}
+                        onDragOver={e=>e.preventDefault()}
+                        onDrop={async e=>{
+                          e.preventDefault();
+                          const uid = e.dataTransfer.getData("text/plain");
+                          const item = allItems.find(i=>i._uid===uid);
+                          if (item) await moveToCol(item, item._isPost, ci);
+                        }}
+                        style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:200}}>
+                        <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
+                          <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length} {items.length===1?"item":"itens"}</div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div style={{padding:6,display:"flex",flexDirection:"column",gap:5}}>
+                          {items.map(item => {
+                            const isPost = item._isPost;
+                            const tipoColor = isPost?(item.tipo==="Full"?"#8B5CF6":item.tipo==="Tier List"?"#F59E0B":ACCENT):null;
+                            const dData = isPost?item.data:[...postagens].filter(p=>p.episodio_id===item.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0]?.data;
+                            const dias = dData?Math.ceil((new Date(dData+"T12:00:00")-new Date())/(1000*60*60*24)):null;
+                            const diasCor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
+                            const diasTxt = dias===null?null:dias<0?"atr.":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
+                            const titulo = isPost?(item.titulo_yt||item.notas||item.episodio_title||"Sem título"):item.title;
+                            const sub = isPost?item.episodio_title:null;
+                            return (
+                              <div key={item._uid}
+                                draggable
+                                onDragStart={e=>e.dataTransfer.setData("text/plain",item._uid)}
+                                onClick={()=>{if(!isPost)openEp(item);}}
+                                style={{background:CARD,border:`1px solid ${isPost?`${tipoColor}44`:BORDER}`,borderRadius:6,padding:"8px 9px",cursor:"grab",userSelect:"none",transition:"box-shadow .15s"}}
+                                onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 2px 8px rgba(0,0,0,0.3)`}
+                                onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                                <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4,flexWrap:"wrap"}}>
+                                  {isPost
+                                    ? <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>{item.tipo}</span>
+                                    : <span style={{background:"rgba(36,135,190,0.2)",color:"#7EC8F0",borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>EP</span>
+                                  }
+                                  {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"0px 4px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600,marginLeft:"auto"}}>📤{diasTxt}</span>}
+                                </div>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:TEXT,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{titulo}</div>
+                                {sub&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:2}}>{sub}</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -1061,6 +1056,7 @@ export default function Home() {
                 </div>
               );
             })()}
+
 
           </div>
         )}
