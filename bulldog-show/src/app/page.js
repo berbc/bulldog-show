@@ -102,6 +102,7 @@ export default function Home() {
   const [postagemEdit, setPostagemEdit] = useState(null);
   const [postagens, setPostagens] = useState([]);
   const cronoRef = useRef(null);
+  const [corteChecklists, setCorteChecklists] = useState({});
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
   const flashError = (msg) => { setErrorMsg(msg); setTimeout(() => setErrorMsg(""), 4000); };
@@ -554,6 +555,30 @@ export default function Home() {
     {key:"postar",label:"📤 Postagem"}
   ];
 
+  const getCorteChecklist = (tipo, plataforma) => {
+    const plats = plataforma ? (Array.isArray(plataforma) ? plataforma : plataforma.split(",")) : ["YouTube"];
+    // Só redes sociais (sem YouTube): Edição + Postagem
+    const somenteRedes = plats.every(p => p === "Instagram" || p === "TikTok" || p === "Shorts");
+    if (somenteRedes) return [
+      {key:"edicao", label:"✂️ Edição"},
+      {key:"postagem", label:"📤 Postagem"}
+    ];
+    // YouTube (com ou sem redes): Edição + Thumbnail + Descrição + Postagem
+    return [
+      {key:"edicao", label:"✂️ Edição"},
+      {key:"thumbnail", label:"🖼 Thumbnail"},
+      {key:"descricao", label:"📝 Descrição"},
+      {key:"postagem", label:"📤 Postagem"}
+    ];
+  };
+
+  const saveCorteChecklist = async (postId, checklist) => {
+    const notasJson = JSON.stringify(checklist);
+    await supabase.from("postagens").update({notas_checklist: notasJson}).eq("id", postId);
+    setPostagens(prev => prev.map(p => p.id === postId ? {...p, notas_checklist: notasJson} : p));
+    flash();
+  };
+
   if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
 
   if (!user) return (
@@ -871,7 +896,12 @@ export default function Home() {
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE CONTEÚDO</span></div>
 
             {/* EPISÓDIOS - só os não 100% publicados */}
-            {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep => {
+            {[...episodes].filter(ep => {
+              if (ep.status === "publicado") return false;
+              const cl = ep.checklist || [];
+              if (cl.length >= CHECKLIST_ITEMS.length) return false;
+              return true;
+            }).sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep => {
               const checklist = ep.checklist || [];
               const done = checklist.length;
               const pct = Math.round((done/CHECKLIST_ITEMS.length)*100);
@@ -963,31 +993,58 @@ export default function Home() {
               );
             })}
 
-            {/* CORTES DO CRONOGRAMA - só os não postados */}
+            {/* CORTES DO CRONOGRAMA */}
             {(() => {
-              const cortesPendentes = postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List")).sort((a,b)=>a.data.localeCompare(b.data));
+              const cortesPendentes = postagens.filter(p => {
+                if (p.status === "postado") return false;
+                if (p.tipo !== "Corte" && p.tipo !== "Full" && p.tipo !== "Tier List") return false;
+                const cl = getCorteChecklist(p.tipo, p.plataforma);
+                const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
+                return done.length < cl.length;
+              }).sort((a,b)=>(a.data||"").localeCompare(b.data||""));
               if (!cortesPendentes.length) return null;
               return (
                 <div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,marginTop:8,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Conteúdo Pendente de Postagem</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,marginTop:8,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Conteúdo Pendente</div>
                   {cortesPendentes.map(p => {
                     const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                    const platIcon = p.plataforma==="Instagram"?"📸":p.plataforma==="TikTok"?"🎵":"▶";
-                    const dias = p.data ? Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)) : null;
-                    const cor = dias === null?"#94A3B8":dias < 0?"#EF4444":dias <= 2?"#EF4444":dias <= 5?"#F59E0B":"#10B981";
-                    const txt = dias === null?"sem data":dias < 0?"atrasado":dias === 0?"hoje":dias === 1?"amanhã":`${dias} dias`;
+                    const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
+                    const platIcons = plats.map(pl=>pl==="YouTube"?"▶":pl==="Shorts"?"📱":pl==="Instagram"?"📸":"🎵").join(" ");
+                    const dias = p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
+                    const cor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
+                    const txt = dias===null?"sem data":dias<0?"atrasado":dias===0?"hoje":dias===1?"amanhã":`${dias} dias`;
+                    const clItems = getCorteChecklist(p.tipo, p.plataforma);
+                    const doneCl = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
+                    const pct = Math.round((doneCl.length/clItems.length)*100);
                     return (
-                      <div key={p.id} style={{...card,padding:"14px 18px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-                        <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,flexShrink:0}}>{p.tipo}</span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                            <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{p.episodio_title||"Sem episódio"}</span>
-                            {(p.titulo_yt||p.notas) && <span style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>· {p.titulo_yt||p.notas}</span>}
-                          </div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:3}}>{p.plataforma?p.plataforma.split(",").map(pl=>pl==="YouTube"?"▶":pl==="Shorts"?"📱":pl==="Instagram"?"📸":"🎵").join(" "):"▶"} {p.plataforma||"YouTube"}{p.responsavel?` · ${p.responsavel}`:""}</div>
+                      <div key={p.id} style={{...card,padding:"16px 18px",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:pct<100?10:0,flexWrap:"wrap"}}>
+                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,flexShrink:0}}>{p.tipo}</span>
+                          <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title||"Sem episódio"}{(p.titulo_yt||p.notas)?` · ${p.titulo_yt||p.notas}`:""}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{platIcons} {plats.join(" · ")}</span>
+                          <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:pct===100?"#10B981":MUTED,flexShrink:0}}>{doneCl.length}/{clItems.length}</span>
+                          <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:plats});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}}>✏️</button>
                         </div>
-                        <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
-                        <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(','):['YouTube']});}} style={{...btnGhost,fontSize:11,padding:"4px 10px",flexShrink:0}}>✏️</button>
+                        <div style={{background:"#0A1F30",borderRadius:4,height:4,overflow:"hidden",marginBottom:8}}>
+                          <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:5}}>
+                          {clItems.map(item => {
+                            const isDone = doneCl.includes(item.key);
+                            return (
+                              <div key={item.key} onClick={()=>{
+                                const next = isDone?doneCl.filter(c=>c!==item.key):[...doneCl,item.key];
+                                saveCorteChecklist(p.id, next);
+                              }} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:5,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`}}>
+                                <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                  {isDone && <span style={{color:"#fff",fontSize:8}}>✓</span>}
+                                </div>
+                                <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
