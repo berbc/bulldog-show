@@ -405,7 +405,7 @@ export default function Home() {
       episodio_title: postagemEdit.episodio_title || "",
       tipo: postagemEdit.tipo,
       status: postagemEdit.status,
-      plataforma: postagemEdit.plataforma || "YouTube",
+      plataforma: Array.isArray(postagemEdit.plataforma) ? postagemEdit.plataforma.join(",") : (postagemEdit.plataforma || "YouTube"),
       horario: postagemEdit.horario || "18:00",
       link: postagemEdit.link || "",
       notas: postagemEdit.notas || "",
@@ -806,8 +806,10 @@ export default function Home() {
                         {slotPostagens.map(p => {
                           const ts = getTipoStyle(p.tipo);
                           const statusColor = p.status==="postado"?"#E8F4FF":p.status==="agendado"?"#F59E0B":MUTED;
-                          const platIcon = p.plataforma==="Instagram"?"📸":p.plataforma==="TikTok"?"🎵":"▶";
-                          const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#69C9D0":"#EF4444";
+                          const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
+                          const platIcon = plats.includes("Instagram")?"📸":plats.includes("TikTok")?"🎵":plats.includes("Shorts")?"📱":"▶";
+                          const platColor = plats.includes("Instagram")?"#E1306C":plats.includes("TikTok")?"#69C9D0":plats.includes("Shorts")?"#FF6B35":"#EF4444";
+                          const platLabel = plats.join(" · ");
                           const titulo = p.titulo_yt || p.notas?.trim() || null;
                           return (
                             <div key={p.id} style={{display:"flex",gap:14,padding:"14px 16px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
@@ -822,13 +824,13 @@ export default function Home() {
                                   {p.episodio_title && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{p.episodio_title.toUpperCase()}</span>}
                                 </div>
                                 {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:2}}>{titulo.toUpperCase()}</div>}
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {(p.plataforma||"YOUTUBE").toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {platLabel.toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
                                 {p.responsavel && <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:MUTED,marginTop:2}}>{p.responsavel.toUpperCase()}</div>}
                               </div>
                               <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0,paddingTop:3}}>
                                 <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase"}}>{p.status}</span>
                                 <div style={{display:"flex",gap:4}}>
-                                  <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
+                                  <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(','):['YouTube']});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
                                   <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px"}}>✕</button>
                                 </div>
                               </div>
@@ -841,7 +843,7 @@ export default function Home() {
                     )}
 
                     {/* Botão add */}
-                    <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:"YouTube",horario:"18:00",views:0,drive_link:"",responsavel:"",});}} style={{...btnGhost,fontSize:11,padding:"5px 12px",flexShrink:0}}>+ Post</button>
+                    <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:["YouTube"],horario:"18:00",views:0,drive_link:"",responsavel:"",titulo_yt:"",thumbnail_url:""});}} style={{...btnGhost,fontSize:11,padding:"5px 12px",flexShrink:0}}>+ Post</button>
                   </div>
                 </div>
               );
@@ -982,10 +984,10 @@ export default function Home() {
                             <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{p.episodio_title||"Sem episódio"}</span>
                             {(p.titulo_yt||p.notas) && <span style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>· {p.titulo_yt||p.notas}</span>}
                           </div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:3}}>{platIcon} {p.plataforma||"YouTube"}{p.responsavel?` · ${p.responsavel}`:""}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:3}}>{p.plataforma?p.plataforma.split(",").map(pl=>pl==="YouTube"?"▶":pl==="Shorts"?"📱":pl==="Instagram"?"📸":"🎵").join(" "):"▶"} {p.plataforma||"YouTube"}{p.responsavel?` · ${p.responsavel}`:""}</div>
                         </div>
                         <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
-                        <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p});}} style={{...btnGhost,fontSize:11,padding:"4px 10px",flexShrink:0}}>✏️</button>
+                        <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(','):['YouTube']});}} style={{...btnGhost,fontSize:11,padding:"4px 10px",flexShrink:0}}>✏️</button>
                       </div>
                     );
                   })}
@@ -1593,8 +1595,23 @@ export default function Home() {
                 <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}><option>Corte</option><option>Tier List</option><option>Full</option></select>
               </div>
               <div>
-                <div style={lbl}>Plataforma</div>
-                <select value={postagemEdit.plataforma||"YouTube"} onChange={e=>setPostagemEdit({...postagemEdit,plataforma:e.target.value})} style={inp}><option>YouTube</option><option>Instagram</option><option>TikTok</option></select>
+                <div style={lbl}>Plataforma(s)</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
+                  {["YouTube","Shorts","Instagram","TikTok"].map(plat => {
+                    const plats = Array.isArray(postagemEdit.plataforma) ? postagemEdit.plataforma : [postagemEdit.plataforma||"YouTube"];
+                    const active = plats.includes(plat);
+                    const platColor = plat==="YouTube"?"#EF4444":plat==="Shorts"?"#FF6B35":plat==="Instagram"?"#E1306C":"#69C9D0";
+                    return (
+                      <button key={plat} onClick={()=>{
+                        const cur = Array.isArray(postagemEdit.plataforma)?postagemEdit.plataforma:[postagemEdit.plataforma||"YouTube"];
+                        const next = active?(cur.length>1?cur.filter(p=>p!==plat):cur):[...cur,plat];
+                        setPostagemEdit({...postagemEdit,plataforma:next});
+                      }} style={{background:active?`${platColor}22`:"transparent",color:active?platColor:MUTED,border:`1px solid ${active?platColor:BORDER}`,borderRadius:6,padding:"5px 12px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:12,fontWeight:active?600:400,transition:"all .15s"}}>
+                        {plat==="YouTube"?"▶":plat==="Shorts"?"📱":plat==="Instagram"?"📸":"🎵"} {plat}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
