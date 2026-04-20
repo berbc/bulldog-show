@@ -765,7 +765,7 @@ export default function Home() {
               const getTipoStyle = (tipo) => {
                 if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.5)"};
                 if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.5)"};
-                return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:`1px solid rgba(27,104,150,0.5)`};
+                return {color:"#E8F4FF",bg:"rgba(232,244,255,0.06)",border:"1px solid rgba(232,244,255,0.18)"};
               };
               return (
                 <div key={slot.date} style={{marginBottom:10}}>
@@ -784,15 +784,15 @@ export default function Home() {
                         {gravacoes.map(ep => {
                           const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                           return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:12,padding:"12px 14px",background:"rgba(36,135,190,0.12)",border:"1px solid rgba(36,135,190,0.4)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:12,padding:"12px 14px",background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
                               {/* Horário + tipo */}
                               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0,minWidth:60}}>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#7EC8F0",background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>🎙 GRAVAÇÃO</span>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#10B981",background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>🎙 GRAVAÇÃO</span>
                                 <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:MUTED,letterSpacing:1}}>{ep.gravacao_horario||"10:00"}</span>
                               </div>
                               {/* Conteúdo */}
                               <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#7EC8F0",lineHeight:1.1}}>{ep.title}</div>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#10B981",lineHeight:1.1}}>{ep.title}</div>
                                 {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:3}}>{ep.convidados.join(" · ")}</div>}
                                 {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
                                 {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#8B5CF6",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
@@ -808,20 +808,22 @@ export default function Home() {
                           const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#69C9D0":"#EF4444";
                           const titulo = p.titulo_yt || p.notas?.trim() || null;
                           return (
-                            <div key={p.id} style={{display:"flex",gap:12,padding:"12px 14px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
-                              {/* Horário + plataforma */}
-                              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0,minWidth:60}}>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>{platIcon} {p.tipo}</span>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:MUTED,letterSpacing:1}}>{p.horario||"18:00"}</span>
+                            <div key={p.id} style={{display:"flex",gap:14,padding:"14px 16px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
+                              {/* Hora lateral */}
+                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:ts.color,lineHeight:1}}>{p.horario||"18:00"}</div>
                               </div>
-                              {/* Conteúdo */}
+                              {/* Bloco vertical */}
                               <div style={{flex:1,minWidth:0}}>
-                                {p.episodio_title && <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,lineHeight:1.1}}>{p.episodio_title.toUpperCase()}</div>}
-                                {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:3}}>{titulo.toUpperCase()}</div>}
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{p.plataforma||"YOUTUBE"}{p.responsavel?` · ${p.responsavel.toUpperCase()}`:""}</div>
-                                {p.views>0 && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,marginTop:2}}>{p.views.toLocaleString("pt-BR")} views</div>}
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"1px 8px",flexShrink:0}}>{p.tipo.toUpperCase()}</span>
+                                  {p.episodio_title && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{p.episodio_title.toUpperCase()}</span>}
+                                </div>
+                                {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:2}}>{titulo.toUpperCase()}</div>}
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {(p.plataforma||"YOUTUBE").toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
+                                {p.responsavel && <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:MUTED,marginTop:2}}>{p.responsavel.toUpperCase()}</div>}
                               </div>
-                              <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}}>
+                              <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0,paddingTop:3}}>
                                 <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase"}}>{p.status}</span>
                                 <div style={{display:"flex",gap:4}}>
                                   <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
@@ -876,6 +878,14 @@ export default function Home() {
                       <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
                       <span style={{background:sConfig.bg,color:sConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sConfig.label}</span>
                       <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>
+                      {(() => {
+                        const proxPost = [...postagens].filter(p=>p.episodio_id===ep.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0];
+                        if (!proxPost) return null;
+                        const dias = Math.ceil((new Date(proxPost.data+"T12:00:00")-new Date())/(1000*60*60*24));
+                        const cor = dias <= 2?"#EF4444":dias <= 5?"#F59E0B":"#10B981";
+                        const txt = dias < 0?"atrasado":dias === 0?"hoje":dias === 1?"amanhã":`${dias} dias`;
+                        return <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>📤 {txt}</span>;
+                      })()}
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <span style={{fontFamily:"'DM Sans'",fontSize:12,color:pct===100?"#10B981":MUTED}}>{done}/{CHECKLIST_ITEMS.length}</span>
