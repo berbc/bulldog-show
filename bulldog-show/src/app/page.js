@@ -3,22 +3,21 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const STATUS_EDICAO_CONFIG = {
-  pendente:   { label: "Pendente",   color: "#5A8BA8", bg: "rgba(90,139,168,0.15)" },
-  editando:   { label: "Editando",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
-  revisao:    { label: "Em Revisão", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
-  aprovado:   { label: "Aprovado",   color: "#10B981", bg: "rgba(16,185,129,0.15)" },
-  publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
+  pendente:  { label: "Pendente",   color: "#5A8BA8", bg: "rgba(90,139,168,0.15)" },
+  editando:  { label: "Editando",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  revisao:   { label: "Em Revisão", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
+  aprovado:  { label: "Aprovado",   color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  publicado: { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
-
 const STATUS_CONFIG = {
-  planejado: { label: "Planejado", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  planejado:  { label: "Planejado",  color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
   confirmado: { label: "Confirmado", color: "#10B981", bg: "rgba(16,185,129,0.15)" },
   gravado:    { label: "Gravado",    color: "#2487BE", bg: "rgba(36,135,190,0.15)" },
   editado:    { label: "Editado",    color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
-
-const TABS = ["🏠 Dashboard", "📋 Episódios", "📅 Agenda", "🎬 Produção", "📊 Estatísticas", "💡 Banco de Ideias"];
+const epNum = (t) => parseInt((t || "").replace(/[^0-9]/g,"")) || 0;
+const TABS = ["🏠 Dashboard","📋 Episódios","📅 Agenda","🎬 Produção","📊 Estatísticas","💡 Banco de Ideias"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
 const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
@@ -36,7 +35,6 @@ const Stars = ({ value, onChange, readonly }) => (
     ))}
   </div>
 );
-
 const StatCard = ({ label, value, sub, color }) => (
   <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px"}}>
     <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{label}</div>
@@ -52,22 +50,20 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-
   const [episodes, setEpisodes] = useState([]);
   const [tierLists, setTierLists] = useState([]);
   const [convidados, setConvidados] = useState([]);
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [activeTab, setActiveTab] = useState(0);
   const [selectedEp, setSelectedEp] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [copied, setCopied] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
   const [newTierList, setNewTierList] = useState("");
   const [newConvidado, setNewConvidado] = useState("");
   const [newGame, setNewGame] = useState({nome:"",descricao:"",jogadores:"",duracao:"",dificuldade:"Fácil",ideias:"",estrelas:0});
@@ -76,7 +72,6 @@ export default function Home() {
   const [expandedGame, setExpandedGame] = useState(null);
   const [newEpConvidado, setNewEpConvidado] = useState("");
   const [newEpTier, setNewEpTier] = useState("");
-
   const [epSort, setEpSort] = useState("numero");
   const [epStatusFilter, setEpStatusFilter] = useState("todos");
   const [tierSearch, setTierSearch] = useState("");
@@ -84,45 +79,39 @@ export default function Home() {
   const [convSearch, setConvSearch] = useState("");
   const [gameSearch, setGameSearch] = useState("");
   const [gameSort, setGameSort] = useState("az");
-
-  // Stats modal
   const [statsEp, setStatsEp] = useState(null);
   const [showAllConvidados, setShowAllConvidados] = useState(false);
   const [showAllViews, setShowAllViews] = useState(false);
   const [statsEdit, setStatsEdit] = useState(null);
   const [statsEditMode, setStatsEditMode] = useState(false);
-
-  // Equipe, comentarios, pautas
   const [equipe, setEquipe] = useState([]);
   const [comentarios, setComentarios] = useState([]);
   const [pautas, setPautas] = useState([]);
   const [newPauta, setNewPauta] = useState({titulo:"",descricao:"",estrelas:0});
   const [editingPauta, setEditingPauta] = useState(null);
-
-  // Cronômetro de gravação
   const [cronoEpId, setCronoEpId] = useState(null);
   const [cronoRunning, setCronoRunning] = useState(false);
   const [cronoTime, setCronoTime] = useState(0);
-  const cronoIntervalRef = useRef(null);
-  const [cronoNota, setCronoNota] = useState("");
   const [cronoNotaAtiva, setCronoNotaAtiva] = useState(null);
   const [newComentario, setNewComentario] = useState("");
   const [newMembro, setNewMembro] = useState({nome:"",funcao:""});
   const [addingMembro, setAddingMembro] = useState(false);
   const [comentarioAutor, setComentarioAutor] = useState("");
-
-  // Postagem calendar
   const [postagemWeekOffset, setPostagemWeekOffset] = useState(0);
   const [postagemModal, setPostagemModal] = useState(null);
   const [postagemEdit, setPostagemEdit] = useState(null);
   const [postagens, setPostagens] = useState([]);
+  const cronoRef = useRef(null);
+
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  const flashError = (msg) => { setErrorMsg(msg); setTimeout(() => setErrorMsg(""), 4000); };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setCheckingAuth(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -130,62 +119,28 @@ export default function Home() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [eps, tls, convs, gms] = await Promise.all([
-      supabase.from("episodes").select("*").order("id"),
-      supabase.from("tier_lists").select("*").order("nome"),
-      supabase.from("convidados").select("*").order("nome"),
-      supabase.from("games").select("*").order("nome"),
-    ]);
-    if (eps.data) setEpisodes(eps.data);
-    if (tls.data) setTierLists(tls.data);
-    if (convs.data) setConvidados(convs.data);
-    if (gms.data) setGames(gms.data);
+    try {
+      const [ep, tl, cv, gm] = await Promise.all([
+        supabase.from("episodes").select("*").order("id"),
+        supabase.from("tier_lists").select("*").order("nome"),
+        supabase.from("convidados").select("*").order("nome"),
+        supabase.from("games").select("*").order("nome"),
+      ]);
+      if (ep.data) setEpisodes(ep.data);
+      if (tl.data) setTierLists(tl.data);
+      if (cv.data) setConvidados(cv.data);
+      if (gm.data) setGames(gm.data);
+    } catch(e) { flashError("Erro ao carregar dados"); }
     setLoading(false);
   }, []);
-
   useEffect(() => { if (user) loadData(); }, [user, loadData]);
 
-  const getYouTubeVideoId = (url) => {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]+)/);
-    return match ? match[1] : null;
-  };
-
-  const fetchYouTubeViews = async (url) => {
-    const videoId = getYouTubeVideoId(url);
-    if (!videoId) return null;
-    const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
-    if (!apiKey) return null;
-    try {
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoId}&key=${apiKey}`);
-      const data = await res.json();
-      return parseInt(data?.items?.[0]?.statistics?.viewCount || 0);
-    } catch(e) { return null; }
-  };
-
-  const fetchAndUpdateViews = async (ep) => {
-    if (!ep.links?.length) return;
-    let updated = false;
-    const newLinks = await Promise.all(ep.links.map(async (link) => {
-      if (link.plataforma === 'YouTube' && link.url) {
-        const views = await fetchYouTubeViews(link.url);
-        if (views !== null && views !== link.views) { updated = true; return {...link, views}; }
-      }
-      return link;
-    }));
-    if (updated) {
-      const { data } = await supabase.from('episodes').update({links: newLinks}).eq('id', ep.id).select().single();
-      if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); if (statsEp?.id === ep.id) { setStatsEp(data); setStatsEdit({...data, links: data.links||[]}); } }
-    }
-  };
-
-  // Load postagens
   const loadPostagens = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from("postagens").select("*").order("data,id");
-      if (!error && data) setPostagens(data);
+      const { data } = await supabase.from("postagens").select("*").order("data,id");
+      if (data) setPostagens(data);
     } catch(e) {}
   }, []);
-
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
   const loadEquipe = useCallback(async () => {
@@ -205,174 +160,237 @@ export default function Home() {
     if (data) setComentarios(data);
   }, []);
 
-  const addComentario = async (epId) => {
-    if (!newComentario.trim() || !comentarioAutor.trim()) return;
-    const { data } = await supabase.from("comentarios").insert({
-      episodio_id: epId, autor: comentarioAutor, texto: newComentario.trim()
+  const login = async () => {
+    setLoginLoading(true); setLoginError("");
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+    if (error) setLoginError(error.message);
+    setLoginLoading(false);
+  };
+  const logout = async () => { await supabase.auth.signOut(); };
+
+  const getYouTubeVideoId = (url) => {
+    const u = url || "";
+    if (u.includes("v=")) return u.split("v=")[1]?.split("&")[0];
+    if (u.includes("youtu.be/")) return u.split("youtu.be/")[1]?.split("?")[0];
+    if (u.includes("/shorts/")) return u.split("/shorts/")[1]?.split("?")[0];
+    return null;
+  };
+
+  const fetchYouTubeViews = async (url) => {
+    const vid = getYouTubeVideoId(url);
+    if (!vid) return null;
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${vid}&part=statistics&key=${apiKey}`);
+      const data = await res.json();
+      return parseInt(data?.items?.[0]?.statistics?.viewCount || 0);
+    } catch(e) { return null; }
+  };
+
+  const fetchAndUpdateViews = async (ep) => {
+    const links = ep.links || [];
+    const updated = await Promise.all(links.map(async (l) => {
+      if (!l.url || !l.url.includes("youtu")) return l;
+      const v = await fetchYouTubeViews(l.url);
+      return v !== null ? {...l, views: v} : l;
+    }));
+    const { data } = await supabase.from("episodes").update({links: updated}).eq("id", ep.id).select().single();
+    if (data) setEpisodes(prev => prev.map(e => e.id === data.id ? data : e));
+  };
+
+  const toLocalDate = (d) => {
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  };
+  const fmt = (d) => new Date(d).toLocaleDateString("pt-BR", {weekday:"short",day:"2-digit",month:"short"});
+  const epsByDate = (ds) => episodes.filter(e => !e.retroativo && e.gravacao_data === ds);
+  const getNextWednesdays = () => {
+    const result = [], now = new Date();
+    now.setHours(0,0,0,0);
+    let d = new Date(now);
+    while (d.getDay() !== 3) d.setDate(d.getDate()+1);
+    for (let i = 0; i < 8; i++) {
+      result.push(new Date(d));
+      d.setDate(d.getDate()+7);
+    }
+    return result;
+  };
+
+  const getWeekDates = (offset=0) => {
+    const days = ["SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO","DOMINGO"];
+    const tipos = ["Corte","Corte","Full","Corte","Tier List","Corte","Corte"];
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dow===0?6:dow-1) + offset*7);
+    monday.setHours(0,0,0,0);
+    return Array.from({length:7},(_,i)=>{
+      const d = new Date(monday);
+      d.setDate(monday.getDate()+i);
+      return { date: toLocalDate(d), label: days[i], tipo: tipos[i] };
+    });
+  };
+  const getPostagens = (date) => postagens.filter(p => p.data === date);
+
+  const openEp = (ep) => {
+    setSelectedEp(ep);
+    setEditData({...ep, convidados: ep.convidados || []});
+    setEditMode(false);
+    setComentarios([]);
+    loadComentarios(ep.id);
+  };
+
+  const saveEp = async () => {
+    if (!editData) return;
+    try {
+      const payload = {
+        title: editData.title,
+        status: editData.status || "planejado",
+        convidados: editData.convidados || [],
+        tier_list: editData.tier_list || "",
+        debate: editData.debate || "",
+        game: editData.game || "",
+        gravacao_data: editData.gravacao_data || null,
+        gravacao_horario: editData.gravacao_horario || "",
+        gravacao_duracao: editData.gravacao_duracao || "",
+        local: editData.local || "",
+        endereco: editData.endereco || "",
+        notas: editData.notas || "",
+        mensagem_convidado: editData.mensagem_convidado || "",
+        retroativo: editData.retroativo || false,
+        drive_link: editData.drive_link || "",
+        status_edicao: editData.status_edicao || "pendente",
+        investimento: editData.investimento || 0,
+        roi: editData.roi || 0,
+      };
+      const { data, error } = await supabase.from("episodes").update(payload).eq("id", editData.id).select().single();
+      if (error) { flashError("Erro ao salvar"); return; }
+      if (data) {
+        setEpisodes(prev => prev.map(e => e.id === data.id ? data : e));
+        setSelectedEp(data);
+        setEditData({...data, convidados: data.convidados || []});
+        setEditMode(false);
+        flash();
+      }
+    } catch(e) { flashError("Erro ao salvar"); }
+  };
+
+  const deleteEp = async (id) => {
+    if (!confirm("Deletar episódio?")) return;
+    await supabase.from("episodes").delete().eq("id", id);
+    setEpisodes(prev => prev.filter(e => e.id !== id));
+    setSelectedEp(null);
+  };
+
+  const createEp = async () => {
+    const num = episodes.length + 1;
+    const { data } = await supabase.from("episodes").insert({
+      title: `Episódio ${num}`, status: "planejado", convidados: [],
+      local: "Rádio FM O Dia", endereco: "R. Carlos Machado 131, Barra da Tijuca, RJ",
+      gravacao_horario: "10:00", checklist: [], cortes_gravacao: []
     }).select().single();
-    if (data) { setComentarios(prev => [...prev, data]); setNewComentario(""); flash(); }
+    if (data) { setEpisodes(prev => [...prev, data]); openEp(data); }
   };
 
-  const deleteComentario = async (id) => {
-    await supabase.from("comentarios").delete().eq("id", id);
-    setComentarios(prev => prev.filter(c => c.id !== id));
+  const addConvidadoInEp = async () => {
+    if (!newEpConvidado.trim()) return;
+    const list = [...(editData.convidados||[]), newEpConvidado.trim()];
+    setEditData({...editData, convidados: list});
+    setNewEpConvidado("");
+    if (!editData.id) return;
+    const { data } = await supabase.from("convidados").insert({nome: newEpConvidado.trim()}).select().single();
+    if (data) setConvidados(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
   };
 
-  const addMembro = async () => {
-    if (!newMembro.nome.trim()) return;
-    const { data } = await supabase.from("equipe").insert(newMembro).select().single();
-    if (data) { setEquipe(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewMembro({nome:"",funcao:""}); setAddingMembro(false); flash(); }
+  const addTierInEp = async () => {
+    if (!newEpTier.trim()) return;
+    setEditData({...editData, tier_list: newEpTier.trim()});
+    setNewEpTier("");
+    const existing = tierLists.find(t => t.nome.toLowerCase() === newEpTier.toLowerCase());
+    if (!existing) {
+      const { data } = await supabase.from("tier_lists").insert({nome: newEpTier.trim()}).select().single();
+      if (data) setTierLists(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
+    }
   };
 
-  const removeMembro = async (id) => {
-    await supabase.from("equipe").delete().eq("id", id);
-    setEquipe(prev => prev.filter(m => m.id !== id));
+  const copyLink = (id) => {
+    navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  const addPauta = async () => {
-    if (!newPauta.titulo.trim()) return;
-    const { data } = await supabase.from("pautas").insert(newPauta).select().single();
-    if (data) { setPautas(prev => [...prev, data]); setNewPauta({titulo:"",descricao:"",estrelas:0}); flash(); }
-  };
+  // Global search results
+  const searchResults = searchQuery.trim().length > 1 ? [
+    ...episodes.filter(e => e.title?.toLowerCase().includes(searchQuery.toLowerCase()) || e.convidados?.some(c=>c.toLowerCase().includes(searchQuery.toLowerCase()))).map(e=>({type:"Episódio",label:e.title,sub:e.convidados?.join(", ")||"",action:()=>{openEp(e);setActiveTab(1);setSearchOpen(false);}})),
+    ...convidados.filter(c=>c.nome.toLowerCase().includes(searchQuery.toLowerCase())).map(c=>({type:"Convidado",label:c.nome,sub:"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
+    ...pautas.filter(p=>p.titulo.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Pauta",label:p.titulo,sub:p.descricao||"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
+    ...postagens.filter(p=>p.episodio_title?.toLowerCase().includes(searchQuery.toLowerCase())||p.notas?.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Post",label:`${p.tipo} · ${p.episodio_title||"Sem ep"}`,sub:p.data,action:()=>{setActiveTab(2);setSearchOpen(false);}})),
+  ].slice(0,8) : [];
 
-  const removePauta = async (id) => {
-    await supabase.from("pautas").delete().eq("id", id);
-    setPautas(prev => prev.filter(p => p.id !== id));
-  };
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey||e.ctrlKey) && e.key==="k") { e.preventDefault(); setSearchOpen(s=>!s); setSearchQuery(""); }
+      if (e.key==="Escape") { setSearchOpen(false); setSearchQuery(""); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
-  const updatePautaStars = async (id, estrelas) => {
-    await supabase.from("pautas").update({estrelas}).eq("id", id);
-    setPautas(prev => prev.map(p => p.id === id ? {...p, estrelas} : p));
-  };
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT") return;
+      if (e.code==="Space"&&cronoEpId) { e.preventDefault(); cronoRunning?cronoPause():cronoStart(cronoEpId); }
+      if (e.code==="KeyC"&&cronoEpId&&cronoTime>0&&!cronoNotaAtiva) {
+        const ep = episodes.find(ep=>ep.id===cronoEpId);
+        if (ep) marcarCorte(ep);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [cronoEpId, cronoRunning, cronoTime, cronoNotaAtiva, episodes]);
 
-  const togglePautaUsado = async (id, usado) => {
-    await supabase.from("pautas").update({usado}).eq("id", id);
-    setPautas(prev => prev.map(p => p.id === id ? {...p, usado} : p));
-  };
-
-  const savePauta = async () => {
-    if (!editingPauta) return;
-    const { data } = await supabase.from("pautas").update({
-      titulo: editingPauta.titulo, descricao: editingPauta.descricao
-    }).eq("id", editingPauta.id).select().single();
-    if (data) { setPautas(prev => prev.map(p => p.id === data.id ? data : p)); setEditingPauta(null); flash(); }
-  };
+  useEffect(() => () => { if (cronoRef.current) clearInterval(cronoRef.current); }, []);
 
   const cronoStart = (epId) => {
     if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); }
     setCronoRunning(true);
-    if (cronoIntervalRef.current) clearInterval(cronoIntervalRef.current);
-    cronoIntervalRef.current = setInterval(() => setCronoTime(t => t + 1), 1000);
+    if (cronoRef.current) clearInterval(cronoRef.current);
+    cronoRef.current = setInterval(() => setCronoTime(t => t+1), 1000);
   };
-
   const cronoPause = () => {
     setCronoRunning(false);
-    if (cronoIntervalRef.current) { clearInterval(cronoIntervalRef.current); cronoIntervalRef.current = null; }
+    if (cronoRef.current) { clearInterval(cronoRef.current); cronoRef.current = null; }
   };
-
-  const cronoReset = (epId) => {
-    cronoPause();
-    setCronoTime(0);
-    setCronoEpId(epId);
-  };
-
-  // Cleanup on unmount
-  useEffect(() => () => { if (cronoIntervalRef.current) clearInterval(cronoIntervalRef.current); }, []);
-
-  // CMD+K global search
-  useEffect(() => {
-    const handleGlobalKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(s => !s);
-        setSearchQuery("");
-      }
-      if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(""); }
-    };
-    window.addEventListener('keydown', handleGlobalKey);
-    return () => window.removeEventListener('keydown', handleGlobalKey);
-  }, []);
-
-  // Keyboard shortcuts for cronômetro
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-      if (e.code === 'Space' && cronoEpId) {
-        e.preventDefault();
-        cronoRunning ? cronoPause() : cronoStart(cronoEpId);
-      }
-      if (e.code === 'KeyC' && cronoEpId && cronoTime > 0 && !cronoNotaAtiva) {
-        const ep = episodes.find(ep => ep.id === cronoEpId);
-        if (ep) marcarCorte(ep);
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [cronoEpId, cronoRunning, cronoTime, cronoNotaAtiva, episodes]);
-
+  const cronoReset = (epId) => { cronoPause(); setCronoTime(0); setCronoEpId(epId); };
   const cronoFmt = (s) => {
-    const h = Math.floor(s/3600);
-    const m = Math.floor((s%3600)/60);
-    const sec = s%60;
-    if (h > 0) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    if (h>0) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
     return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
   };
-
-  const marcarCorte = (ep) => {
-    setCronoNotaAtiva({time: cronoTime, timeStr: cronoFmt(cronoTime), nota: ""});
-  };
-
+  const marcarCorte = (ep) => { setCronoNotaAtiva({time:cronoTime,timeStr:cronoFmt(cronoTime),nota:""}); };
   const salvarCorte = async (ep) => {
     if (!cronoNotaAtiva) return;
     const cortes = ep.cortes_gravacao || [];
-    const novoCorte = {id: Date.now(), time: cronoNotaAtiva.time, timeStr: cronoNotaAtiva.timeStr, nota: cronoNotaAtiva.nota, criadoEm: new Date().toISOString()};
-    const novosCortes = [...cortes, novoCorte].sort((a,b) => a.time - b.time);
-    await supabase.from("episodes").update({cortes_gravacao: novosCortes}).eq("id", ep.id);
-    setEpisodes(prev => prev.map(e => e.id === ep.id ? {...e, cortes_gravacao: novosCortes} : e));
-    setCronoNotaAtiva(null);
-    flash();
+    const novo = {id:Date.now(),time:cronoNotaAtiva.time,timeStr:cronoNotaAtiva.timeStr,nota:cronoNotaAtiva.nota,criadoEm:new Date().toISOString()};
+    const novos = [...cortes, novo].sort((a,b)=>a.time-b.time);
+    await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
+    setCronoNotaAtiva(null); flash();
   };
-
   const deletarCorte = async (ep, corteId) => {
-    const novosCortes = (ep.cortes_gravacao || []).filter(c => c.id !== corteId);
-    await supabase.from("episodes").update({cortes_gravacao: novosCortes}).eq("id", ep.id);
-    setEpisodes(prev => prev.map(e => e.id === ep.id ? {...e, cortes_gravacao: novosCortes} : e));
+    const novos = (ep.cortes_gravacao||[]).filter(c=>c.id!==corteId);
+    await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
   };
-
   const saveChecklist = async (epId, checklist) => {
-    await supabase.from("episodes").update({checklist}).eq("id", epId);
-    setEpisodes(prev => prev.map(e => e.id === epId ? {...e, checklist} : e));
-    if (selectedEp?.id === epId) setSelectedEp(prev => ({...prev, checklist}));
+    await supabase.from("episodes").update({checklist}).eq("id",epId);
+    setEpisodes(prev=>prev.map(e=>e.id===epId?{...e,checklist}:e));
+    if (selectedEp?.id===epId) setSelectedEp(prev=>({...prev,checklist}));
   };
-
-  const WEEK_SCHEDULE = [
-    { dow: 1, label: "Segunda", tipo: "Corte" },
-    { dow: 2, label: "Terça",   tipo: "Tier List" },
-    { dow: 3, label: "Quarta",  tipo: "Corte" },
-    { dow: 4, label: "Quinta",  tipo: "Full" },
-    { dow: 5, label: "Sexta",   tipo: "Corte" },
-    { dow: 6, label: "Sábado",  tipo: "Corte" },
-    { dow: 0, label: "Domingo", tipo: "Corte" },
-  ];
-
-  const getWeekDates = (offset) => {
-    const today = new Date();
-    const dow = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
-    return WEEK_SCHEDULE.map(s => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + (s.dow === 0 ? 6 : s.dow - 1));
-      return { ...s, date: d.toISOString().split("T")[0], dateObj: d };
-    });
-  };
-
-  const getPostagem = (date) => postagens.find(p => p.data === date);
-  const getPostagens = (date) => postagens.filter(p => p.data === date);
 
   const savePostagem = async () => {
     if (!postagemEdit) return;
-    // Auto-fetch YouTube views if link is YouTube
     let views = postagemEdit.views || 0;
     if (postagemEdit.link && postagemEdit.link.includes("youtu")) {
       const fetched = await fetchYouTubeViews(postagemEdit.link);
@@ -393,288 +411,213 @@ export default function Home() {
     };
     let data;
     if (postagemEdit.id) {
-      const res = await supabase.from("postagens").update(payload).eq("id", postagemEdit.id).select().single();
+      const res = await supabase.from("postagens").update(payload).eq("id",postagemEdit.id).select().single();
       data = res.data;
     } else {
-      const res = await supabase.from("postagens").insert({...payload, data: postagemEdit.data}).select().single();
+      const res = await supabase.from("postagens").insert({...payload,data:postagemEdit.data}).select().single();
       data = res.data;
     }
     if (data) {
-      setPostagens(prev => {
-        const filtered = prev.filter(p => p.id !== data.id);
-        return [...filtered, data].sort((a,b) => a.data.localeCompare(b.data) || a.id - b.id);
+      setPostagens(prev=>{
+        const filtered = prev.filter(p=>p.id!==data.id);
+        return [...filtered,data].sort((a,b)=>a.data.localeCompare(b.data)||a.id-b.id);
       });
       setPostagemModal(null); setPostagemEdit(null); flash();
     }
   };
-
   const deletePostagem = async (id) => {
-    await supabase.from("postagens").delete().eq("id", id);
-    setPostagens(prev => prev.filter(p => p.id !== id));
-    flash();
+    await supabase.from("postagens").delete().eq("id",id);
+    setPostagens(prev=>prev.filter(p=>p.id!==id));
   };
 
-  const [errorMsg, setErrorMsg] = useState("");
-  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  const flashError = (msg) => { setErrorMsg(msg); setTimeout(() => setErrorMsg(""), 4000); };
-  const login = async () => {
-    setLoginLoading(true); setLoginError("");
-    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
-    if (error) setLoginError("Email ou senha incorretos.");
-    setLoginLoading(false);
-  };
-  const logout = () => supabase.auth.signOut();
-
-  const addEpisode = async () => {
-    const { data } = await supabase.from("episodes").insert({
-      title: `Episódio ${episodes.length + 1}`, status: "planejado",
-      local: "Rádio FM O Dia", endereco: "R. Carlos Machado, 131 — Barra da Tijuca, Rio de Janeiro",
-      mensagem_convidado: "Oi! Seja muito bem-vindo(a) ao Bulldog Show 🐶 Mal podemos esperar pra gravar com você!"
-    }).select().single();
-    if (data) { setEpisodes(prev => [...prev, data]); flash(); }
-  };
-
-  const saveEp = async () => {
-    const { data } = await supabase.from("episodes").update({
-      title: editData.title, status: editData.status,
-      convidados: editData.convidados, tier_list: editData.tier_list,
-      debate: editData.debate, game: editData.game,
-      gravacao_data: editData.gravacao_data, gravacao_horario: editData.gravacao_horario,
-      gravacao_duracao: editData.gravacao_duracao, local: editData.local,
-      endereco: editData.endereco, notas: editData.notas,
-      mensagem_convidado: editData.mensagem_convidado,
-      retroativo: editData.retroativo || false,
-      drive_link: editData.drive_link || "",
-      status_edicao: editData.status_edicao || "pendente",
-    }).eq("id", editData.id).select().single();
-    if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setSelectedEp(data); setEditMode(false); flash(); }
-  };
-
+  const openStats = (ep) => { setStatsEp(ep); setStatsEdit(null); setStatsEditMode(false); };
   const saveStats = async () => {
-    // Auto-fetch YouTube views for any YouTube links
-    let links = statsEdit.links || [];
-    const updatedLinks = await Promise.all(links.map(async (link) => {
-      if (link.plataforma === 'YouTube' && link.url && !link.views) {
-        const views = await fetchYouTubeViews(link.url);
-        if (views !== null) return {...link, views};
-      }
-      return link;
-    }));
+    if (!statsEdit) return;
     const { data } = await supabase.from("episodes").update({
-      investimento: statsEdit.investimento || 0,
-      roi: statsEdit.roi || 0,
-      links: updatedLinks
-    }).eq("id", statsEdit.id).select().single();
-    if (data) { setEpisodes(prev => prev.map(e => e.id === data.id ? data : e)); setStatsEp(data); setStatsEdit({...data, links: data.links||[]}); setStatsEditMode(false); flash(); }
+      investimento: statsEdit.investimento||0, roi: statsEdit.roi||0, links: statsEdit.links||[]
+    }).eq("id",statsEdit.id).select().single();
+    if (data) { setEpisodes(prev=>prev.map(e=>e.id===data.id?data:e)); setStatsEp(data); setStatsEditMode(false); flash(); }
   };
 
-  const deleteEp = async (id) => {
-    await supabase.from("episodes").delete().eq("id", id);
-    setEpisodes(prev => prev.filter(e => e.id !== id));
-    setSelectedEp(null); setEditMode(false);
+  const addComentario = async (epId) => {
+    if (!newComentario.trim()||!comentarioAutor.trim()) return;
+    const { data } = await supabase.from("comentarios").insert({episodio_id:epId,autor:comentarioAutor,texto:newComentario.trim()}).select().single();
+    if (data) { setComentarios(prev=>[...prev,data]); setNewComentario(""); flash(); }
+  };
+  const deleteComentario = async (id) => {
+    await supabase.from("comentarios").delete().eq("id",id);
+    setComentarios(prev=>prev.filter(c=>c.id!==id));
+  };
+  const addMembro = async () => {
+    if (!newMembro.nome.trim()) return;
+    const { data } = await supabase.from("equipe").insert(newMembro).select().single();
+    if (data) { setEquipe(prev=>[...prev,data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewMembro({nome:"",funcao:""}); setAddingMembro(false); flash(); }
+  };
+  const removeMembro = async (id) => {
+    await supabase.from("equipe").delete().eq("id",id);
+    setEquipe(prev=>prev.filter(m=>m.id!==id));
+  };
+  const addPauta = async () => {
+    if (!newPauta.titulo.trim()) return;
+    const { data } = await supabase.from("pautas").insert(newPauta).select().single();
+    if (data) { setPautas(prev=>[...prev,data]); setNewPauta({titulo:"",descricao:"",estrelas:0}); flash(); }
+  };
+  const removePauta = async (id) => {
+    await supabase.from("pautas").delete().eq("id",id);
+    setPautas(prev=>prev.filter(p=>p.id!==id));
+  };
+  const updatePautaStars = async (id,estrelas) => {
+    await supabase.from("pautas").update({estrelas}).eq("id",id);
+    setPautas(prev=>prev.map(p=>p.id===id?{...p,estrelas}:p));
+  };
+  const togglePautaUsado = async (id,usado) => {
+    await supabase.from("pautas").update({usado}).eq("id",id);
+    setPautas(prev=>prev.map(p=>p.id===id?{...p,usado}:p));
+  };
+  const savePauta = async () => {
+    if (!editingPauta) return;
+    const { data } = await supabase.from("pautas").update({titulo:editingPauta.titulo,descricao:editingPauta.descricao}).eq("id",editingPauta.id).select().single();
+    if (data) { setPautas(prev=>prev.map(p=>p.id===data.id?data:p)); setEditingPauta(null); flash(); }
   };
 
-  const openEp = (ep) => {
-    setSelectedEp(ep);
-    setEditData({...ep, convidados: ep.convidados || []});
-    setEditMode(false);
-    setComentarios([]);
-    loadComentarios(ep.id);
-  };
-
-  const openStats = (ep) => {
-    setStatsEp(ep);
-    setStatsEdit({...ep, links: ep.links || []});
-    setStatsEditMode(false);
-  };
-
+  // Tier lists CRUD
   const addTierList = async () => {
     if (!newTierList.trim()) return;
-    const { data } = await supabase.from("tier_lists").insert({nome: newTierList.trim(), estrelas: 0}).select().single();
-    if (data) { setTierLists(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewTierList(""); flash(); }
+    const { data } = await supabase.from("tier_lists").insert({nome:newTierList.trim(),estrelas:0}).select().single();
+    if (data) { setTierLists(prev=>[...prev,data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewTierList(""); flash(); }
   };
-  const removeTierList = async (id) => { await supabase.from("tier_lists").delete().eq("id", id); setTierLists(prev => prev.filter(t => t.id !== id)); };
-  const updateTierStars = async (id, estrelas) => { await supabase.from("tier_lists").update({estrelas}).eq("id", id); setTierLists(prev => prev.map(t => t.id === id ? {...t, estrelas} : t)); };
-
+  const removeTierList = async (id) => {
+    await supabase.from("tier_lists").delete().eq("id",id);
+    setTierLists(prev=>prev.filter(t=>t.id!==id));
+  };
+  const updateTierStars = async (id,estrelas) => {
+    await supabase.from("tier_lists").update({estrelas}).eq("id",id);
+    setTierLists(prev=>prev.map(t=>t.id===id?{...t,estrelas}:t));
+  };
   const addConvidado = async () => {
     if (!newConvidado.trim()) return;
-    const { data } = await supabase.from("convidados").insert({nome: newConvidado.trim()}).select().single();
-    if (data) { setConvidados(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewConvidado(""); flash(); }
+    const { data } = await supabase.from("convidados").insert({nome:newConvidado.trim()}).select().single();
+    if (data) { setConvidados(prev=>[...prev,data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewConvidado(""); flash(); }
   };
-  const removeConvidado = async (id) => { await supabase.from("convidados").delete().eq("id", id); setConvidados(prev => prev.filter(c => c.id !== id)); };
-
+  const removeConvidado = async (id) => {
+    await supabase.from("convidados").delete().eq("id",id);
+    setConvidados(prev=>prev.filter(c=>c.id!==id));
+  };
   const addGame = async () => {
     if (!newGame.nome.trim()) return;
     const { data } = await supabase.from("games").insert(newGame).select().single();
-    if (data) { setGames(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewGame({nome:"",descricao:"",jogadores:"",duracao:"",dificuldade:"Fácil",ideias:"",estrelas:0}); setAddingGame(false); flash(); }
+    if (data) { setGames(prev=>[...prev,data]); setNewGame({nome:"",descricao:"",jogadores:"",duracao:"",dificuldade:"Fácil",ideias:"",estrelas:0}); setAddingGame(false); flash(); }
+  };
+  const removeGame = async (id) => {
+    await supabase.from("games").delete().eq("id",id);
+    setGames(prev=>prev.filter(g=>g.id!==id));
+  };
+  const updateGameStars = async (id,estrelas) => {
+    await supabase.from("games").update({estrelas}).eq("id",id);
+    setGames(prev=>prev.map(g=>g.id===id?{...g,estrelas}:g));
   };
   const saveGame = async () => {
-    const { data } = await supabase.from("games").update(editingGame).eq("id", editingGame.id).select().single();
-    if (data) { setGames(prev => prev.map(g => g.id === data.id ? data : g).sort((a,b)=>a.nome.localeCompare(b.nome))); setEditingGame(null); flash(); }
-  };
-  const removeGame = async (id) => { await supabase.from("games").delete().eq("id", id); setGames(prev => prev.filter(g => g.id !== id)); };
-  const updateGameStars = async (id, estrelas) => { await supabase.from("games").update({estrelas}).eq("id", id); setGames(prev => prev.map(g => g.id === id ? {...g, estrelas} : g)); };
-
-  const addConvidadoInEp = async () => {
-    if (!newEpConvidado.trim() || !editData) return;
-    const nome = newEpConvidado.trim();
-    if (!convidados.find(c => c.nome === nome)) {
-      const { data } = await supabase.from("convidados").insert({nome}).select().single();
-      if (data) setConvidados(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
-    }
-    if (!editData.convidados.includes(nome)) setEditData({...editData, convidados: [...editData.convidados, nome]});
-    setNewEpConvidado("");
+    if (!editingGame) return;
+    const { data } = await supabase.from("games").update(editingGame).eq("id",editingGame.id).select().single();
+    if (data) { setGames(prev=>prev.map(g=>g.id===data.id?data:g)); setEditingGame(null); flash(); }
   };
 
-  const addTierInEp = async () => {
-    if (!newEpTier.trim() || !editData) return;
-    const nome = newEpTier.trim();
-    if (!tierLists.find(t => t.nome === nome)) {
-      const { data } = await supabase.from("tier_lists").insert({nome, estrelas:0}).select().single();
-      if (data) setTierLists(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
-    }
-    setEditData({...editData, tier_list: nome}); setNewEpTier("");
-  };
-
-  const copyLink = (id) => { navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`); setCopied(id); setTimeout(() => setCopied(null), 2000); };
-
-  const searchResults = searchQuery.trim().length > 1 ? [
-    ...episodes.filter(e => e.title?.toLowerCase().includes(searchQuery.toLowerCase()) || e.convidados?.some(c=>c.toLowerCase().includes(searchQuery.toLowerCase()))).map(e=>({type:"Episódio",label:e.title,sub:e.convidados?.join(", ")||"",action:()=>{openEp(e);setActiveTab(0);setSearchOpen(false);}})),
-    ...convidados.filter(c=>c.nome.toLowerCase().includes(searchQuery.toLowerCase())).map(c=>({type:"Convidado",label:c.nome,sub:"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
-    ...pautas.filter(p=>p.titulo.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Pauta",label:p.titulo,sub:p.descricao||"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
-    ...postagens.filter(p=>p.episodio_title?.toLowerCase().includes(searchQuery.toLowerCase())||p.notas?.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Post",label:`${p.tipo} · ${p.episodio_title||"Sem ep"}`,sub:p.data,action:()=>{setActiveTab(3);setSearchOpen(false);}})),
-  ].slice(0, 8) : [];
-
-  const toLocalDate = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
-  };
-  const getNextWednesdays = () => {
-    const weeks=[]; let d=new Date();
-    const dow = d.getDay();
-    const diff = (3 - dow + 7) % 7;
-    d.setDate(d.getDate() + (diff === 0 ? 0 : diff));
-    for(let i=0;i<12;i++){weeks.push(new Date(d));d.setDate(d.getDate()+7);}
-    return weeks;
-  };
-  const fmt = (d) => d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"});
-  const epsByDate = (ds) => episodes.filter(e => {
-    if (!e.gravacao_data) return false;
-    return e.gravacao_data.split("T")[0] === ds;
-  });
-
-  const sortedEpisodes = [...episodes]
-    .filter(e => epStatusFilter === "todos" || e.status === epStatusFilter)
-    .sort((a, b) => {
-      if (epSort === "numero") { const na = parseInt((a.title.match(/\d+/) || [0])[0]); const nb = parseInt((b.title.match(/\d+/) || [0])[0]); return na - nb; }
-      if (epSort === "data_asc") { if (!a.gravacao_data) return 1; if (!b.gravacao_data) return -1; return a.gravacao_data.localeCompare(b.gravacao_data); }
-      if (epSort === "data_desc") { if (!a.gravacao_data) return 1; if (!b.gravacao_data) return -1; return b.gravacao_data.localeCompare(a.gravacao_data); }
-      return 0;
-    });
-  const sortedTierLists = [...tierLists].filter(t=>t.nome.toLowerCase().includes(tierSearch.toLowerCase())).sort((a,b)=>tierSort==="az"?a.nome.localeCompare(b.nome):tierSort==="za"?b.nome.localeCompare(a.nome):tierSort==="stars_desc"?b.estrelas-a.estrelas:a.estrelas-b.estrelas);
-  const sortedConvidados = [...convidados].filter(c=>c.nome.toLowerCase().includes(convSearch.toLowerCase())).sort((a,b)=>a.nome.localeCompare(b.nome));
-  const sortedGames = [...games].filter(g=>g.nome.toLowerCase().includes(gameSearch.toLowerCase())).sort((a,b)=>gameSort==="az"?a.nome.localeCompare(b.nome):gameSort==="za"?b.nome.localeCompare(a.nome):gameSort==="stars_desc"?b.estrelas-a.estrelas:a.estrelas-b.estrelas);
-
-  // Statistics calculations
-  const publishedEps = episodes.filter(e => e.status === "publicado" || e.retroativo);
-  const allConvidadosInEps = episodes.flatMap(e => e.convidados || []);
-  const convidadoCount = allConvidadosInEps.reduce((acc, c) => { acc[c] = (acc[c]||0)+1; return acc; }, {});
+  // Computed values
+  const publishedEps = episodes.filter(e=>e.status==="publicado");
+  const totalInvestido = episodes.reduce((s,e)=>s+(e.investimento||0),0);
+  const convidadoCount = {};
+  episodes.forEach(ep=>(ep.convidados||[]).forEach(c=>{convidadoCount[c]=(convidadoCount[c]||0)+1;}));
   const convidadoRanking = Object.entries(convidadoCount).sort((a,b)=>b[1]-a[1]);
-  const convidadosSemEp = convidados.filter(c => !allConvidadosInEps.includes(c.nome));
-  const gamesUsados = episodes.filter(e=>e.game).map(e=>e.game);
-  const gameCount = gamesUsados.reduce((acc,g)=>{ acc[g]=(acc[g]||0)+1; return acc; },{});
-  const totalInvestido = episodes.reduce((sum,e)=>sum+(e.investimento||0),0);
-  const totalLinks = postagens.filter(p=>p.status==="postado").length;
+  const gameCount = {};
+  episodes.forEach(ep=>{if(ep.game)gameCount[ep.game]=(gameCount[ep.game]||0)+1;});
+  const sortedConvidados = [...convidados].filter(c=>c.nome.toLowerCase().includes(convSearch.toLowerCase())).sort((a,b)=>a.nome.localeCompare(b.nome));
+  const sortedTierLists = [...tierLists].filter(t=>t.nome.toLowerCase().includes(tierSearch.toLowerCase())).sort((a,b)=>tierSort==="stars_desc"?(b.estrelas||0)-(a.estrelas||0):tierSort==="za"?b.nome.localeCompare(a.nome):a.nome.localeCompare(b.nome));
+  const sortedGames = [...games].filter(g=>g.nome.toLowerCase().includes(gameSearch.toLowerCase())).sort((a,b)=>gameSort==="stars_desc"?(b.estrelas||0)-(a.estrelas||0):gameSort==="za"?b.nome.localeCompare(a.nome):a.nome.localeCompare(b.nome));
+  const sortedEpisodes = [...episodes].filter(e=>epStatusFilter==="todos"||e.status===epStatusFilter).sort((a,b)=>epSort==="numero"?epNum(a.title)-epNum(b.title):epSort==="data"?(a.gravacao_data||"").localeCompare(b.gravacao_data||""):a.status.localeCompare(b.status));
 
-  if (checkingAuth) return <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando...</div></div>;
+  const CHECKLIST_ITEMS = [
+    {key:"convidados",label:"👥 Convidados"},
+    {key:"tema_tier",label:"🏆 Tema Tier List"},
+    {key:"tema_programa",label:"📺 Tema do Programa"},
+    {key:"producao_tier",label:"⚙️ Produção Tier List"},
+    {key:"pauta",label:"📋 Pauta"},
+    {key:"gravar",label:"🎙 Gravação"},
+    {key:"editar",label:"✂️ Edição"},
+    {key:"thumbnail",label:"🖼 Thumbnail"},
+    {key:"legenda",label:"📝 Legenda / Descrição"},
+    {key:"postar",label:"📤 Postagem"}
+  ];
+
+  if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
 
   if (!user) return (
-    <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans'",padding:20}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
-      <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:16,padding:40,width:"100%",maxWidth:400}}>
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <img src="/logo.png" alt="Bulldog Show" style={{width:64,height:64,objectFit:"contain",marginBottom:12}} />
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:3,color:TEXT}}>BULLDOG SHOW</div>
-          <div style={{fontSize:12,color:MUTED,letterSpacing:1,marginTop:4}}>PRODUCTION MANAGER</div>
+    <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:14,padding:40,width:"100%",maxWidth:400}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:TEXT}}>BULLDOG SHOW</div>
+          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,letterSpacing:2}}>PRODUCTION MANAGER · INTERNO</div>
         </div>
         <div style={{marginBottom:16}}><div style={{...lbl,marginBottom:6}}>Email</div><input value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="seu@email.com" type="email" style={inp} /></div>
         <div style={{marginBottom:24}}><div style={{...lbl,marginBottom:6}}>Senha</div><input value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="••••••••" type="password" style={inp} /></div>
-        {loginError && <div style={{color:"#EF4444",fontSize:12,fontFamily:"'DM Sans'",marginBottom:16,textAlign:"center"}}>{loginError}</div>}
-        <button onClick={login} disabled={loginLoading} style={{...btnBlue,width:"100%",padding:"12px",fontSize:16,opacity:loginLoading?0.7:1}}>{loginLoading?"Entrando...":"ENTRAR"}</button>
+        {loginError && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#EF4444",marginBottom:12}}>{loginError}</div>}
+        <button onClick={login} disabled={loginLoading} style={{...btnBlue,width:"100%",opacity:loginLoading?0.7:1}}>{loginLoading?"ENTRANDO...":"ENTRAR"}</button>
       </div>
     </div>
   );
 
-  if (loading) return <div style={{minHeight:"100vh",background:BG,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:14}}>Carregando dados...</div></div>;
-
   return (
-    <div style={{minHeight:"100vh",background:BG,fontFamily:"'Bebas Neue','Impact',sans-serif",color:TEXT,paddingBottom:80}}>
+    <div style={{background:BG,minHeight:"100vh",color:TEXT}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
-        *{box-sizing:border-box;}
+        *{box-sizing:border-box;margin:0;padding:0;}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#040E18}::-webkit-scrollbar-thumb{background:#1B6896;border-radius:2px}
         .epc:hover{transform:translateY(-2px);border-color:#2487BE !important;}
-        @media(max-width:768px){
-          .desktop-only{display:none!important;}
-          .tab-label{display:none;}
-        }
         .tag{display:inline-block;background:rgba(27,104,150,0.2);border:1px solid rgba(27,104,150,0.6);color:#7EC8F0;border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;font-family:'DM Sans'}
         .bi:hover .xb{opacity:1}.xb{opacity:0;transition:opacity .2s}
-        .cpb{background:rgba(27,104,150,0.15);border:1px solid rgba(27,104,150,0.5);color:#7EC8F0;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'DM Sans'}
-        .cpb:hover{background:rgba(27,104,150,0.3)}
-        select option{background:#0D2840;color:#E8F4FF;}
-        .stat-ep:hover{border-color:#2487BE !important;cursor:pointer;}
+        .stat-ep{cursor:pointer;transition:border-color .2s}.stat-ep:hover{border-color:#2487BE !important;}
       `}</style>
 
       {/* HEADER */}
-      <div style={{background:`linear-gradient(180deg,#0D2E45 0%,${BG} 100%)`,padding:"20px 20px 0",borderBottom:`1px solid ${BORDER}`}}>
-        <div style={{maxWidth:1400,margin:"0 auto"}}>
-          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18}}>
-            <img src="/logo.png" alt="Bulldog Show" style={{width:46,height:46,objectFit:"contain"}} />
-            <div>
-              <div style={{fontSize:26,letterSpacing:3,color:TEXT}}>BULLDOG SHOW</div>
-              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1}}>PRODUCTION MANAGER · INTERNO</div>
-            </div>
-            <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:12}}>
-              {saved && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#10B981",background:"rgba(16,185,129,0.1)",padding:"4px 12px",borderRadius:20}}>✓ Salvo</div>}
-              {errorMsg && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#EF4444",background:"rgba(239,68,68,0.1)",padding:"4px 12px",borderRadius:20}}>⚠️ {errorMsg}</div>}
-              <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>{user.email}</div>
-              <button onClick={()=>setSearchOpen(true)} style={{...btnGhost,fontSize:11,padding:"5px 12px",display:"flex",alignItems:"center",gap:5}}>🔍 <span style={{opacity:0.6,fontSize:10}}>⌘K</span></button>
-              <button onClick={logout} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>Sair</button>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-            {TABS.map((t,i)=>(
-              <button key={i} onClick={()=>setActiveTab(i)} style={{background:activeTab===i?B:"transparent",color:activeTab===i?"#fff":MUTED,border:"none",borderRadius:"7px 7px 0 0",padding:"9px 15px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13,fontWeight:500,transition:"all .15s"}}>{t}</button>
-            ))}
-          </div>
+      <div style={{background:"rgba(13,40,64,0.95)",borderBottom:`1px solid ${BORDER}`,padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:56,position:"sticky",top:0,zIndex:50}}>
+        <img src="/logo.png" alt="Bulldog" style={{height:38,width:38,borderRadius:6,objectFit:"cover"}} />
+        <div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:3,color:TEXT}}>BULLDOG SHOW</div>
+          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,letterSpacing:2,marginTop:-2}}>PRODUCTION MANAGER · INTERNO</div>
         </div>
+        <div style={{flex:1}}></div>
+        {saved && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#10B981",background:"rgba(16,185,129,0.1)",padding:"4px 12px",borderRadius:20}}>✓ Salvo</div>}
+        {errorMsg && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#EF4444",background:"rgba(239,68,68,0.1)",padding:"4px 12px",borderRadius:20}}>⚠️ {errorMsg}</div>}
+        <button onClick={()=>setSearchOpen(true)} style={{...btnGhost,fontSize:11,padding:"5px 12px",display:"flex",alignItems:"center",gap:5}}>🔍 <span style={{opacity:0.6,fontSize:10}}>⌘K</span></button>
+        <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>{user.email}</div>
+        <button onClick={logout} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>Sair</button>
       </div>
 
-      <div style={{maxWidth:1400,margin:"0 auto",padding:"22px 20px"}}>
+      {/* TABS */}
+      <div style={{display:"flex",gap:2,padding:"12px 24px 0",borderBottom:`1px solid ${BORDER}`,background:"rgba(13,40,64,0.5)"}}>
+        {TABS.map((t,i)=>(
+          <button key={i} onClick={()=>setActiveTab(i)} style={{fontFamily:"'DM Sans'",fontSize:13,color:activeTab===i?TEXT:MUTED,background:activeTab===i?"rgba(27,104,150,0.2)":"transparent",border:activeTab===i?`1px solid ${BORDER}`:"1px solid transparent",borderBottom:"none",borderRadius:"6px 6px 0 0",padding:"8px 16px",cursor:"pointer",transition:"all .15s"}}>{t}</button>
+        ))}
+      </div>
 
-        {/* DASHBOARD */}
+      {/* CONTENT */}
+      <div style={{maxWidth:1400,margin:"0 auto",padding:"24px 24px"}}>
+
+        {/* TAB 0: DASHBOARD */}
         {activeTab===0 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🏠 BOM DIA, <span style={{color:BL}}>BULLDOG SHOW</span></div>
-            {/* Próxima gravação */}
             {(() => {
-              const proxima = [...episodes].filter(e=>e.gravacao_data&&!e.retroativo).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data))[0];
+              const proxima = [...episodes].filter(e=>e.gravacao_data&&!e.retroativo).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data)).find(e=>e.gravacao_data>=toLocalDate(new Date()));
               const hoje = toLocalDate(new Date());
-              const postsHoje = postagens.filter(p=>p.data===hoje);
               const postsSemana = postagens.filter(p=>{
-                const d = new Date(p.data+"T12:00:00");
-                const now = new Date();
-                const diff = (d - now) / (1000*60*60*24);
-                return diff >= 0 && diff <= 7;
+                const d = new Date(p.data+"T12:00:00"), now = new Date();
+                const diff = (d-now)/(1000*60*60*24);
+                return diff>=-1 && diff<=7;
               });
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
               const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
               return (
                 <div>
-                  {/* Cards de hoje */}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
                     <div style={{...card,padding:20,border:`1px solid rgba(36,135,190,0.5)`}}>
                       <div style={lbl}>📅 Próxima Gravação</div>
@@ -684,15 +627,15 @@ export default function Home() {
                           <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,marginTop:4}}>{proxima.title} · {proxima.gravacao_horario}</div>
                           <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{proxima.convidados?.join(", ")||"Sem convidados"}</div>
                         </div>
-                      ) : <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma gravação agendada</div>}
+                      ) : <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma agendada</div>}
                     </div>
                     <div style={{...card,padding:20}}>
                       <div style={lbl}>📤 Posts Esta Semana</div>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:postsSemana.filter(p=>p.status==="postado").length===postsSemana.length&&postsSemana.length>0?"#10B981":ACCENT}}>{postsSemana.filter(p=>p.status==="postado").length}/{postsSemana.length}</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{postsSemana.filter(p=>p.status==="postado").length}/{postsSemana.length}</div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>postados esta semana</div>
                     </div>
                     <div style={{...card,padding:20}}>
-                      <div style={lbl}>▶ Views YouTube Total</div>
+                      <div style={lbl}>▶ Views YouTube</div>
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>views acumulados</div>
                     </div>
@@ -702,29 +645,24 @@ export default function Home() {
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>episódios com tarefas pendentes</div>
                     </div>
                   </div>
-
-                  {/* Posts pendentes esta semana */}
-                  {postsSemana.filter(p=>p.status!=="postado").length>0&&(
+                  {postsSemana.filter(p=>p.status!=="postado").length>0 && (
                     <div style={{...card,padding:20,marginBottom:16}}>
                       <div style={{fontSize:15,letterSpacing:2,marginBottom:14}}>📆 POSTS PENDENTES ESTA SEMANA</div>
                       {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
                         const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                        const statusColor = p.status==="agendado"?"#F59E0B":MUTED;
                         return (
-                          <div key={p.id} onClick={()=>{setActiveTab(4);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                          <div key={p.id} onClick={()=>setActiveTab(2)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
                             <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,width:80,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
                             <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
                             <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.episodio_title||"Sem episódio"}</span>
-                            {p.responsavel&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
-                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:statusColor,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
+                            {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
                           </div>
                         );
                       })}
                     </div>
                   )}
-
-                  {/* Episódios com checklist incompleto */}
-                  {epsSemChecklist.length>0&&(
+                  {epsSemChecklist.length>0 && (
                     <div style={{...card,padding:20}}>
                       <div style={{fontSize:15,letterSpacing:2,marginBottom:14}}>⚠️ EPISÓDIOS COM TAREFAS PENDENTES</div>
                       {epsSemChecklist.slice(0,5).map(ep=>{
@@ -749,386 +687,82 @@ export default function Home() {
               );
             })()}
           </div>
+          </div>
+
         )}
 
-        {/* EPISÓDIOS */}
+        {/* TAB 1: EPISÓDIOS */}
         {activeTab===1 && (
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({sortedEpisodes.length})</span></div>
-              <button style={btnBlue} onClick={addEpisode}>+ NOVO EPISÓDIO</button>
+              <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({episodes.length})</span></div>
+              <button style={btnBlue} onClick={createEp}>+ NOVO EPISÓDIO</button>
             </div>
             <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-              <select value={epStatusFilter} onChange={e=>setEpStatusFilter(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="todos">Todos os status</option>
-                <option value="planejado">Planejado</option>
-                <option value="confirmado">Confirmado</option>
-                <option value="gravado">Gravado</option>
-                <option value="editado">Editado</option>
-                <option value="publicado">Publicado</option>
-              </select>
               <select value={epSort} onChange={e=>setEpSort(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="numero">Ordenar por número</option>
-                <option value="data_asc">Data ↑ (mais antiga)</option>
-                <option value="data_desc">Data ↓ (mais recente)</option>
+                <option value="numero">Por Número</option>
+                <option value="data">Por Data</option>
+                <option value="status">Por Status</option>
+              </select>
+              <select value={epStatusFilter} onChange={e=>setEpStatusFilter(e.target.value)} style={{...inp,width:"auto"}}>
+                <option value="todos">Todos</option>
+                {Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
-            {sortedEpisodes.map(ep => {
-              const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
-              return (
-                <div key={ep.id} className="epc" onClick={()=>openEp(ep)} style={{...card,cursor:"pointer",transition:"all .2s",display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"start"}}>
-                  <div>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
-                      <span style={{fontSize:17,letterSpacing:1}}>{ep.title}</span>
-                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
-                      {ep.retroativo && <span style={{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>Retroativo</span>}
-                      {ep.status_edicao&&ep.status_edicao!=="pendente"&&<span style={{background:STATUS_EDICAO_CONFIG[ep.status_edicao]?.bg,color:STATUS_EDICAO_CONFIG[ep.status_edicao]?.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>{STATUS_EDICAO_CONFIG[ep.status_edicao]?.label}</span>}
-                    </div>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,display:"flex",flexWrap:"wrap",gap:6}}>
-                      {ep.convidados?.length>0&&<span>👥 {ep.convidados.join(", ")}</span>}
-                      {ep.tier_list&&<span>🏆 {ep.tier_list.slice(0,45)}{ep.tier_list.length>45?"…":""}</span>}
-                      {ep.debate&&<span>💬 {ep.debate.slice(0,40)}{ep.debate.length>40?"…":""}</span>}
-                    </div>
-                  </div>
-                  <div style={{textAlign:"right",fontFamily:"'DM Sans'",fontSize:12,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:7}}>
-                    {ep.gravacao_data ? <div><div style={{color:ACCENT,fontWeight:600}}>{new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</div><div style={{color:MUTED}}>{ep.gravacao_horario}</div></div> : <span style={{color:"#1A3A50"}}>Sem data</span>}
-                    <button className="cpb" onClick={e=>{e.stopPropagation();copyLink(ep.id);}}>{copied===ep.id?"✓ Copiado!":"🔗 Link convidado"}</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* PRODUÇÃO */}
-        {activeTab===3 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE EPISÓDIOS</span></div>
-            {[...episodes].sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep => {
-              const checklist = ep.checklist || [];
-              const ITEMS = [
-                {key:"convidados",label:"👥 Convidados"},
-                {key:"tema_tier",label:"🏆 Tema Tier List"},
-                {key:"tema_programa",label:"📺 Tema do Programa"},
-                {key:"producao_tier",label:"⚙️ Produção Tier List"},
-                {key:"pauta",label:"📋 Pauta"},
-                {key:"gravar",label:"🎙 Gravação"},
-                {key:"editar",label:"✂️ Edição"},
-                {key:"thumbnail",label:"🖼 Thumbnail"},
-                {key:"legenda",label:"📝 Legenda / Descrição"},
-                {key:"postar",label:"📤 Postagem"}
-              ];
-              const done = checklist.length;
-              const total = ITEMS.length;
-              const pct = Math.round((done/total)*100);
-              const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
-              const sConfig = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
-              return (
-                <div key={ep.id} style={{...card,padding:20,marginBottom:12}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
-                      <span style={{background:sConfig.bg,color:sConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sConfig.label}</span>
-                      <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>🎬 {seConfig.label}</span>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <span style={{fontFamily:"'DM Sans'",fontSize:12,color:pct===100?"#10B981":MUTED}}>{done}/{total} tarefas</span>
-                      <button onClick={()=>openEp(ep)} style={{...btnGhost,fontSize:11,padding:"4px 10px"}}>Abrir episódio</button>
-                    </div>
-                  </div>
-                  {/* Progress bar */}
-                  <div style={{background:"#0A1F30",borderRadius:4,height:6,overflow:"hidden",marginBottom:14}}>
-                    <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s ease"}} />
-                  </div>
-                  {/* Checklist grid */}
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
-                    {ITEMS.map(item => {
-                      const isDone = checklist.includes(item.key);
-                      return (
-                        <div key={item.key} onClick={()=>{
-                          const newList = isDone ? checklist.filter(c=>c!==item.key) : [...checklist, item.key];
-                          saveChecklist(ep.id, newList);
-                        }} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:6,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`,transition:"all .15s"}}>
-                          <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                            {isDone&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
-                          </div>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* CRONÔMETRO DE GRAVAÇÃO */}
-                  <div style={{marginTop:14,padding:"14px 16px",background:"rgba(27,104,150,0.06)",borderRadius:8,border:`1px solid ${BORDER}`}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:12}}>
-                        <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:3,color:cronoEpId===ep.id?ACCENT:MUTED,minWidth:90}}>
-                          {cronoFmt(cronoEpId===ep.id?cronoTime:0)}
-                        </div>
-                        {cronoEpId===ep.id&&cronoRunning
-                          ? <button onClick={cronoPause} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>⏸ Pausar</button>
-                          : <button onClick={()=>cronoStart(ep.id)} style={{...btnBlue,padding:"6px 14px",fontSize:12}}>▶ {cronoEpId===ep.id?"Continuar":"Iniciar"}</button>
-                        }
-                        <button onClick={()=>cronoReset(ep.id)} style={{...btnGhost,padding:"6px 10px",fontSize:11}}>↺ Reset</button>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Espaço=pause · C=corte</span>
-                      </div>
-                      <button
-                        onClick={()=>marcarCorte(ep)}
-                        disabled={cronoEpId!==ep.id||cronoTime===0}
-                        style={{background:cronoEpId===ep.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"8px 18px",cursor:cronoEpId===ep.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1}}>
-                        ✂️ MARCAR CORTE
-                      </button>
-                    </div>
-
-                    {/* Nota do corte ativo */}
-                    {cronoNotaAtiva&&cronoEpId===ep.id&&(
-                      <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
-                        <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0}}>✂️ {cronoNotaAtiva.timeStr}</div>
-                        <input
-                          value={cronoNotaAtiva.nota}
-                          onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})}
-                          onKeyDown={e=>e.key==="Enter"&&salvarCorte(ep)}
-                          placeholder="Descreve o corte... (Enter para salvar)"
-                          style={{...inp,flex:1}}
-                          autoFocus
-                        />
-                        <button onClick={()=>salvarCorte(ep)} style={btnBlue}>💾</button>
-                        <button onClick={()=>setCronoNotaAtiva(null)} style={btnGhost}>✕</button>
-                      </div>
-                    )}
-
-                    {/* Lista de cortes marcados */}
-                    {(ep.cortes_gravacao||[]).length>0&&(
-                      <div style={{marginTop:12}}>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes marcados ({ep.cortes_gravacao.length})</div>
-                        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:180,overflowY:"auto"}}>
-                          {ep.cortes_gravacao.map(c=>(
-                            <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:"rgba(239,68,68,0.06)",borderRadius:5,border:"1px solid rgba(239,68,68,0.2)"}}>
-                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"#EF4444",flexShrink:0,minWidth:50}}>{c.timeStr}</span>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{c.nota||<span style={{color:MUTED}}>Sem nota</span>}</span>
-                              <button onClick={()=>deletarCorte(ep,c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:11,flexShrink:0}}>✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ESTATÍSTICAS */}
-        {activeTab===4 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
-            {(() => {
-              const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
-              const socialViews = postagens.filter(p=>p.plataforma==="Instagram"||p.plataforma==="TikTok").reduce((s,p)=>s+(p.views||0),0);
-              const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
-              return (
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
-                  <StatCard label="Episódios Gravados" value={gravados} />
-                  <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
-                  <StatCard label="Cortes Publicados" value={postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length} color={ACCENT} />
-                  <StatCard label="Tier Lists Publicadas" value={postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length} color="#F59E0B" />
-                  <StatCard label="Views YouTube" value={ytViews>0?ytViews.toLocaleString("pt-BR"):"0"} color="#EF4444" />
-                  <StatCard label="Views Redes Sociais" value={socialViews>0?socialViews.toLocaleString("pt-BR"):"0"} color="#8B5CF6" />
-                  <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
-                </div>
-              );
-            })()}
-            {(() => {
-              const epIds = [...new Set(postagens.filter(p=>p.episodio_id&&p.views>0).map(p=>p.episodio_id))];
-              if (epIds.length === 0) return null;
-              const epData = epIds.map(id => {
-                const ep = episodes.find(e=>e.id===id);
-                const posts = postagens.filter(p=>p.episodio_id===id&&p.views>0);
-                const full = posts.filter(p=>p.tipo==="Full").reduce((s,p)=>s+(p.views||0),0);
-                const corte = posts.filter(p=>p.tipo==="Corte").reduce((s,p)=>s+(p.views||0),0);
-                const tier = posts.filter(p=>p.tipo==="Tier List").reduce((s,p)=>s+(p.views||0),0);
-                const total = full+corte+tier;
-                return {id, title: ep?.title||`Ep ${id}`, full, corte, tier, total};
-              }).sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; });
-              const maxTotal = Math.max(...epData.map(e=>e.total));
-              return (
-                <div style={{...card,padding:20,marginBottom:20}}>
-                  <div style={{fontSize:16,letterSpacing:2,marginBottom:4}}>📊 VIEWS POR EPISÓDIO</div>
-                  <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
-                    {[["Full","#8B5CF6"],["Corte",ACCENT],["Tier List","#F59E0B"]].map(([t,c])=>(
-                      <div key={t} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
-                        <div style={{width:10,height:10,borderRadius:2,background:c}} />{t}
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                    {epData.map(ep=>{
-                      const fullPct = maxTotal>0?Math.round((ep.full/maxTotal)*100):0;
-                      const cortePct = maxTotal>0?Math.round((ep.corte/maxTotal)*100):0;
-                      const tierPct = maxTotal>0?Math.round((ep.tier/maxTotal)*100):0;
-                      return (
-                        <div key={ep.id}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,fontWeight:600}}>{ep.title}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,display:"flex",gap:12}}>
-                              {ep.full>0&&<span style={{color:"#8B5CF6"}}>Full: {ep.full.toLocaleString("pt-BR")}</span>}
-                              {ep.corte>0&&<span style={{color:ACCENT}}>Cortes: {ep.corte.toLocaleString("pt-BR")}</span>}
-                              {ep.tier>0&&<span style={{color:"#F59E0B"}}>Tier: {ep.tier.toLocaleString("pt-BR")}</span>}
-                              <span style={{color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} total</span>
-                            </div>
-                          </div>
-                          <div style={{background:"#0A1F30",borderRadius:4,height:12,overflow:"hidden",display:"flex"}}>
-                            {ep.full>0&&<div style={{height:"100%",width:`${fullPct}%`,background:"#8B5CF6",transition:"width .5s ease"}} />}
-                            {ep.corte>0&&<div style={{height:"100%",width:`${cortePct}%`,background:ACCENT,transition:"width .5s ease"}} />}
-                            {ep.tier>0&&<div style={{height:"100%",width:`${tierPct}%`,background:"#F59E0B",transition:"width .5s ease"}} />}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-            {(() => {
-              const epsComInv = episodes.filter(e=>(e.investimento||0)>0);
-              if (epsComInv.length === 0) return null;
-              const maxInv = Math.max(...epsComInv.map(e=>e.investimento||0));
-              return (
-                <div style={{...card,padding:20,marginBottom:20}}>
-                  <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>💰 INVESTIMENTO & ROI POR EPISÓDIO</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                    {epsComInv.sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep=>{
-                      const pct = maxInv>0?Math.round(((ep.investimento||0)/maxInv)*100):0;
-                      return (
-                        <div key={ep.id}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT}}>{ep.title}</div>
-                            <div style={{display:"flex",gap:16}}>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"#F59E0B"}}>R$ {(ep.investimento||0).toLocaleString("pt-BR",{minimumFractionDigits:0})}</span>
-                              {(ep.roi||0)>0&&<span style={{fontFamily:"'DM Sans'",fontSize:12,color:"#10B981"}}>ROI {ep.roi}%</span>}
-                            </div>
-                          </div>
-                          <div style={{background:"#0A1F30",borderRadius:4,height:8,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${pct}%`,background:"linear-gradient(90deg,#92400E,#F59E0B)",borderRadius:4,transition:"width .5s ease"}} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
-              <div style={{...card,padding:20,marginBottom:0}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                  <div style={{fontSize:15,letterSpacing:2}}>👥 CONVIDADOS</div>
-                  {convidadoRanking.length>5&&<button onClick={()=>setShowAllConvidados(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllConvidados?"▲ menos":"▼ todos"}</button>}
-                </div>
-                {convidadoRanking.length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum convidado ainda</div>
-                  : (showAllConvidados?convidadoRanking:convidadoRanking.slice(0,5)).map(([nome,count],i)=>(
-                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <span style={{color:MUTED,fontSize:10,width:16}}>{i+1}.</span>
-                        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{nome}</span>
-                      </div>
-                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600,flexShrink:0}}>{count}x</span>
-                    </div>
-                  ))}
-              </div>
-              {(() => {
-                const tipoColor = (tipo) => tipo==="Full"?"#8B5CF6":tipo==="Tier List"?"#F59E0B":ACCENT;
-                const plataformaIcon = (link) => link?.includes("youtu")?"▶":link?.includes("instagram")?"📸":link?.includes("tiktok")?"🎵":"🔗";
-                const viewsRanking = [...postagens].filter(p => p.views > 0).sort((a,b) => b.views - a.views);
+            <div style={{display:"grid",gap:8}}>
+              {sortedEpisodes.map(ep=>{
+                const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
+                const checkDone = (ep.checklist||[]).length;
                 return (
-                  <div style={{...card,padding:20,marginBottom:0}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                      <div style={{fontSize:15,letterSpacing:2}}>📊 VIEWS</div>
-                      {viewsRanking.length>5&&<button onClick={()=>setShowAllViews(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllViews?"▲ menos":"▼ todos"}</button>}
+                  <div key={ep.id} className="epc" onClick={()=>openEp(ep)} style={{...card,cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"transform .15s, border-color .15s"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                        <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
+                        <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
+                        {ep.status_edicao&&ep.status_edicao!=="pendente" && <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>}
+                        {ep.retroativo && <span style={{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>Retroativo</span>}
+                      </div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,display:"flex",gap:12,flexWrap:"wrap"}}>
+                        {ep.convidados?.length>0 && <span>👤 {ep.convidados.join(", ")}</span>}
+                        {ep.gravacao_data && <span>📅 {new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</span>}
+                        {ep.tier_list && <span>🏆 {ep.tier_list}</span>}
+                        {checkDone>0 && <span style={{color:checkDone===10?"#10B981":MUTED}}>✅ {checkDone}/10</span>}
+                      </div>
                     </div>
-                    {viewsRanking.length===0
-                      ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view registrado ainda</div>
-                      : (showAllViews?viewsRanking:viewsRanking.slice(0,5)).map((p,i)=>(
-                        <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
-                          <div style={{display:"flex",gap:8,alignItems:"center",flex:1,minWidth:0}}>
-                            <span style={{color:MUTED,fontSize:10,width:16,flexShrink:0}}>{i+1}.</span>
-                            <span style={{background:`${tipoColor(p.tipo)}22`,color:tipoColor(p.tipo),borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{p.episodio_title||"—"}</span>
-                          </div>
-                          <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                            <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{p.views.toLocaleString("pt-BR")}</span>
-                            {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{plataformaIcon(p.link)}</a>}
-                          </div>
-                        </div>
-                      ))}
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                      {copied===ep.id ? <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>✓ Copiado</span> : <button onClick={e=>{e.stopPropagation();copyLink(ep.id);}} style={{...btnGhost,fontSize:11,padding:"5px 10px"}}>🔗 Link</button>}
+                    </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
-            <div style={{...card,padding:16,marginBottom:20}}>
-              <div style={{fontSize:14,letterSpacing:2,marginBottom:12}}>🎮 GAMES USADOS</div>
-              {Object.entries(gameCount).length===0
-                ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum game usado ainda</div>
-                : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
-                  <span key={nome} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,borderRadius:6,padding:"4px 10px",fontFamily:"'DM Sans'",fontSize:12,color:TEXT}}>
-                    {nome} <span style={{color:ACCENT,fontWeight:600}}>{count}x</span>
-                  </span>
-                ))}</div>}
-            </div>
-            <div style={{fontSize:16,letterSpacing:2,marginBottom:16}}>📈 PERFORMANCE POR EPISÓDIO</div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:14}}>Clica em um episódio para adicionar investimento, ROI e links</div>
-            {[...episodes].sort((a,b)=>{ const na=parseInt((a.title.match(/\d+/)||[0])[0]); const nb=parseInt((b.title.match(/\d+/)||[0])[0]); return na-nb; }).map(ep => (
-              <div key={ep.id} className="stat-ep" onClick={()=>openStats(ep)} style={{...card,transition:"border-color .2s",display:"grid",gridTemplateColumns:"1fr auto auto auto auto",gap:16,alignItems:"center"}}>
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
-                    <div style={{fontSize:15,letterSpacing:1}}>{ep.title}</div>
-                    {ep.drive_link&&<a href={ep.drive_link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981",textDecoration:"none"}}>📁 Drive</a>}
-                  </div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
-                </div>
-                <div style={{textAlign:"center"}}>
-                  <div style={lbl}>Investimento</div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.investimento>0?"#F59E0B":MUTED}}>{ep.investimento>0?`R$ ${ep.investimento.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"—"}</div>
-                </div>
-                <div style={{textAlign:"center"}}>
-                  <div style={lbl}>ROI</div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.roi>0?"#10B981":MUTED}}>{ep.roi>0?`${ep.roi}%`:"—"}</div>
-                </div>
-                <div style={{textAlign:"center"}}>
-                  <div style={lbl}>Posts</div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:postagens.filter(p=>p.episodio_id===ep.id).length>0?ACCENT:MUTED}}>{postagens.filter(p=>p.episodio_id===ep.id).length}</div>
-                </div>
-                {ep.links?.some(l=>l.plataforma==="YouTube"&&l.url)&&(
-                  <button onClick={e=>{e.stopPropagation();fetchAndUpdateViews(ep);}} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,color:MUTED,borderRadius:4,padding:"4px 10px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:11}}>↻ YT</button>
-                )}
-              </div>
-            ))}
           </div>
         )}
 
-        {/* AGENDA */}
+        {/* TAB 2: AGENDA */}
         {activeTab===2 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>📅 AGENDA <span style={{color:BL}}>DO PROGRAMA</span></div>
-
             <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>🎙 Gravações</div>
-
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:18}}>📅 Quartas-feiras · 10h–12h e 14h–16h · 2 eps por dia</div>
-            {episodes.filter(e=>e.retroativo&&e.gravacao_data).length>0&&(
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:18}}>📅 Quartas-feiras · 10h–12h e 14h–16h</div>
+            {episodes.filter(e=>e.retroativo&&e.gravacao_data).length>0 && (
               <div style={{marginBottom:20}}>
-                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>📼 Episódios Retroativos</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>📼 Retroativos</div>
                 {[...episodes].filter(e=>e.retroativo&&e.gravacao_data).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data)).map(ep=>{
                   const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                   return (
                     <div key={ep.id} onClick={()=>openEp(ep)} style={{background:"rgba(139,92,246,0.08)",border:"1px solid rgba(139,92,246,0.25)",borderRadius:10,padding:"12px 17px",display:"grid",gridTemplateColumns:"115px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",marginBottom:6}}>
-                      <div><div style={{fontSize:17,letterSpacing:1,color:"#8B5CF6"}}>{new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"})}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Retroativo</div></div>
+                      <div>
+                        <div style={{fontSize:17,letterSpacing:1,color:"#8B5CF6"}}>{new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Retroativo</div>
+                      </div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:13,display:"flex",gap:9,alignItems:"center"}}>
                         <span style={{color:"#8B5CF6",fontWeight:600}}>{ep.gravacao_horario}</span>
                         <span style={{color:TEXT}}>{ep.title}</span>
-                        {ep.convidados?.length>0&&<span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
+                        {ep.convidados?.length>0 && <span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
                       </div>
-                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{sc.label}</span>
+                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
                     </div>
                   );
                 })}
@@ -1141,31 +775,35 @@ export default function Home() {
                 <div key={i} style={{marginBottom:8}}>
                   {eps.length===0 ? (
                     <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"13px 17px",display:"grid",gridTemplateColumns:"115px 1fr",gap:14,alignItems:"center"}}>
-                      <div><div style={{fontSize:18,letterSpacing:1,color:"#1A3A50"}}>{fmt(wed)}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:"#1A3A50"}}>Quarta-feira</div></div>
+                      <div>
+                        <div style={{fontSize:18,letterSpacing:1,color:"#1A3A50"}}>{fmt(wed)}</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"#1A3A50"}}>Quarta-feira</div>
+                      </div>
                       <span style={{fontFamily:"'DM Sans'",fontSize:12,color:"#1A3A50"}}>Sem gravações agendadas</span>
                     </div>
                   ) : eps.map(ep=>{
                     const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                     return (
-                      <div key={ep.id} onClick={()=>openEp(ep)} style={{background:"rgba(27,104,150,0.1)",border:`1px solid rgba(27,104,150,0.4)`,borderRadius:10,padding:"13px 17px",display:"grid",gridTemplateColumns:"115px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",marginBottom:6}}>
-                        <div><div style={{fontSize:18,letterSpacing:1,color:ACCENT}}>{fmt(wed)}</div><div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Quarta-feira</div></div>
+                      <div key={ep.id} onClick={()=>openEp(ep)} style={{background:"rgba(27,104,150,0.1)",border:"1px solid rgba(27,104,150,0.4)",borderRadius:10,padding:"13px 17px",display:"grid",gridTemplateColumns:"115px 1fr auto",gap:14,alignItems:"center",cursor:"pointer",marginBottom:6}}>
+                        <div>
+                          <div style={{fontSize:18,letterSpacing:1,color:ACCENT}}>{fmt(wed)}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Quarta-feira</div>
+                        </div>
                         <div style={{fontFamily:"'DM Sans'",fontSize:13,display:"flex",gap:9,alignItems:"center"}}>
                           <span style={{color:ACCENT,fontWeight:600}}>{ep.gravacao_horario}</span>
                           <span style={{color:TEXT}}>{ep.title}</span>
-                          {ep.convidados?.length>0&&<span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
+                          {ep.convidados?.length>0 && <span style={{color:MUTED}}>· {ep.convidados.join(", ")}</span>}
                         </div>
-                        <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{sc.label}</span>
+                        <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
                       </div>
                     );
                   })}
                 </div>
               );
             })}
-
             <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginTop:28,marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Postagem</div>
-
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{display:"flex",gap:8}}>
                 <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 12px",fontSize:13}}>← Anterior</button>
                 <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 12px",fontSize:12}}>Hoje</button>
                 <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 12px",fontSize:13}}>Próxima →</button>
@@ -1187,7 +825,7 @@ export default function Home() {
                         <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:isToday?ACCENT:TEXT}}>{slot.label}{isToday&&<span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,marginLeft:6}}>HOJE</span>}</div>
                         <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</div>
                       </div>
-                      <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:"YouTube",horario:"18:00",views:0,drive_link:"",responsavel:""});}} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>+ Adicionar</button>
+                      <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:"YouTube",horario:"18:00",views:0,drive_link:"",responsavel:"",});}} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>+ Adicionar</button>
                     </div>
                     {slotPostagens.length===0 && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#1A3A50"}}>Nenhum post agendado</div>}
                     {slotPostagens.map(p => {
@@ -1198,13 +836,13 @@ export default function Home() {
                         <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"rgba(27,104,150,0.07)",borderRadius:7,marginBottom:6,border:`1px solid ${ts.border}`}}>
                           <span style={{background:ts.bg,color:ts.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
                           <span style={{background:"rgba(27,104,150,0.15)",color:MUTED,borderRadius:4,padding:"2px 6px",fontFamily:"'DM Sans'",fontSize:10,flexShrink:0}}>{p.plataforma||"YouTube"}</span>
-                          {p.horario&&<span style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:10,flexShrink:0}}>{p.horario}</span>}
+                          {p.horario && <span style={{color:MUTED,fontFamily:"'DM Sans'",fontSize:10,flexShrink:0}}>{p.horario}</span>}
                           <div style={{flex:1,minWidth:0,fontFamily:"'DM Sans'",fontSize:12}}>
                             {p.episodio_title?<span style={{color:TEXT}}>{p.episodio_title}</span>:<span style={{color:"#1A3A50"}}>Sem episódio</span>}
-                            {ep?.drive_link&&<a href={ep.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:8,fontSize:10,color:"#10B981"}}>📁</a>}
-                            {p.drive_link&&<a href={p.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:4,fontSize:10,color:"#F59E0B"}}>📁</a>}
-                            {p.responsavel&&<span style={{marginLeft:8,color:"#10B981",fontSize:10}}>👤 {p.responsavel}</span>}
-                            {p.views>0&&<span style={{marginLeft:8,color:ACCENT,fontSize:10}}>{p.views.toLocaleString("pt-BR")} views</span>}
+                            {ep?.drive_link && <a href={ep.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:8,fontSize:10,color:"#10B981"}}>📁</a>}
+                            {p.drive_link && <a href={p.drive_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:4,fontSize:10,color:"#F59E0B"}}>📁</a>}
+                            {p.responsavel && <span style={{marginLeft:8,color:"#10B981",fontSize:10}}>👤 {p.responsavel}</span>}
+                            {p.views>0 && <span style={{marginLeft:8,color:ACCENT,fontSize:10}}>{p.views.toLocaleString("pt-BR")} views</span>}
                           </div>
                           <span style={{color:statusColor,fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,textTransform:"uppercase",flexShrink:0}}>{p.status}</span>
                           <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"rgba(27,104,150,0.2)",border:`1px solid ${BORDER}`,color:ACCENT,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,flexShrink:0}}>✏️</button>
@@ -1218,7 +856,7 @@ export default function Home() {
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:24}}>
               {["postado","agendado","pendente"].map(s => {
-                const count = getWeekDates(postagemWeekOffset).flatMap(slot => getPostagens(slot.date)).filter(p => p.status === s).length;
+                const count = getWeekDates(postagemWeekOffset).flatMap(slot=>getPostagens(slot.date)).filter(p=>p.status===s).length;
                 const color = s==="postado"?"#10B981":s==="agendado"?"#F59E0B":MUTED;
                 return (
                   <div key={s} style={{...card,padding:"14px 16px",textAlign:"center"}}>
@@ -1231,18 +869,261 @@ export default function Home() {
           </div>
         )}
 
-        {/* BANCO DE IDEIAS */}
+        {/* TAB 3: PRODUÇÃO */}
+        {activeTab===3 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE EPISÓDIOS</span></div>
+            {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep => {
+              const checklist = ep.checklist || [];
+              const done = checklist.length;
+              const pct = Math.round((done/CHECKLIST_ITEMS.length)*100);
+              const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
+              const sConfig = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+              return (
+                <div key={ep.id} style={{...card,padding:20,marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
+                      <span style={{background:sConfig.bg,color:sConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sConfig.label}</span>
+                      <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontFamily:"'DM Sans'",fontSize:12,color:pct===100?"#10B981":MUTED}}>{done}/{CHECKLIST_ITEMS.length}</span>
+                      <button onClick={()=>openEp(ep)} style={{...btnGhost,fontSize:11,padding:"4px 10px"}}>Abrir episódio</button>
+                    </div>
+                  </div>
+                  <div style={{background:"#0A1F30",borderRadius:4,height:6,overflow:"hidden",marginBottom:14}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:6,marginBottom:14}}>
+                    {CHECKLIST_ITEMS.map(item => {
+                      const isDone = checklist.includes(item.key);
+                      return (
+                        <div key={item.key} onClick={()=>{
+                          const newList = isDone?checklist.filter(c=>c!==item.key):[...checklist,item.key];
+                          saveChecklist(ep.id,newList);
+                        }} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:6,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`,transition:"all .15s"}}>
+                          <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                            {isDone && <span style={{color:"#fff",fontSize:9}}>✓</span>}
+                          </div>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* CRONÔMETRO */}
+                  <div style={{padding:"14px 16px",background:"rgba(27,104,150,0.06)",borderRadius:8,border:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:3,color:cronoEpId===ep.id?ACCENT:MUTED,minWidth:90}}>
+                          {cronoFmt(cronoEpId===ep.id?cronoTime:0)}
+                        </div>
+                        {cronoEpId===ep.id&&cronoRunning
+                          ? <button onClick={cronoPause} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>⏸ Pausar</button>
+                          : <button onClick={()=>cronoStart(ep.id)} style={{...btnBlue,padding:"6px 14px",fontSize:12}}>▶ {cronoEpId===ep.id?"Continuar":"Iniciar"}</button>
+                        }
+                        <button onClick={()=>cronoReset(ep.id)} style={{...btnGhost,padding:"6px 10px",fontSize:11}}>↺ Reset</button>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>Espaço=pause · C=corte</span>
+                      </div>
+                      <button onClick={()=>marcarCorte(ep)} disabled={cronoEpId!==ep.id||cronoTime===0} style={{background:cronoEpId===ep.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"8px 18px",cursor:cronoEpId===ep.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1}}>
+                        ✂️ MARCAR CORTE
+                      </button>
+                    </div>
+                    {cronoNotaAtiva&&cronoEpId===ep.id && (
+                      <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
+                        <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0}}>✂️ {cronoNotaAtiva.timeStr}</div>
+                        <input value={cronoNotaAtiva.nota} onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})} onKeyDown={e=>e.key==="Enter"&&salvarCorte(ep)} placeholder="Descreve o corte... (Enter para salvar)" style={{...inp,flex:1}} autoFocus />
+                        <button onClick={()=>salvarCorte(ep)} style={btnBlue}>💾</button>
+                        <button onClick={()=>setCronoNotaAtiva(null)} style={btnGhost}>✕</button>
+                      </div>
+                    )}
+                    {(ep.cortes_gravacao||[]).length>0 && (
+                      <div style={{marginTop:12}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes ({ep.cortes_gravacao.length})</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:180,overflowY:"auto"}}>
+                          {ep.cortes_gravacao.map(c=>(
+                            <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:"rgba(239,68,68,0.06)",borderRadius:5,border:"1px solid rgba(239,68,68,0.2)"}}>
+                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"#EF4444",flexShrink:0,minWidth:50}}>{c.timeStr}</span>
+                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{c.nota||<span style={{color:MUTED}}>Sem nota</span>}</span>
+                              <button onClick={()=>deletarCorte(ep,c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:11}}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </div>
+
+        )}
+
+        {/* TAB 4: ESTATÍSTICAS */}
+        {activeTab===4 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
+            {(() => {
+              const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
+              const socialViews = postagens.filter(p=>p.plataforma==="Instagram"||p.plataforma==="TikTok").reduce((s,p)=>s+(p.views||0),0);
+              const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
+              return (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
+                  <StatCard label="Episódios Gravados" value={gravados} />
+                  <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
+                  <StatCard label="Cortes Publicados" value={postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length} color={ACCENT} />
+                  <StatCard label="Tier Lists Publicadas" value={postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length} color="#F59E0B" />
+                  <StatCard label="Views YouTube" value={ytViews>0?ytViews.toLocaleString("pt-BR"):"0"} color="#EF4444" />
+                  <StatCard label="Views Redes Sociais" value={socialViews>0?socialViews.toLocaleString("pt-BR"):"0"} color="#8B5CF6" />
+                  <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
+                </div>
+              );
+            })()}
+            {(() => {
+              const epIds = [...new Set(postagens.filter(p=>p.episodio_id&&p.views>0).map(p=>p.episodio_id))];
+              if (!epIds.length) return null;
+              const epData = epIds.map(id=>{
+                const ep=episodes.find(e=>e.id===id);
+                const posts=postagens.filter(p=>p.episodio_id===id&&p.views>0);
+                const full=posts.filter(p=>p.tipo==="Full").reduce((s,p)=>s+(p.views||0),0);
+                const corte=posts.filter(p=>p.tipo==="Corte").reduce((s,p)=>s+(p.views||0),0);
+                const tier=posts.filter(p=>p.tipo==="Tier List").reduce((s,p)=>s+(p.views||0),0);
+                return {id,title:ep?.title||`Ep ${id}`,full,corte,tier,total:full+corte+tier};
+              }).sort((a,b)=>epNum(a.title)-epNum(b.title));
+              const maxTotal = Math.max(...epData.map(e=>e.total));
+              return (
+                <div style={{...card,padding:20,marginBottom:20}}>
+                  <div style={{fontSize:16,letterSpacing:2,marginBottom:4}}>📊 VIEWS POR EPISÓDIO</div>
+                  <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
+                    {[["Full","#8B5CF6"],["Corte",ACCENT],["Tier List","#F59E0B"]].map(([t,c])=>(
+                      <div key={t} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:c}} />{t}
+                      </div>
+                    ))}
+                  </div>
+                  {epData.map(ep=>{
+                    const fPct=maxTotal>0?Math.round((ep.full/maxTotal)*100):0;
+                    const cPct=maxTotal>0?Math.round((ep.corte/maxTotal)*100):0;
+                    const tPct=maxTotal>0?Math.round((ep.tier/maxTotal)*100):0;
+                    return (
+                      <div key={ep.id} style={{marginBottom:14}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{ep.title}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,display:"flex",gap:12}}>
+                            {ep.full>0 && <span style={{color:"#8B5CF6"}}>Full: {ep.full.toLocaleString("pt-BR")}</span>}
+                            {ep.corte>0 && <span style={{color:ACCENT}}>Cortes: {ep.corte.toLocaleString("pt-BR")}</span>}
+                            {ep.tier>0 && <span style={{color:"#F59E0B"}}>Tier: {ep.tier.toLocaleString("pt-BR")}</span>}
+                            <span style={{color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} total</span>
+                          </div>
+                        </div>
+                        <div style={{background:"#0A1F30",borderRadius:4,height:12,overflow:"hidden",display:"flex"}}>
+                          {ep.full>0 && <div style={{height:"100%",width:`${fPct}%`,background:"#8B5CF6"}} />}
+                          {ep.corte>0 && <div style={{height:"100%",width:`${cPct}%`,background:ACCENT}} />}
+                          {ep.tier>0 && <div style={{height:"100%",width:`${tPct}%`,background:"#F59E0B"}} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+              <div style={{...card,padding:20,marginBottom:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontSize:15,letterSpacing:2}}>👥 CONVIDADOS</div>
+                  {convidadoRanking.length>5 && <button onClick={()=>setShowAllConvidados(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllConvidados?"▲":"▼ todos"}</button>}
+                </div>
+                {convidadoRanking.length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum convidado ainda</div>
+                  : (showAllConvidados?convidadoRanking:convidadoRanking.slice(0,5)).map(([nome,count],i)=>(
+                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{color:MUTED,fontSize:10,width:16}}>{i+1}.</span>
+                        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{nome}</span>
+                      </div>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600}}>{count}x</span>
+                    </div>
+                  ))}
+              </div>
+              <div style={{...card,padding:20,marginBottom:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontSize:15,letterSpacing:2}}>📊 VIEWS</div>
+                  {postagens.filter(p=>p.views>0).length>5 && <button onClick={()=>setShowAllViews(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllViews?"▲":"▼ todos"}</button>}
+                </div>
+                {postagens.filter(p=>p.views>0).length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda</div>
+                  : (showAllViews?[...postagens]:[...postagens].slice(0,5)).filter(p=>p.views>0).sort((a,b)=>b.views-a.views).map((p,i)=>{
+                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                    const icon = p.link?.includes("youtu")?"▶":p.link?.includes("instagram")?"📸":"🎵";
+                    return (
+                      <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
+                        <div style={{display:"flex",gap:8,alignItems:"center",flex:1,minWidth:0}}>
+                          <span style={{color:MUTED,fontSize:10,width:16,flexShrink:0}}>{i+1}.</span>
+                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{p.episodio_title||"—"}</span>
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                          <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{p.views.toLocaleString("pt-BR")}</span>
+                          {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{icon}</a>}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            <div style={{...card,padding:16,marginBottom:20}}>
+              <div style={{fontSize:14,letterSpacing:2,marginBottom:12}}>🎮 GAMES USADOS</div>
+              {Object.entries(gameCount).length===0
+                ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum game usado ainda</div>
+                : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
+                  <span key={nome} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,borderRadius:6,padding:"4px 10px",fontFamily:"'DM Sans'",fontSize:12}}>{nome} <span style={{color:ACCENT,fontWeight:600}}>{count}x</span></span>
+                ))}</div>}
+            </div>
+            <div style={{fontSize:16,letterSpacing:2,marginBottom:8}}>📈 PERFORMANCE POR EPISÓDIO</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:14}}>Clica para adicionar investimento e links</div>
+            {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=>(
+              <div key={ep.id} className="stat-ep" onClick={()=>openStats(ep)} style={{...card,display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:16,alignItems:"center"}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                    <div style={{fontSize:15,letterSpacing:1}}>{ep.title}</div>
+                    {ep.drive_link && <a href={ep.drive_link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981",textDecoration:"none"}} onClick={e=>e.stopPropagation()}>📁 Drive</a>}
+                  </div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>Investimento</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.investimento>0?"#F59E0B":MUTED}}>{ep.investimento>0?`R$ ${ep.investimento.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"—"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>ROI</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.roi>0?"#10B981":MUTED}}>{ep.roi>0?`${ep.roi}%`:"—"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>Posts</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:postagens.filter(p=>p.episodio_id===ep.id).length>0?ACCENT:MUTED}}>{postagens.filter(p=>p.episodio_id===ep.id).length}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          </div>
+          </div>
+          </div>
+          </div>
+
+        )}
+
+        {/* TAB 5: BANCO DE IDEIAS */}
         {activeTab===5 && (
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>💡 BANCO DE IDEIAS</div>
-
             {/* EQUIPE */}
             <div style={{...card,padding:20,marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                 <div style={{fontSize:16,letterSpacing:2}}>👥 EQUIPE <span style={{color:BL}}>({equipe.length})</span></div>
                 <button style={{...btnGhost,fontSize:11,padding:"5px 12px"}} onClick={()=>setAddingMembro(!addingMembro)}>+ Membro</button>
               </div>
-              {addingMembro&&(
+              {addingMembro && (
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
                   <input value={newMembro.nome} onChange={e=>setNewMembro({...newMembro,nome:e.target.value})} placeholder="Nome *" style={{...inp,flex:1}} />
                   <input value={newMembro.funcao} onChange={e=>setNewMembro({...newMembro,funcao:e.target.value})} placeholder="Função (ex: Editor)" style={{...inp,flex:1}} />
@@ -1255,19 +1136,18 @@ export default function Home() {
                   <div key={m.id} className="bi" style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}>
                     <div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{m.nome}</div>
-                      {m.funcao&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{m.funcao}</div>}
+                      {m.funcao && <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{m.funcao}</div>}
                     </div>
                     <button className="xb" onClick={()=>removeMembro(m.id)} style={{...btnGhost,padding:"2px 6px",fontSize:10,color:BL}}>✕</button>
                   </div>
                 ))}
-                {equipe.length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum membro cadastrado ainda</div>}
+                {equipe.length===0 && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum membro cadastrado ainda</div>}
               </div>
             </div>
-
             {/* CONVIDADOS */}
             <div style={{...card,padding:20,marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                <div style={{fontSize:16,letterSpacing:2}}>👥 CONVIDADOS <span style={{color:BL}}>({convidados.length})</span></div>
+                <div style={{fontSize:16,letterSpacing:2}}>🎤 CONVIDADOS <span style={{color:BL}}>({convidados.length})</span></div>
                 <div style={{display:"flex",gap:8}}>
                   <input value={convSearch} onChange={e=>setConvSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
                   <button style={btnBlue} onClick={addConvidado}>+ ADD</button>
@@ -1277,15 +1157,14 @@ export default function Home() {
                 <input value={newConvidado} onChange={e=>setNewConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidado()} placeholder="Nome do convidado..." style={{...inp,flex:1}} />
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
-                {sortedConvidados.map(c => (
+                {sortedConvidados.map(c=>(
                   <div key={c.id} className="bi" style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BORDER}`,borderRadius:7,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <span style={{fontFamily:"'DM Sans'",fontSize:12}}>👤 {c.nome}</span>
-                    <button className="xb" onClick={()=>removeConvidado(c.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL,marginLeft:4}}>✕</button>
+                    <button className="xb" onClick={()=>removeConvidado(c.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL}}>✕</button>
                   </div>
                 ))}
               </div>
             </div>
-
             {/* TIER LISTS */}
             <div style={{...card,padding:20,marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -1293,8 +1172,7 @@ export default function Home() {
                 <div style={{display:"flex",gap:8}}>
                   <input value={tierSearch} onChange={e=>setTierSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
                   <select value={tierSort} onChange={e=>setTierSort(e.target.value)} style={{...inp,width:"auto"}}>
-                    <option value="az">A → Z</option><option value="za">Z → A</option>
-                    <option value="stars_desc">★ Top</option>
+                    <option value="az">A → Z</option><option value="za">Z → A</option><option value="stars_desc">★ Top</option>
                   </select>
                 </div>
               </div>
@@ -1302,7 +1180,7 @@ export default function Home() {
                 <input value={newTierList} onChange={e=>setNewTierList(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTierList()} placeholder="Nova tier list..." style={{...inp,flex:1}} />
                 <button style={btnBlue} onClick={addTierList}>+ ADD</button>
               </div>
-              {sortedTierLists.map(tl => (
+              {sortedTierLists.map(tl=>(
                 <div key={tl.id} className="bi" style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BORDER}`,borderRadius:7,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:6}}>
                   <span style={{fontFamily:"'DM Sans'",fontSize:13,flex:1}}>🏆 {tl.nome}</span>
                   <Stars value={tl.estrelas||0} onChange={v=>updateTierStars(tl.id,v)} />
@@ -1310,7 +1188,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-
             {/* PAUTAS */}
             <div style={{...card,padding:20,marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -1338,7 +1215,7 @@ export default function Home() {
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontFamily:"'DM Sans'",fontSize:13,color:p.usado?MUTED:TEXT,textDecoration:p.usado?"line-through":"none"}}>{p.titulo}</div>
-                        {p.descricao&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{p.descricao}</div>}
+                        {p.descricao && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{p.descricao}</div>}
                       </div>
                       <Stars value={p.estrelas||0} onChange={v=>updatePautaStars(p.id,v)} />
                       <button onClick={()=>setEditingPauta({...p})} style={{...btnGhost,padding:"2px 8px",fontSize:10}}>✏️</button>
@@ -1349,7 +1226,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-
             {/* GAMES */}
             <div style={{...card,padding:20}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -1357,8 +1233,7 @@ export default function Home() {
                 <div style={{display:"flex",gap:8}}>
                   <input value={gameSearch} onChange={e=>setGameSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
                   <select value={gameSort} onChange={e=>setGameSort(e.target.value)} style={{...inp,width:"auto"}}>
-                    <option value="az">A → Z</option><option value="za">Z → A</option>
-                    <option value="stars_desc">★ Top</option>
+                    <option value="az">A → Z</option><option value="za">Z → A</option><option value="stars_desc">★ Top</option>
                   </select>
                   <button style={btnBlue} onClick={()=>setAddingGame(!addingGame)}>+ ADD</button>
                 </div>
@@ -1379,25 +1254,25 @@ export default function Home() {
                   </div>
                 </div>
               )}
-              {sortedGames.map(g => {
+              {sortedGames.map(g=>{
                 const dc={Fácil:"#10B981",Médio:"#F59E0B",Difícil:"#EF4444"};
                 const isOpen=expandedGame===g.id, isEditing=editingGame?.id===g.id;
                 return (
-                  <div key={g.id} style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${isOpen?BL:BORDER}`,borderRadius:8,overflow:"hidden",marginBottom:6,transition:"border-color .2s"}}>
+                  <div key={g.id} style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${isOpen?BL:BORDER}`,borderRadius:8,overflow:"hidden",marginBottom:6}}>
                     <div onClick={()=>!isEditing&&setExpandedGame(isOpen?null:g.id)} style={{padding:"11px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
                       <span style={{fontSize:18}}>🎮</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:14,letterSpacing:1}}>{g.nome}</div>
-                        {!isOpen&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>{g.descricao?.slice(0,60)}…</div>}
+                        {!isOpen && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>{g.descricao?.slice(0,60)}…</div>}
                       </div>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
                         <Stars value={g.estrelas||0} onChange={v=>updateGameStars(g.id,v)} readonly={!isOpen} />
-                        {g.jogadores&&<span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>👥{g.jogadores}</span>}
+                        {g.jogadores && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>👥{g.jogadores}</span>}
                         <span style={{background:`${dc[g.dificuldade]||"#888"}22`,color:dc[g.dificuldade]||"#888",borderRadius:4,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{g.dificuldade}</span>
                         <span style={{color:MUTED,fontSize:10}}>{isOpen?"▲":"▼"}</span>
                       </div>
                     </div>
-                    {isOpen&&(
+                    {isOpen && (
                       <div style={{padding:"0 14px 14px",borderTop:`1px solid ${BORDER}`}}>
                         {isEditing ? (
                           <div style={{paddingTop:10,display:"grid",gap:8}}>
@@ -1414,7 +1289,7 @@ export default function Home() {
                         ) : (
                           <div style={{paddingTop:10,display:"grid",gap:10}}>
                             <div><div style={lbl}>Como funciona</div><div style={{...val,fontSize:12,lineHeight:1.6}}>{g.descricao}</div></div>
-                            {g.ideias&&<div><div style={lbl}>💡 Variações</div><div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,lineHeight:1.6}}>{g.ideias}</div></div>}
+                            {g.ideias && <div><div style={lbl}>💡 Variações</div><div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,lineHeight:1.6}}>{g.ideias}</div></div>}
                             <div style={{display:"flex",gap:8}}>
                               <button style={{...btnBlue,fontSize:11}} onClick={()=>setEditingGame({...g})}>✏️ EDITAR</button>
                               <button onClick={()=>removeGame(g.id)} style={{...btnGhost,fontSize:11}}>🗑 Remover</button>
@@ -1430,149 +1305,117 @@ export default function Home() {
           </div>
         )}
 
+
       {/* MODAL EPISÓDIO */}
       {selectedEp&&editData&&(
         <div onClick={e=>e.target===e.currentTarget&&(setSelectedEp(null),setEditMode(false))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:660,maxHeight:"90vh",overflowY:"auto",padding:26}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              {editMode ? <input value={editData.title} onChange={e=>setEditData({...editData,title:e.target.value})} style={{...inp,fontSize:19,letterSpacing:2,background:"transparent",border:"none",borderBottom:`1px solid ${BL}`,borderRadius:0,padding:"3px 0",fontFamily:"'Bebas Neue'",width:"60%"}} /> : <div style={{fontSize:21,letterSpacing:2}}>{selectedEp.title}</div>}
+              {editMode?<input value={editData.title} onChange={e=>setEditData({...editData,title:e.target.value})} style={{...inp,fontSize:19,letterSpacing:2,background:"transparent",border:"none",borderBottom:`1px solid ${BL}`,borderRadius:0,padding:"3px 0",fontFamily:"'Bebas Neue'",width:"60%"}}/>:<div style={{fontSize:21,letterSpacing:2}}>{selectedEp.title}</div>}
               <div style={{display:"flex",gap:8}}>
                 {!editMode&&<button style={btnBlue} onClick={()=>setEditMode(true)}>✏️ EDITAR</button>}
                 {editMode&&<><button style={btnBlue} onClick={saveEp}>💾 SALVAR</button><button style={btnGhost} onClick={()=>{setEditData({...selectedEp,convidados:selectedEp.convidados||[]});setEditMode(false);}}>Cancelar</button></>}
                 <button style={btnGhost} onClick={()=>{setSelectedEp(null);setEditMode(false);}}>✕</button>
               </div>
             </div>
-
-            <div style={{background:"rgba(27,104,150,0.08)",border:`1px solid rgba(27,104,150,0.25)`,borderRadius:8,padding:"11px 15px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>🔗 Link para o convidado</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>/ep/{selectedEp.id}</div>
-              </div>
-              <button className="cpb" onClick={()=>copyLink(selectedEp.id)}>{copied===selectedEp.id?"✓ Copiado!":"Copiar link"}</button>
+            {/* Status gravação */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Status de Gravação</div>
+              {editMode?<select value={editData.status||"planejado"} onChange={e=>setEditData({...editData,status:e.target.value})} style={inp}>{Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>:<span style={{background:STATUS_CONFIG[selectedEp.status]?.bg,color:STATUS_CONFIG[selectedEp.status]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_CONFIG[selectedEp.status||"planejado"]?.label}</span>}
             </div>
-
-            {/* Status */}
-            <div style={{marginBottom:16}}><div style={lbl}>Status</div>
-              {editMode ? <select value={editData.status} onChange={e=>setEditData({...editData,status:e.target.value})} style={inp}>{Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>
-              : <span style={{background:STATUS_CONFIG[selectedEp.status]?.bg,color:STATUS_CONFIG[selectedEp.status]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_CONFIG[selectedEp.status]?.label}</span>}
+            {/* Convidados */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Convidados</div>
+              {editMode?(
+                <div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+                    {(editData.convidados||[]).map((c,i)=><span key={i} className="tag">{c} <span onClick={()=>setEditData({...editData,convidados:editData.convidados.filter((_,j)=>j!==i)})} style={{cursor:"pointer",marginLeft:4}}>✕</span></span>)}
+                  </div>
+                  <div style={{display:"flex",gap:8"}}>
+                    <select onChange={e=>{if(e.target.value){setEditData({...editData,convidados:[...(editData.convidados||[]),e.target.value]});e.target.value="";}}} style={{...inp,flex:1}}>
+                      <option value="">Selecionar do banco...</option>
+                      {convidados.filter(c=>!(editData.convidados||[]).includes(c.nome)).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    <input value={newEpConvidado} onChange={e=>setNewEpConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidadoInEp()} placeholder="Ou digita novo convidado..." style={{...inp,flex:1}} />
+                    <button style={btnBlue} onClick={addConvidadoInEp}>+ ADD</button>
+                  </div>
+                </div>
+              ):<div style={val}>{selectedEp.convidados?.join(", ")||<span style={{color:"#1A3A50"}}>Sem convidados</span>}</div>}
             </div>
-
+            {/* Tier List */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Tema Tier List</div>
+              {editMode?(
+                <div>
+                  <div style={{display:"flex",gap:8,marginBottom:8}}>
+                    <select onChange={e=>{if(e.target.value){setEditData({...editData,tier_list:e.target.value});e.target.value="";}}} style={{...inp,flex:1}}>
+                      <option value="">Selecionar do banco...</option>
+                      {tierLists.map(t=><option key={t.id} value={t.nome}>{t.nome}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <input value={editData.tier_list||""} onChange={e=>setEditData({...editData,tier_list:e.target.value})} placeholder="Ou digita manualmente..." style={{...inp,flex:1}} />
+                    <button style={btnBlue} onClick={addTierInEp}>+ ADD</button>
+                  </div>
+                </div>
+              ):<div style={val}>{selectedEp.tier_list||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+            </div>
+            {/* Debate */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Tema do Debate</div>
+              {editMode?<input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={inp} placeholder="Tema do debate..."/>:<div style={val}>{selectedEp.debate||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+            </div>
+            {/* Game */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Game</div>
+              {editMode?<select value={editData.game||""} onChange={e=>setEditData({...editData,game:e.target.value})} style={inp}><option value="">Selecionar game...</option>{games.map(g=><option key={g.id} value={g.nome}>{g.nome}</option>)}</select>:<div style={val}>{selectedEp.game||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+            </div>
+            {/* Gravação */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Gravação</div>
+              {editMode?(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <input type="date" value={editData.gravacao_data||""} onChange={e=>setEditData({...editData,gravacao_data:e.target.value})} style={inp} />
+                  <input type="time" value={editData.gravacao_horario||""} onChange={e=>setEditData({...editData,gravacao_horario:e.target.value})} style={inp} />
+                  <input value={editData.gravacao_duracao||""} onChange={e=>setEditData({...editData,gravacao_duracao:e.target.value})} style={inp} placeholder="Duração" />
+                </div>
+              ):<div style={val}>{selectedEp.gravacao_data?`${new Date(selectedEp.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR")} ${selectedEp.gravacao_horario||""}`:""}{selectedEp.gravacao_duracao?` · ${selectedEp.gravacao_duracao}`:""}</div>}
+            </div>
+            {/* Retroativo */}
             {editMode && (
               <div style={{marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
-                <input type="checkbox" checked={editData.retroativo||false} onChange={e=>setEditData({...editData,retroativo:e.target.checked})} id="retro" style={{width:16,height:16}} />
-                <label htmlFor="retro" style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,cursor:"pointer"}}>Episódio retroativo (já gravado/publicado)</label>
+                <input type="checkbox" id="retro" checked={editData.retroativo||false} onChange={e=>setEditData({...editData,retroativo:e.target.checked})} />
+                <label htmlFor="retro" style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,cursor:"pointer"}}>Episódio Retroativo</label>
               </div>
             )}
-
-            {/* Convidados */}
-            <div style={{marginBottom:16}}><div style={lbl}>Convidados</div>
-              {editMode ? (
-                <div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:7}}>{editData.convidados.map((c,i)=><span key={i} className="tag" style={{cursor:"pointer"}} onClick={()=>setEditData({...editData,convidados:editData.convidados.filter((_,j)=>j!==i)})}>{c} ✕</span>)}</div>
-                  <select onChange={e=>{if(e.target.value&&!editData.convidados.includes(e.target.value))setEditData({...editData,convidados:[...editData.convidados,e.target.value]});e.target.value="";}} style={{...inp,marginBottom:8}}>
-                    <option value="">+ Selecionar do banco (A-Z)...</option>
-                    {[...convidados].sort((a,b)=>a.nome.localeCompare(b.nome)).filter(c=>!editData.convidados.includes(c.nome)).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
-                  </select>
-                  <div style={{display:"flex",gap:8}}>
-                    <input value={newEpConvidado} onChange={e=>setNewEpConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidadoInEp()} placeholder="Ou digita novo convidado..." style={{...inp,flex:1}} />
-                    <button style={{...btnBlue,fontSize:12,padding:"6px 12px"}} onClick={addConvidadoInEp}>+ ADD</button>
-                  </div>
-                </div>
-              ) : <div style={val}>{selectedEp.convidados?.length>0?selectedEp.convidados.map((c,i)=><span key={i} className="tag">{c}</span>):<span style={{color:"#1A3A50"}}>Nenhum</span>}</div>}
-            </div>
-
-            {/* Tier List */}
-            <div style={{marginBottom:16}}><div style={lbl}>Tier List</div>
-              {editMode ? (
-                <div>
-                  <select value={editData.tier_list||""} onChange={e=>setEditData({...editData,tier_list:e.target.value})} style={{...inp,marginBottom:8}}>
-                    <option value="">Selecionar do banco (A-Z)...</option>
-                    {[...tierLists].sort((a,b)=>a.nome.localeCompare(b.nome)).map(t=><option key={t.id} value={t.nome}>{t.nome}</option>)}
-                  </select>
-                  <div style={{display:"flex",gap:8}}>
-                    <input value={newEpTier} onChange={e=>setNewEpTier(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTierInEp()} placeholder="Ou digita nova tier list..." style={{...inp,flex:1}} />
-                    <button style={{...btnBlue,fontSize:12,padding:"6px 12px"}} onClick={addTierInEp}>+ ADD</button>
-                  </div>
-                </div>
-              ) : <div style={val}>{selectedEp.tier_list||<span style={{color:"#1A3A50"}}>Não definida</span>}</div>}
-            </div>
-
-            {/* Debate */}
-            <div style={{marginBottom:16}}><div style={lbl}>Debate / Tema</div>
-              {editMode ? <input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={inp} placeholder="Tema do debate..." /> : <div style={val}>{selectedEp.debate||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
-            </div>
-
-            {/* Game */}
-            <div style={{marginBottom:16}}><div style={lbl}>Game / Dinâmica</div>
-              {editMode ? <select value={editData.game||""} onChange={e=>setEditData({...editData,game:e.target.value})} style={inp}><option value="">Selecionar (A-Z)...</option>{[...games].sort((a,b)=>a.nome.localeCompare(b.nome)).map(g=><option key={g.id} value={g.nome}>{g.nome}</option>)}</select>
-              : <div style={val}>{selectedEp.game||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
-            </div>
-
-            {/* Local e Endereço */}
-            {["local","endereco"].map(field=>(
-              <div key={field} style={{marginBottom:16}}><div style={lbl}>{field==="local"?"Local":"Endereço"}</div>
-                {editMode ? <input value={editData[field]||""} onChange={e=>setEditData({...editData,[field]:e.target.value})} style={inp} /> : <div style={val}>{selectedEp[field]||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
-              </div>
-            ))}
-
-            {/* Data & Horário */}
-            <div style={{marginBottom:16}}><div style={lbl}>Data & Horário</div>
-              {editMode ? <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                <input type="date" value={editData.gravacao_data||""} onChange={e=>setEditData({...editData,gravacao_data:e.target.value})} style={inp} />
-                <select value={editData.gravacao_horario||"10:00"} onChange={e=>setEditData({...editData,gravacao_horario:e.target.value})} style={inp}><option value="10:00">10:00 (manhã)</option><option value="14:00">14:00 (tarde)</option></select>
-                <input value={editData.gravacao_duracao||""} onChange={e=>setEditData({...editData,gravacao_duracao:e.target.value})} style={inp} placeholder="Duração" />
-              </div> : <div style={val}>{selectedEp.gravacao_data?`${new Date(selectedEp.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})} · ${selectedEp.gravacao_horario}`:<span style={{color:"#1A3A50"}}>A definir</span>}</div>}
-            </div>
-
-            {/* Mensagem */}
-            <div style={{marginBottom:16}}><div style={lbl}>Mensagem para o Convidado</div>
-              {editMode ? <textarea value={editData.mensagem_convidado||""} onChange={e=>setEditData({...editData,mensagem_convidado:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}} /> : <div style={val}>{selectedEp.mensagem_convidado||<span style={{color:"#1A3A50"}}>Nenhuma</span>}</div>}
-            </div>
-
             {/* Notas */}
-            <div style={{marginBottom:16}}><div style={lbl}>Notas Internas 🔒</div>
-              {editMode ? <textarea value={editData.notas||""} onChange={e=>setEditData({...editData,notas:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}} /> : <div style={val}>{selectedEp.notas||<span style={{color:"#1A3A50"}}>Sem notas</span>}</div>}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Notas</div>
+              {editMode?<textarea value={editData.notas||""} onChange={e=>setEditData({...editData,notas:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}} placeholder="Observações..."/>:<div style={val}>{selectedEp.notas||<span style={{color:"#1A3A50"}}>Sem notas</span>}</div>}
             </div>
-
             {/* Drive */}
-            <div style={{marginBottom:16}}><div style={lbl}>📁 Link do Google Drive</div>
-              {editMode ? <input value={editData.drive_link||""} onChange={e=>setEditData({...editData,drive_link:e.target.value})} style={inp} placeholder="https://drive.google.com/..." /> : <div style={val}>{selectedEp.drive_link ? <a href={selectedEp.drive_link} target="_blank" rel="noreferrer" style={{color:"#10B981"}}>📁 Abrir pasta no Drive</a> : <span style={{color:"#1A3A50"}}>Sem link</span>}</div>}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>📁 Link Google Drive</div>
+              {editMode?<input value={editData.drive_link||""} onChange={e=>setEditData({...editData,drive_link:e.target.value})} style={inp} placeholder="https://drive.google.com/..."/>:<div style={val}>{selectedEp.drive_link?<a href={selectedEp.drive_link} target="_blank" rel="noreferrer" style={{color:"#10B981"}}>📁 Abrir no Drive</a>:<span style={{color:"#1A3A50"}}>Sem link</span>}</div>}
             </div>
-
-            {/* Status de Edição */}
-            <div style={{marginBottom:16}}><div style={lbl}>🎬 Status de Edição / Pós-produção</div>
-              {editMode
-                ? <select value={editData.status_edicao||"pendente"} onChange={e=>setEditData({...editData,status_edicao:e.target.value})} style={inp}>
-                    {Object.entries(STATUS_EDICAO_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                : <span style={{background:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.bg,color:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.label}</span>}
+            {/* Status Edição */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>🎬 Status de Edição</div>
+              {editMode?<select value={editData.status_edicao||"pendente"} onChange={e=>setEditData({...editData,status_edicao:e.target.value})} style={inp}>{Object.entries(STATUS_EDICAO_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>:<span style={{background:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.bg,color:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.label}</span>}
             </div>
-
             {/* Checklist */}
             {!editMode && (
               <div style={{marginBottom:16}}>
                 <div style={lbl}>✅ Checklist de Produção</div>
-                {[
-                  {key:"convidados",label:"👥 Convidados"},
-                  {key:"tema_tier",label:"🏆 Tema Tier List"},
-                  {key:"tema_programa",label:"📺 Tema do Programa"},
-                  {key:"producao_tier",label:"⚙️ Produção Tier List"},
-                  {key:"pauta",label:"📋 Pauta"},
-                  {key:"gravar",label:"🎙 Gravação"},
-                  {key:"editar",label:"✂️ Edição"},
-                  {key:"thumbnail",label:"🖼 Thumbnail"},
-                  {key:"legenda",label:"📝 Legenda / Descrição"},
-                  {key:"postar",label:"📤 Postagem"}
-                ].map(item => {
-                  const checklist = selectedEp.checklist || [];
+                {CHECKLIST_ITEMS.map(item=>{
+                  const checklist = selectedEp.checklist||[];
                   const done = checklist.includes(item.key);
                   return (
-                    <div key={item.key} onClick={()=>{
-                      const newList = done ? checklist.filter(c=>c!==item.key) : [...checklist, item.key];
-                      saveChecklist(selectedEp.id, newList);
-                    }} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13}}>
-                      <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10B981":BORDER}`,background:done?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}}>
-                        {done&&<span style={{color:"#fff",fontSize:11}}>✓</span>}
+                    <div key={item.key} onClick={()=>{const nl=done?checklist.filter(c=>c!==item.key):[...checklist,item.key];saveChecklist(selectedEp.id,nl);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13}}>
+                      <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10B981":BORDER}`,background:done?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        {done && <span style={{color:"#fff",fontSize:11}}>✓</span>}
                       </div>
                       <span style={{color:done?MUTED:TEXT,textDecoration:done?"line-through":"none"}}>{item.label}</span>
                     </div>
@@ -1580,28 +1423,25 @@ export default function Home() {
                 })}
               </div>
             )}
-
             {/* Comentários */}
             {!editMode && (
               <div style={{marginBottom:16}}>
                 <div style={lbl}>💬 Comentários Internos</div>
                 <div style={{maxHeight:200,overflowY:"auto",marginBottom:10}}>
-                  {comentarios.length===0
-                    ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum comentário ainda</div>
-                    : comentarios.map(c=>(
-                      <div key={c.id} style={{background:"rgba(27,104,150,0.08)",borderRadius:7,padding:"8px 12px",marginBottom:6}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:ACCENT}}>{c.autor}</span>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{new Date(c.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
-                            <button onClick={()=>deleteComentario(c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10}}>✕</button>
-                          </div>
+                  {comentarios.length===0?<div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum comentário ainda</div>:comentarios.map(c=>(
+                    <div key={c.id} style={{background:"rgba(27,104,150,0.08)",borderRadius:7,padding:"8px 12px",marginBottom:6}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:ACCENT}}>{c.autor}</span>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{new Date(c.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                          <button onClick={()=>deleteComentario(c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10}}>✕</button>
                         </div>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,lineHeight:1.5}}>{c.texto}</div>
                       </div>
-                    ))}
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,lineHeight:1.5}}>{c.texto}</div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{display:"flex",gap:8,marginBottom:6}}>
+                <div style={{display:"flex",gap:8}}>
                   <select value={comentarioAutor} onChange={e=>setComentarioAutor(e.target.value)} style={{...inp,width:"auto",flex:"0 0 140px"}}>
                     <option value="">Seu nome...</option>
                     {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
@@ -1611,75 +1451,64 @@ export default function Home() {
                 </div>
               </div>
             )}
-
-            {!editMode&&<button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>}
+            {!editMode && <button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>}
           </div>
         </div>
       )}
 
-      {/* MODAL ESTATÍSTICAS DO EPISÓDIO */}
-      {statsEp&&statsEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setStatsEp(null),setStatsEditMode(false))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:580,maxHeight:"90vh",overflowY:"auto",padding:26}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+      {/* MODAL ESTATÍSTICAS */}
+      {statsEp&&(
+        <div onClick={e=>e.target===e.currentTarget&&setStatsEp(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <div>
-                <div style={{fontSize:21,letterSpacing:2}}>{statsEp.title}</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>Performance & Financeiro</div>
+                <div style={{fontSize:19,letterSpacing:2}}>{statsEp.title}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Performance & Financeiro</div>
               </div>
               <div style={{display:"flex",gap:8}}>
-                {!statsEditMode&&<button style={btnBlue} onClick={()=>setStatsEditMode(true)}>✏️ EDITAR</button>}
-                {statsEditMode&&<><button style={btnBlue} onClick={saveStats}>💾 SALVAR</button><button style={btnGhost} onClick={()=>{setStatsEdit({...statsEp,links:statsEp.links||[]});setStatsEditMode(false);}}>Cancelar</button></>}
-                <button style={btnGhost} onClick={()=>{setStatsEp(null);setStatsEditMode(false);}}>✕</button>
+                {!statsEditMode&&<button style={{...btnBlue,fontSize:12}} onClick={()=>{setStatsEdit({...statsEp,links:statsEp.links||[]});setStatsEditMode(true);}}>✏️ EDITAR</button>}
+                {statsEditMode&&<><button style={btnBlue} onClick={saveStats}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setStatsEditMode(false)}>Cancelar</button></>}
+                <button style={btnGhost} onClick={()=>setStatsEp(null)}>✕</button>
               </div>
             </div>
-
-            {/* Investimento e ROI */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
-              <div><div style={lbl}>💰 Investimento (R$)</div>
-                {statsEditMode ? <input type="number" value={statsEdit.investimento||0} onChange={e=>setStatsEdit({...statsEdit,investimento:parseFloat(e.target.value)||0})} style={inp} /> : <div style={{...val,fontSize:20,fontFamily:"'Bebas Neue'",letterSpacing:1,color:"#F59E0B"}}>{statsEp.investimento>0?`R$ ${statsEp.investimento.toLocaleString("pt-BR",{minimumFractionDigits:2})}`:"—"}</div>}
-              </div>
-              <div><div style={lbl}>📈 ROI (%)</div>
-                {statsEditMode ? <input type="number" value={statsEdit.roi||0} onChange={e=>setStatsEdit({...statsEdit,roi:parseFloat(e.target.value)||0})} style={inp} /> : <div style={{...val,fontSize:20,fontFamily:"'Bebas Neue'",letterSpacing:1,color:"#10B981"}}>{statsEp.roi>0?`${statsEp.roi}%`:"—"}</div>}
-              </div>
-            </div>
-
-            {/* Links de cortes */}
-            <div style={{marginBottom:20}}><div style={lbl}>🎬 Links de Cortes</div>
-              {statsEditMode ? (
-                <div>
-                  {(statsEdit.links||[]).map((link,i)=>(
-                    <div key={i} style={{display:"flex",gap:8,marginBottom:8}}>
-                      <select value={link.plataforma} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,width:"auto",flex:"0 0 120px"}}>
-                        <option>YouTube</option><option>Instagram</option><option>TikTok</option>
-                      </select>
-                      <input value={link.url} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL do corte..." style={{...inp,flex:1}} />
-                      <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:100,flex:"0 0 100px"}} />
-                      <button onClick={()=>setStatsEdit({...statsEdit,links:statsEdit.links.filter((_,j)=>j!==i)})} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
-                    </div>
-                  ))}
-                  <button onClick={()=>setStatsEdit({...statsEdit,links:[...(statsEdit.links||[]),{plataforma:"YouTube",url:"",views:0}]})} style={{...btnGhost,fontSize:11,padding:"6px 14px"}}>+ Adicionar link</button>
+            {statsEditMode&&statsEdit?(
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                  <div><div style={lbl}>💰 Investimento (R$)</div><input type="number" value={statsEdit.investimento||0} onChange={e=>setStatsEdit({...statsEdit,investimento:parseFloat(e.target.value)||0})} style={inp} /></div>
+                  <div><div style={lbl}>📈 ROI (%)</div><input type="number" value={statsEdit.roi||0} onChange={e=>setStatsEdit({...statsEdit,roi:parseFloat(e.target.value)||0})} style={inp} /></div>
                 </div>
-              ) : (
-                <div>
-                  {statsEp.links?.length>0 ? statsEp.links.map((l,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:13}}>
-                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                        <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontSize:11}}>{l.plataforma}</span>
-                        <a href={l.url} target="_blank" rel="noreferrer" style={{color:ACCENT,fontSize:12}}>{l.url.slice(0,45)}{l.url.length>45?"…":""}</a>
-                      </div>
-                      {l.views>0&&<span style={{color:"#F59E0B",fontWeight:600}}>{l.views.toLocaleString("pt-BR")} views</span>}
-                    </div>
-                  )) : <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum link adicionado ainda</div>}
+                <div style={lbl}>🎬 Links de Cortes</div>
+                {(statsEdit.links||[]).map((link,i)=>(
+                  <div key={i} style={{display:"flex",gap:8,marginBottom:8}}>
+                    <select value={link.plataforma||"YouTube"} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,width:120,flex:"0 0 120px"}}>
+                      <option>YouTube</option><option>Instagram</option><option>TikTok</option>
+                    </select>
+                    <input value={link.url} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL do corte..." style={{...inp,flex:1}} />
+                    <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:100,flex:"0 0 100px"}} />
+                    <button onClick={()=>{const l=statsEdit.links.filter((_,j)=>j!==i);setStatsEdit({...statsEdit,links:l});}} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
+                  </div>
+                ))}
+                <button onClick={()=>setStatsEdit({...statsEdit,links:[...(statsEdit.links||[]),{url:"",plataforma:"YouTube",views:0}]})} style={{...btnGhost,fontSize:11,marginTop:4}}>+ Adicionar link</button>
+              </div>
+            ):(
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+                  <div><div style={lbl}>💰 Investimento (R$)</div><div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:statsEp.investimento>0?"#F59E0B":MUTED}}>{statsEp.investimento>0?`R$ ${statsEp.investimento.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"—"}</div></div>
+                  <div><div style={lbl}>📈 ROI (%)</div><div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:statsEp.roi>0?"#10B981":MUTED}}>{statsEp.roi>0?`${statsEp.roi}%`:"—"}</div></div>
                 </div>
-              )}
-            </div>
-
-            {/* Total de views */}
-            {statsEp.links?.some(l=>l.views>0) && (
-              <div style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 16px"}}>
-                <div style={lbl}>Total de Views</div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:ACCENT}}>
-                  {statsEp.links.reduce((sum,l)=>sum+(l.views||0),0).toLocaleString("pt-BR")}
+                <div style={lbl}>🎬 Links de Cortes</div>
+                {(statsEp.links||[]).map((link,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:10}}>{link.plataforma||"YT"}</span>
+                      <a href={link.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:12,color:ACCENT,textDecoration:"none"}}>{link.url?.slice(0,40)}...</a>
+                    </div>
+                    <span style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,fontWeight:600}}>{(link.views||0).toLocaleString("pt-BR")} views</span>
+                  </div>
+                ))}
+                <div style={{marginTop:16,padding:14,background:"rgba(27,104,150,0.1)",borderRadius:8}}>
+                  <div style={lbl}>Total de Views</div>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{(statsEp.links||[]).reduce((s,l)=>s+(l.views||0),0).toLocaleString("pt-BR")}</div>
                 </div>
               </div>
             )}
@@ -1687,42 +1516,31 @@ export default function Home() {
         </div>
       )}
 
-
       {/* SEARCH MODAL */}
-      {searchOpen&&(
+      {searchOpen && (
         <div onClick={e=>e.target===e.currentTarget&&setSearchOpen(false)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.85)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:80}}>
           <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:560,overflow:"hidden"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 18px",borderBottom:`1px solid ${BORDER}`}}>
               <span style={{fontSize:16}}>🔍</span>
-              <input
-                autoFocus
-                value={searchQuery}
-                onChange={e=>setSearchQuery(e.target.value)}
-                placeholder="Buscar episódios, convidados, pautas, posts..."
-                style={{...inp,border:"none",background:"transparent",fontSize:15,padding:0}}
-              />
+              <input autoFocus value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Buscar episódios, convidados, pautas, posts..." style={{...inp,border:"none",background:"transparent",fontSize:15,padding:0}} />
               <kbd style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,background:"rgba(27,104,150,0.2)",padding:"2px 6px",borderRadius:3}}>ESC</kbd>
             </div>
-            {searchResults.length>0&&(
+            {searchResults.length>0 && (
               <div>
                 {searchResults.map((r,i)=>(
-                  <div key={i} onClick={r.action} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,transition:"background .1s"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(27,104,150,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <div key={i} onClick={r.action} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`}} onMouseEnter={e=>e.currentTarget.style.background="rgba(27,104,150,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{r.type}</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{r.label}</div>
-                      {r.sub&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.sub}</div>}
+                      {r.sub && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.sub}</div>}
                     </div>
                     <span style={{color:MUTED,fontSize:12}}>→</span>
                   </div>
                 ))}
               </div>
             )}
-            {searchQuery.trim().length>1&&searchResults.length===0&&(
-              <div style={{padding:"20px 18px",fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center"}}>Nenhum resultado para "{searchQuery}"</div>
-            )}
-            {searchQuery.trim().length<=1&&(
-              <div style={{padding:"16px 18px",fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Digite para buscar episódios, convidados, pautas e posts...</div>
-            )}
+            {searchQuery.trim().length>1&&searchResults.length===0 && <div style={{padding:"20px 18px",fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center"}}>Nenhum resultado para "{searchQuery}"</div>}
+            {searchQuery.trim().length<=1 && <div style={{padding:"16px 18px",fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Digite para buscar...</div>}
           </div>
         </div>
       )}
@@ -1730,77 +1548,64 @@ export default function Home() {
       {/* MODAL POSTAGEM */}
       {postagemModal&&postagemEdit&&(
         <div onClick={e=>e.target===e.currentTarget&&(setPostagemModal(null),setPostagemEdit(null))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:520,padding:26}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:500,maxHeight:"90vh",overflowY:"auto",padding:26}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
               <div>
-                <div style={{fontSize:20,letterSpacing:2}}>{postagemModal.label.toUpperCase()}</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(postagemModal.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})} · 18h</div>
+                <div style={{fontSize:20,letterSpacing:2}}>{postagemModal.label?.toUpperCase()}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(postagemModal.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})} · {postagemEdit.horario||"18h"}</div>
               </div>
               <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>✕</button>
             </div>
-
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-              <div><div style={lbl}>Tipo</div>
-                <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}>
-                  <option>Corte</option><option>Tier List</option><option>Full</option>
-                </select>
+              <div>
+                <div style={lbl}>Tipo</div>
+                <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}><option>Corte</option><option>Tier List</option><option>Full</option></select>
               </div>
-              <div><div style={lbl}>Plataforma</div>
-                <select value={postagemEdit.plataforma||"YouTube"} onChange={e=>setPostagemEdit({...postagemEdit,plataforma:e.target.value})} style={inp}>
-                  <option>YouTube</option><option>Instagram</option><option>TikTok</option>
-                </select>
+              <div>
+                <div style={lbl}>Plataforma</div>
+                <select value={postagemEdit.plataforma||"YouTube"} onChange={e=>setPostagemEdit({...postagemEdit,plataforma:e.target.value})} style={inp}><option>YouTube</option><option>Instagram</option><option>TikTok</option></select>
               </div>
             </div>
-
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-              <div><div style={lbl}>Status</div>
-                <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}>
-                  <option value="pendente">Pendente</option>
-                  <option value="agendado">Agendado</option>
-                  <option value="postado">Postado</option>
-                </select>
+              <div>
+                <div style={lbl}>Status</div>
+                <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}><option value="pendente">Pendente</option><option value="agendado">Agendado</option><option value="postado">Postado</option></select>
               </div>
-              <div><div style={lbl}>Horário</div>
+              <div>
+                <div style={lbl}>Horário</div>
                 <input type="time" value={postagemEdit.horario||"18:00"} onChange={e=>setPostagemEdit({...postagemEdit,horario:e.target.value})} style={inp} />
               </div>
             </div>
-
             <div style={{marginBottom:14}}>
               <div style={lbl}>Episódio vinculado</div>
-              <select value={postagemEdit.episodio_id||""} onChange={e=>{const ep=episodes.find(ep=>String(ep.id)===e.target.value);setPostagemEdit({...postagemEdit,episodio_id:ep?.id||null,episodio_title:ep?.title||""}); }} style={inp}>
+              <select value={postagemEdit.episodio_id||""} onChange={e=>{const ep=episodes.find(ep=>String(ep.id)===e.target.value);setPostagemEdit({...postagemEdit,episodio_id:ep?.id||null,episodio_title:ep?.title||"",});}} style={inp}>
                 <option value="">Selecionar episódio...</option>
-                {[...episodes].sort((a,b)=>{const na=parseInt((a.title.match(/\d+/)||[0])[0]);const nb=parseInt((b.title.match(/\d+/)||[0])[0]);return na-nb;}).map(ep=><option key={ep.id} value={ep.id}>{ep.title}{ep.convidados?.length>0?` · ${ep.convidados.join(", ")}`:""}</option>)}
+                {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=><option key={ep.id} value={ep.id}>{ep.title}{ep.convidados?.length>0?` · ${ep.convidados.join(", ")}`:""}</option>)}
               </select>
             </div>
-
             <div style={{marginBottom:14}}>
               <div style={lbl}>Link do post</div>
               <input value={postagemEdit.link||""} onChange={e=>setPostagemEdit({...postagemEdit,link:e.target.value})} placeholder="https://youtube.com/..." style={inp} />
             </div>
-
             <div style={{marginBottom:14}}>
               <div style={lbl}>Views (Instagram/TikTok — YouTube busca automaticamente)</div>
               <input type="number" value={postagemEdit.views||0} onChange={e=>setPostagemEdit({...postagemEdit,views:parseInt(e.target.value)||0})} style={inp} />
             </div>
-
             <div style={{marginBottom:14}}>
               <div style={lbl}>👤 Responsável</div>
               <select value={postagemEdit.responsavel||""} onChange={e=>setPostagemEdit({...postagemEdit,responsavel:e.target.value})} style={inp}>
                 <option value="">Selecionar responsável...</option>
-                {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome} {m.funcao?`· ${m.funcao}`:""}</option>)}
+                {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome}{m.funcao?` · ${m.funcao}`:""}</option>)}
               </select>
             </div>
-
             <div style={{marginBottom:14}}>
               <div style={lbl}>📁 Link do Material no Google Drive</div>
               <input value={postagemEdit.drive_link||""} onChange={e=>setPostagemEdit({...postagemEdit,drive_link:e.target.value})} placeholder="https://drive.google.com/..." style={inp} />
             </div>
-
             <div style={{marginBottom:20}}>
               <div style={lbl}>Notas</div>
               <textarea value={postagemEdit.notas||""} onChange={e=>setPostagemEdit({...postagemEdit,notas:e.target.value})} style={{...inp,minHeight:60,resize:"vertical"}} placeholder="Observações sobre essa postagem..." />
             </div>
-
             <div style={{display:"flex",gap:8}}>
               <button style={btnBlue} onClick={savePostagem}>💾 SALVAR</button>
               <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>Cancelar</button>
@@ -1808,6 +1613,8 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      </div>
     </div>
   );
 }
