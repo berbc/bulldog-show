@@ -612,7 +612,7 @@ export default function Home() {
               const postsSemana = postagens.filter(p=>{
                 const d = new Date(p.data+"T12:00:00"), now = new Date();
                 const diff = (d-now)/(1000*60*60*24);
-                return diff>=-1 && diff<=7;
+                return (diff >= -1) && (diff <= 7);
               });
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
               const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
@@ -686,7 +686,6 @@ export default function Home() {
                 </div>
               );
             })()}
-          </div>
           </div>
 
         )}
@@ -1540,7 +1539,7 @@ export default function Home() {
               </div>
             )}
             {searchQuery.trim().length>1&&searchResults.length===0 && <div style={{padding:"20px 18px",fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center"}}>Nenhum resultado para "{searchQuery}"</div>}
-            {searchQuery.trim().length<=1 && <div style={{padding:"16px 18px",fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Digite para buscar...</div>}
+            {searchQuery.trim().length <= 1 && <div style={{padding:"16px 18px",fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Digite para buscar...</div>}
           </div>
         </div>
       )}
