@@ -16,7 +16,7 @@ const STATUS_CONFIG = {
   editado:    { label: "Editado",    color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
-const epNum = (t) => parseInt((t || "").replace(/[^0-9]/g,"")) || 0;
+const epNum = (t) => { const m = (t || "").match("[0-9]+"); return m ? parseInt(m[0]) : 0; };
 const TABS = ["🏠 Dashboard","📋 Episódios","📅 Agenda","🎬 Produção","📊 Estatísticas","💡 Banco de Ideias"];
 const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
 const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
