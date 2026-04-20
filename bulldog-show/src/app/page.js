@@ -1325,7 +1325,7 @@ export default function Home() {
                   <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
                     {(editData.convidados||[]).map((c,i)=><span key={i} className="tag">{c} <span onClick={()=>setEditData({...editData,convidados:editData.convidados.filter((_,j)=>j!==i)})} style={{cursor:"pointer",marginLeft:4}}>✕</span></span>)}
                   </div>
-                  <div style={{display:"flex",gap:8"}}>
+                  <div style={{display:"flex",gap:8}}>
                     <select onChange={e=>{if(e.target.value){setEditData({...editData,convidados:[...(editData.convidados||[]),e.target.value]});e.target.value="";}}} style={{...inp,flex:1}}>
                       <option value="">Selecionar do banco...</option>
                       {convidados.filter(c=>!(editData.convidados||[]).includes(c.nome)).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
