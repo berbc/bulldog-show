@@ -393,8 +393,12 @@ export default function Home() {
     if (!postagemEdit) return;
     let views = postagemEdit.views || 0;
     if (postagemEdit.link && postagemEdit.link.includes("youtu")) {
+      // Link presente: busca views atualizadas
       const fetched = await fetchYouTubeViews(postagemEdit.link);
       if (fetched !== null) views = fetched;
+    } else if (!postagemEdit.link || postagemEdit.link.trim() === "") {
+      // Link removido: zera views
+      views = 0;
     }
     const payload = {
       episodio_id: postagemEdit.episodio_id || null,
@@ -621,7 +625,7 @@ export default function Home() {
               return (
                 <div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
-                    <div style={{...card,padding:20,border:`1px solid rgba(36,135,190,0.5)`}}>
+                    <div onClick={()=>{if(proxima){openEp(proxima);setActiveTab(1);}}} style={{...card,padding:20,border:`1px solid rgba(36,135,190,0.5)`,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(36,135,190,0.9)"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(36,135,190,0.5)"}>
                       <div style={lbl}>📅 Próxima Gravação</div>
                       {proxima ? (
                         <div>
@@ -631,17 +635,17 @@ export default function Home() {
                         </div>
                       ) : <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma agendada</div>}
                     </div>
-                    <div style={{...card,padding:20}}>
+                    <div onClick={()=>setActiveTab(2)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=BL} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
                       <div style={lbl}>📤 Posts Esta Semana</div>
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{postsSemana.filter(p=>p.status==="postado").length}/{postsSemana.length}</div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>postados esta semana</div>
                     </div>
-                    <div style={{...card,padding:20}}>
+                    <div onClick={()=>setActiveTab(4)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#EF4444"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
                       <div style={lbl}>▶ Views YouTube</div>
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>views acumulados</div>
                     </div>
-                    <div style={{...card,padding:20,border:epsSemChecklist.length>0?`1px solid rgba(245,158,11,0.4)`:undefined}}>
+                    <div onClick={()=>setActiveTab(3)} style={{...card,padding:20,border:epsSemChecklist.length>0?"1px solid rgba(245,158,11,0.4)":undefined,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#F59E0B"} onMouseLeave={e=>e.currentTarget.style.borderColor=epsSemChecklist.length>0?"rgba(245,158,11,0.4)":"rgba(27,104,150,0.3)"}>
                       <div style={lbl}>⚠️ Checklists Incompletos</div>
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:epsSemChecklist.length>0?"#F59E0B":"#10B981"}}>{epsSemChecklist.length}</div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>episódios com tarefas pendentes</div>
@@ -649,7 +653,7 @@ export default function Home() {
                   </div>
                   {postsSemana.filter(p=>p.status!=="postado").length>0 && (
                     <div style={{...card,padding:20,marginBottom:16}}>
-                      <div style={{fontSize:15,letterSpacing:2,marginBottom:14}}>📆 POSTS PENDENTES ESTA SEMANA</div>
+                      <div onClick={()=>setActiveTab(2)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:ACCENT}}>📆 POSTS PENDENTES ESTA SEMANA →</div>
                       {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
                         const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
                         return (
@@ -666,7 +670,7 @@ export default function Home() {
                   )}
                   {epsSemChecklist.length>0 && (
                     <div style={{...card,padding:20}}>
-                      <div style={{fontSize:15,letterSpacing:2,marginBottom:14}}>⚠️ EPISÓDIOS COM TAREFAS PENDENTES</div>
+                      <div onClick={()=>setActiveTab(3)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:"#F59E0B"}}>⚠️ EPISÓDIOS COM TAREFAS PENDENTES →</div>
                       {epsSemChecklist.slice(0,5).map(ep=>{
                         const done = (ep.checklist||[]).length;
                         const pct = Math.round((done/10)*100);
