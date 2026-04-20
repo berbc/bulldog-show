@@ -1514,7 +1514,17 @@ export default function Home() {
             {/* Debate */}
             <div style={{marginBottom:16}}>
               <div style={lbl}>Tema do Debate</div>
-              {editMode?<input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={inp} placeholder="Tema do debate..."/>:<div style={val}>{selectedEp.debate||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+              {editMode ? (
+                <div>
+                  {pautas.filter(p=>!p.usado).length>0 && (
+                    <select onChange={e=>{if(e.target.value){setEditData({...editData,debate:e.target.value});e.target.value="";}}} style={{...inp,marginBottom:8}}>
+                      <option value="">Selecionar do banco de ideias...</option>
+                      {pautas.filter(p=>!p.usado).sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).map(p=><option key={p.id} value={p.titulo}>{p.estrelas?"\u2605".repeat(p.estrelas)+" ":""}{p.titulo}</option>)}
+                    </select>
+                  )}
+                  <input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={inp} placeholder="Ou digita o tema do debate..."/>
+                </div>
+              ) : <div style={val}>{selectedEp.debate||<span style={{color:"#1A3A50"}}>N\u00e3o definido</span>}</div>}
             </div>
             {/* Game */}
             <div style={{marginBottom:16}}>
