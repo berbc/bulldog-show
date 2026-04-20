@@ -788,7 +788,11 @@ export default function Home() {
                               <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#7EC8F0",flexShrink:0,background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px"}}>🎙 {ep.gravacao_horario||"10:00"}</span>
                               <div style={{flex:1,minWidth:0}}>
                                 <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{ep.title}</div>
-                                {ep.convidados?.length>0 && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>👤 {ep.convidados.join(" · ")}</div>}
+                                <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
+                                  {ep.convidados?.length>0 && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>👤 {ep.convidados.join(" · ")}</span>}
+                                  {ep.tier_list && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#F59E0B"}}>🏆 {ep.tier_list}</span>}
+                                  {ep.game && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#8B5CF6"}}>🎮 {ep.game}</span>}
+                                </div>
                               </div>
                               <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{sc.label}</span>
                             </div>
@@ -798,16 +802,17 @@ export default function Home() {
                           const ts = getTipoStyle(p.tipo);
                           const statusColor = p.status==="postado"?"#10B981":p.status==="agendado"?"#F59E0B":MUTED;
                           const platIcon = p.plataforma==="Instagram"?"📸":p.plataforma==="TikTok"?"🎵":"▶";
-                          const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#fff":"#EF4444";
+                          const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#69C9D0":"#EF4444";
+                          const titulo = p.titulo_yt || p.notas?.trim() || null;
                           return (
                             <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:ts.bg,border:ts.border,borderRadius:8}}>
                               <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:ts.color,flexShrink:0,background:`${ts.color}22`,borderRadius:4,padding:"2px 8px"}}>{platIcon} {p.horario||"18:00"}</span>
                               <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                                   <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:ts.color}}>{p.tipo}</span>
-                                  <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>·</span>
-                                  <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title||"Sem episódio"}</span>
+                                  {p.episodio_title && <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title}</span>}
                                 </div>
+                                {titulo && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>"{titulo}"</div>}
                                 <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
                                   <span style={{fontFamily:"'DM Sans'",fontSize:10,color:platColor}}>{platIcon} {p.plataforma||"YouTube"}</span>
                                   {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"#10B981"}}>👤 {p.responsavel}</span>}
