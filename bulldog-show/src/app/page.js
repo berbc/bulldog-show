@@ -765,7 +765,7 @@ export default function Home() {
               const getTipoStyle = (tipo) => {
                 if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.5)"};
                 if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.5)"};
-                return {color:"#E8F4FF",bg:"rgba(232,244,255,0.06)",border:"1px solid rgba(232,244,255,0.18)"};
+                return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:`1px solid rgba(27,104,150,0.5)`};
               };
               return (
                 <div key={slot.date} style={{marginBottom:10}}>
@@ -784,18 +784,18 @@ export default function Home() {
                         {gravacoes.map(ep => {
                           const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                           return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:12,padding:"12px 14px",background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:12,padding:"12px 14px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
                               {/* Horário + tipo */}
                               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0,minWidth:60}}>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#10B981",background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>🎙 GRAVAÇÃO</span>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#E8F4FF",background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>🎙 GRAVAÇÃO</span>
                                 <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:MUTED,letterSpacing:1}}>{ep.gravacao_horario||"10:00"}</span>
                               </div>
                               {/* Conteúdo */}
                               <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#10B981",lineHeight:1.1}}>{ep.title}</div>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#E8F4FF",lineHeight:1.1}}>{ep.title}</div>
                                 {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:3}}>{ep.convidados.join(" · ")}</div>}
                                 {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
-                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#8B5CF6",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
+                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#A78BFA",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
                               </div>
                               <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:2}}>{sc.label}</span>
                             </div>
@@ -803,7 +803,7 @@ export default function Home() {
                         })}
                         {slotPostagens.map(p => {
                           const ts = getTipoStyle(p.tipo);
-                          const statusColor = p.status==="postado"?"#10B981":p.status==="agendado"?"#F59E0B":MUTED;
+                          const statusColor = p.status==="postado"?"#E8F4FF":p.status==="agendado"?"#F59E0B":MUTED;
                           const platIcon = p.plataforma==="Instagram"?"📸":p.plataforma==="TikTok"?"🎵":"▶";
                           const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#69C9D0":"#EF4444";
                           const titulo = p.titulo_yt || p.notas?.trim() || null;
