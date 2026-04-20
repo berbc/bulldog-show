@@ -784,17 +784,20 @@ export default function Home() {
                         {gravacoes.map(ep => {
                           const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                           return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"rgba(36,135,190,0.12)",border:"1px solid rgba(36,135,190,0.4)",borderRadius:8,cursor:"pointer"}}>
-                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#7EC8F0",flexShrink:0,background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px"}}>🎙 {ep.gravacao_horario||"10:00"}</span>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{ep.title}</div>
-                                <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
-                                  {ep.convidados?.length>0 && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>👤 {ep.convidados.join(" · ")}</span>}
-                                  {ep.tier_list && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#F59E0B"}}>🏆 {ep.tier_list}</span>}
-                                  {ep.game && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#8B5CF6"}}>🎮 {ep.game}</span>}
-                                </div>
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:12,padding:"12px 14px",background:"rgba(36,135,190,0.12)",border:"1px solid rgba(36,135,190,0.4)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
+                              {/* Horário + tipo */}
+                              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0,minWidth:60}}>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#7EC8F0",background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>🎙 GRAVAÇÃO</span>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:MUTED,letterSpacing:1}}>{ep.gravacao_horario||"10:00"}</span>
                               </div>
-                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{sc.label}</span>
+                              {/* Conteúdo */}
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#7EC8F0",lineHeight:1.1}}>{ep.title}</div>
+                                {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:3}}>{ep.convidados.join(" · ")}</div>}
+                                {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
+                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#8B5CF6",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
+                              </div>
+                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:2}}>{sc.label}</span>
                             </div>
                           );
                         })}
@@ -805,23 +808,26 @@ export default function Home() {
                           const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#69C9D0":"#EF4444";
                           const titulo = p.titulo_yt || p.notas?.trim() || null;
                           return (
-                            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:ts.bg,border:ts.border,borderRadius:8}}>
-                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:ts.color,flexShrink:0,background:`${ts.color}22`,borderRadius:4,padding:"2px 8px"}}>{platIcon} {p.horario||"18:00"}</span>
+                            <div key={p.id} style={{display:"flex",gap:12,padding:"12px 14px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
+                              {/* Horário + plataforma */}
+                              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0,minWidth:60}}>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>{platIcon} {p.tipo}</span>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:MUTED,letterSpacing:1}}>{p.horario||"18:00"}</span>
+                              </div>
+                              {/* Conteúdo */}
                               <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:ts.color}}>{p.tipo}</span>
-                                  {p.episodio_title && <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title}</span>}
-                                </div>
-                                {titulo && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>"{titulo}"</div>}
-                                <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
-                                  <span style={{fontFamily:"'DM Sans'",fontSize:10,color:platColor}}>{platIcon} {p.plataforma||"YouTube"}</span>
-                                  {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"#10B981"}}>👤 {p.responsavel}</span>}
-                                  {p.views>0 && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT}}>{p.views.toLocaleString("pt-BR")} views</span>}
+                                {p.episodio_title && <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,lineHeight:1.1}}>{p.episodio_title.toUpperCase()}</div>}
+                                {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:3}}>{titulo.toUpperCase()}</div>}
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{p.plataforma||"YOUTUBE"}{p.responsavel?` · ${p.responsavel.toUpperCase()}`:""}</div>
+                                {p.views>0 && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,marginTop:2}}>{p.views.toLocaleString("pt-BR")} views</div>}
+                              </div>
+                              <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}}>
+                                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase"}}>{p.status}</span>
+                                <div style={{display:"flex",gap:4}}>
+                                  <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
+                                  <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px"}}>✕</button>
                                 </div>
                               </div>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase",flexShrink:0}}>{p.status}</span>
-                              <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✏️</button>
-                              <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px",flexShrink:0}}>✕</button>
                             </div>
                           );
                         })}
