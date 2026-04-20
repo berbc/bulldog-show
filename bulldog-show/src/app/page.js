@@ -847,9 +847,9 @@ export default function Home() {
                               <div style={{flex:1,minWidth:0}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                                   <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"1px 8px",flexShrink:0}}>{p.tipo.toUpperCase()}</span>
-                                  {p.episodio_title && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{p.episodio_title.toUpperCase()}</span>}
+                                  {titulo && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{titulo.toUpperCase()}</span>}
                                 </div>
-                                {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:2}}>{titulo.toUpperCase()}</div>}
+                                {p.episodio_title && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:MUTED,marginTop:2}}>{p.episodio_title.toUpperCase()}</div>}
                                 <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {platLabel.toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
                                 {p.responsavel && <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:MUTED,marginTop:2}}>{p.responsavel.toUpperCase()}</div>}
                               </div>
