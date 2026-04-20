@@ -407,7 +407,9 @@ export default function Home() {
       notas: postagemEdit.notas || "",
       views: views,
       drive_link: postagemEdit.drive_link || "",
-      responsavel: postagemEdit.responsavel || ""
+      responsavel: postagemEdit.responsavel || "",
+      titulo_yt: postagemEdit.titulo_yt || "",
+      thumbnail_url: postagemEdit.thumbnail_url || ""
     };
     let data;
     if (postagemEdit.id) {
@@ -744,89 +746,89 @@ export default function Home() {
           <div>
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>📅 AGENDA <span style={{color:BL}}>DO PROGRAMA</span></div>
 
-            {/* Navegação semanas */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Semana anterior</button>
-                <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Hoje</button>
-                <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próxima semana →</button>
-              </div>
-              <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>
-                {(() => {
-                  const dates = getWeekDates(postagemWeekOffset);
-                  const first = new Date(dates[0].date+"T12:00:00");
-                  const last = new Date(dates[6].date+"T12:00:00");
-                  return first.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}) + " — " + last.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});
-                })()}
-              </div>
+            {/* Navegação */}
+            <div style={{display:"flex",gap:8,marginBottom:24}}>
+              <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Anterior</button>
+              <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Hoje</button>
+              <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próxima →</button>
             </div>
 
-            {/* Calendário semanal */}
-            <div style={{display:"grid",gap:8}}>
-              {getWeekDates(postagemWeekOffset).map(slot => {
-                const slotPostagens = getPostagens(slot.date);
-                const isToday = slot.date === toLocalDate(new Date());
-                const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
-                const hasContent = slotPostagens.length > 0 || gravacoes.length > 0;
-                const getTipoStyle = (tipo) => {
-                  if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"rgba(139,92,246,0.4)"};
-                  if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"rgba(245,158,11,0.4)"};
-                  return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:"rgba(27,104,150,0.4)"};
-                };
-                return (
-                  <div key={slot.date} style={{background:CARD,border:`1px solid ${isToday?"rgba(36,135,190,0.8)":BORDER}`,borderRadius:10,overflow:"hidden"}}>
-                    {/* Cabeçalho do dia */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",background:isToday?"rgba(27,104,150,0.15)":"rgba(27,104,150,0.05)",borderBottom:hasContent?`1px solid ${BORDER}`:"none"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:1,color:isToday?ACCENT:TEXT}}>{slot.label}</div>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</div>
-                        {isToday && <span style={{background:ACCENT,color:BG,borderRadius:10,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>HOJE</span>}
-                      </div>
-                      <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:"YouTube",horario:"18:00",views:0,drive_link:"",responsavel:"",});}} style={{...btnGhost,fontSize:10,padding:"3px 10px"}}>+ Post</button>
+            {getWeekDates(postagemWeekOffset).map(slot => {
+              const slotPostagens = getPostagens(slot.date);
+              const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
+              const isToday = slot.date === toLocalDate(new Date());
+              const hasContent = slotPostagens.length > 0 || gravacoes.length > 0;
+              const getTipoStyle = (tipo) => {
+                if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.5)"};
+                if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.5)"};
+                return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:`1px solid rgba(27,104,150,0.5)`};
+              };
+              return (
+                <div key={slot.date} style={{marginBottom:10}}>
+                  {/* Cabeçalho do dia */}
+                  <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:16,alignItems:"center",background:isToday?"rgba(27,104,150,0.12)":hasContent?"rgba(27,104,150,0.05)":"transparent",border:`1px solid ${isToday?"rgba(36,135,190,0.6)":hasContent?BORDER:"rgba(27,104,150,0.12)"}`,borderRadius:10,padding:"14px 18px"}}>
+                    {/* Data */}
+                    <div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:2,color:isToday?ACCENT:hasContent?TEXT:"#1A3A50"}}>{slot.label}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:isToday?ACCENT:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long"})}</div>
+                      {isToday && <span style={{background:ACCENT,color:BG,borderRadius:10,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600,letterSpacing:1}}>HOJE</span>}
                     </div>
 
-                    {hasContent && (
-                      <div style={{padding:"10px 16px",display:"flex",flexDirection:"column",gap:6}}>
-                        {/* Gravações */}
+                    {/* Conteúdo do dia */}
+                    {hasContent ? (
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
                         {gravacoes.map(ep => {
                           const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                           return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"rgba(36,135,190,0.1)",borderRadius:6,cursor:"pointer",border:"1px solid rgba(36,135,190,0.3)"}}>
-                              <span style={{fontSize:13}}>🎙</span>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,fontWeight:600,flexShrink:0}}>{ep.gravacao_horario||"10:00"}</span>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{ep.title}</span>
-                              {ep.convidados?.length>0 && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>👤 {ep.convidados.join(", ")}</span>}
-                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"1px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{sc.label}</span>
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"rgba(36,135,190,0.12)",border:"1px solid rgba(36,135,190,0.4)",borderRadius:8,cursor:"pointer"}}>
+                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#7EC8F0",flexShrink:0,background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px"}}>🎙 {ep.gravacao_horario||"10:00"}</span>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{ep.title}</div>
+                                {ep.convidados?.length>0 && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>👤 {ep.convidados.join(" · ")}</div>}
+                              </div>
+                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{sc.label}</span>
                             </div>
                           );
                         })}
-                        {/* Postagens */}
                         {slotPostagens.map(p => {
                           const ts = getTipoStyle(p.tipo);
                           const statusColor = p.status==="postado"?"#10B981":p.status==="agendado"?"#F59E0B":MUTED;
                           const platIcon = p.plataforma==="Instagram"?"📸":p.plataforma==="TikTok"?"🎵":"▶";
+                          const platColor = p.plataforma==="Instagram"?"#E1306C":p.plataforma==="TikTok"?"#fff":"#EF4444";
                           return (
-                            <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"rgba(27,104,150,0.07)",borderRadius:6,border:`1px solid ${ts.border}`}}>
-                              <span style={{fontSize:12}}>{platIcon}</span>
-                              {p.horario && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{p.horario}</span>}
-                              <span style={{background:ts.bg,color:ts.color,borderRadius:4,padding:"1px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title||"Sem episódio"}</span>
-                              {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"#10B981",flexShrink:0}}>👤 {p.responsavel}</span>}
-                              {p.views>0 && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,flexShrink:0}}>{p.views.toLocaleString("pt-BR")} views</span>}
+                            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:ts.bg,border:ts.border,borderRadius:8}}>
+                              <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:ts.color,flexShrink:0,background:`${ts.color}22`,borderRadius:4,padding:"2px 8px"}}>{platIcon} {p.horario||"18:00"}</span>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:ts.color}}>{p.tipo}</span>
+                                  <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>·</span>
+                                  <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title||"Sem episódio"}</span>
+                                </div>
+                                <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
+                                  <span style={{fontFamily:"'DM Sans'",fontSize:10,color:platColor}}>{platIcon} {p.plataforma||"YouTube"}</span>
+                                  {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"#10B981"}}>👤 {p.responsavel}</span>}
+                                  {p.views>0 && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT}}>{p.views.toLocaleString("pt-BR")} views</span>}
+                                </div>
+                              </div>
                               <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase",flexShrink:0}}>{p.status}</span>
-                              <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:11,padding:"0 2px",flexShrink:0}}>✏️</button>
-                              <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:10,padding:"0 2px",flexShrink:0}}>✕</button>
+                              <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✏️</button>
+                              <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px",flexShrink:0}}>✕</button>
                             </div>
                           );
                         })}
                       </div>
+                    ) : (
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#1A3A50"}}>Nenhuma atividade</div>
                     )}
-                  </div>
-                );
-              })}
-            </div>
 
-            {/* Resumo da semana */}
+                    {/* Botão add */}
+                    <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:"YouTube",horario:"18:00",views:0,drive_link:"",responsavel:"",});}} style={{...btnGhost,fontSize:11,padding:"5px 12px",flexShrink:0}}>+ Post</button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Resumo semana */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:20}}>
               {["postado","agendado","pendente"].map(s => {
                 const count = getWeekDates(postagemWeekOffset).flatMap(slot=>getPostagens(slot.date)).filter(p=>p.status===s).length;
@@ -1555,6 +1557,18 @@ export default function Home() {
               <div style={lbl}>Link do post</div>
               <input value={postagemEdit.link||""} onChange={e=>setPostagemEdit({...postagemEdit,link:e.target.value})} placeholder="https://youtube.com/..." style={inp} />
             </div>
+            {(postagemEdit.plataforma==="YouTube"||!postagemEdit.plataforma) && (
+              <div style={{marginBottom:14}}>
+                <div style={lbl}>🎬 Título do vídeo (YouTube)</div>
+                <input value={postagemEdit.titulo_yt||""} onChange={e=>setPostagemEdit({...postagemEdit,titulo_yt:e.target.value})} placeholder="Ex: CABO PEREIRA no Bulldog Show..." style={inp} />
+              </div>
+            )}
+            {(postagemEdit.plataforma==="YouTube"||!postagemEdit.plataforma) && (
+              <div style={{marginBottom:14}}>
+                <div style={lbl}>🖼 Link da Thumbnail</div>
+                <input value={postagemEdit.thumbnail_url||""} onChange={e=>setPostagemEdit({...postagemEdit,thumbnail_url:e.target.value})} placeholder="https://drive.google.com/..." style={inp} />
+              </div>
+            )}
             <div style={{marginBottom:14}}>
               <div style={lbl}>Views (Instagram/TikTok — YouTube busca automaticamente)</div>
               <input type="number" value={postagemEdit.views||0} onChange={e=>setPostagemEdit({...postagemEdit,views:parseInt(e.target.value)||0})} style={inp} />
