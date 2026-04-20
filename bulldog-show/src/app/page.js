@@ -784,20 +784,22 @@ export default function Home() {
                         {gravacoes.map(ep => {
                           const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                           return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:12,padding:"12px 14px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
-                              {/* Horário + tipo */}
-                              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flexShrink:0,minWidth:60}}>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#E8F4FF",background:"rgba(36,135,190,0.2)",borderRadius:4,padding:"2px 8px",whiteSpace:"nowrap"}}>🎙 GRAVAÇÃO</span>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:MUTED,letterSpacing:1}}>{ep.gravacao_horario||"10:00"}</span>
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:14,padding:"14px 16px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
+                              {/* Hora lateral */}
+                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{ep.gravacao_horario||"10:00"}</div>
                               </div>
-                              {/* Conteúdo */}
+                              {/* Bloco vertical */}
                               <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#E8F4FF",lineHeight:1.1}}>{ep.title}</div>
-                                {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:3}}>{ep.convidados.join(" · ")}</div>}
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#E8F4FF",background:"rgba(232,244,255,0.12)",borderRadius:4,padding:"1px 8px",flexShrink:0}}>GRAVAÇÃO</span>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{ep.title}</span>
+                                </div>
+                                {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:TEXT,marginTop:2}}>{ep.convidados.join(" · ")}</div>}
                                 {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
-                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#A78BFA",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
+                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#94A3B8",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
                               </div>
-                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:2}}>{sc.label}</span>
+                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:3}}>{sc.label}</span>
                             </div>
                           );
                         })}
@@ -811,7 +813,7 @@ export default function Home() {
                             <div key={p.id} style={{display:"flex",gap:14,padding:"14px 16px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
                               {/* Hora lateral */}
                               <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:ts.color,lineHeight:1}}>{p.horario||"18:00"}</div>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{p.horario||"18:00"}</div>
                               </div>
                               {/* Bloco vertical */}
                               <div style={{flex:1,minWidth:0}}>
@@ -864,13 +866,23 @@ export default function Home() {
         {/* TAB 3: PRODUÇÃO */}
         {activeTab===3 && (
           <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE EPISÓDIOS</span></div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE CONTEÚDO</span></div>
+
+            {/* EPISÓDIOS - só os não 100% publicados */}
             {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep => {
               const checklist = ep.checklist || [];
               const done = checklist.length;
               const pct = Math.round((done/CHECKLIST_ITEMS.length)*100);
               const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
               const sConfig = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+              const proxPost = [...postagens].filter(p=>p.episodio_id===ep.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0];
+              const diasLabel = () => {
+                if (!proxPost) return null;
+                const dias = Math.ceil((new Date(proxPost.data+"T12:00:00")-new Date())/(1000*60*60*24));
+                const cor = dias <= 2?"#EF4444":dias <= 5?"#F59E0B":"#10B981";
+                const txt = dias < 0?"atrasado":dias === 0?"hoje":dias === 1?"amanhã":`${dias} dias`;
+                return <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>📤 {txt}</span>;
+              };
               return (
                 <div key={ep.id} style={{...card,padding:20,marginBottom:12}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -878,14 +890,7 @@ export default function Home() {
                       <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
                       <span style={{background:sConfig.bg,color:sConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sConfig.label}</span>
                       <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>
-                      {(() => {
-                        const proxPost = [...postagens].filter(p=>p.episodio_id===ep.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0];
-                        if (!proxPost) return null;
-                        const dias = Math.ceil((new Date(proxPost.data+"T12:00:00")-new Date())/(1000*60*60*24));
-                        const cor = dias <= 2?"#EF4444":dias <= 5?"#F59E0B":"#10B981";
-                        const txt = dias < 0?"atrasado":dias === 0?"hoje":dias === 1?"amanhã":`${dias} dias`;
-                        return <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>📤 {txt}</span>;
-                      })()}
+                      {diasLabel()}
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <span style={{fontFamily:"'DM Sans'",fontSize:12,color:pct===100?"#10B981":MUTED}}>{done}/{CHECKLIST_ITEMS.length}</span>
@@ -955,8 +960,39 @@ export default function Home() {
                 </div>
               );
             })}
-          </div>
 
+            {/* CORTES DO CRONOGRAMA - só os não postados */}
+            {(() => {
+              const cortesPendentes = postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List")).sort((a,b)=>a.data.localeCompare(b.data));
+              if (!cortesPendentes.length) return null;
+              return (
+                <div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,marginTop:8,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Conteúdo Pendente de Postagem</div>
+                  {cortesPendentes.map(p => {
+                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                    const platIcon = p.plataforma==="Instagram"?"📸":p.plataforma==="TikTok"?"🎵":"▶";
+                    const dias = p.data ? Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)) : null;
+                    const cor = dias === null?"#94A3B8":dias < 0?"#EF4444":dias <= 2?"#EF4444":dias <= 5?"#F59E0B":"#10B981";
+                    const txt = dias === null?"sem data":dias < 0?"atrasado":dias === 0?"hoje":dias === 1?"amanhã":`${dias} dias`;
+                    return (
+                      <div key={p.id} style={{...card,padding:"14px 18px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+                        <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,flexShrink:0}}>{p.tipo}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                            <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{p.episodio_title||"Sem episódio"}</span>
+                            {(p.titulo_yt||p.notas) && <span style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>· {p.titulo_yt||p.notas}</span>}
+                          </div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:3}}>{platIcon} {p.plataforma||"YouTube"}{p.responsavel?` · ${p.responsavel}`:""}</div>
+                        </div>
+                        <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
+                        <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p});}} style={{...btnGhost,fontSize:11,padding:"4px 10px",flexShrink:0}}>✏️</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
         )}
 
         {/* TAB 4: ESTATÍSTICAS */}
@@ -1582,12 +1618,10 @@ export default function Home() {
               <div style={lbl}>Link do post</div>
               <input value={postagemEdit.link||""} onChange={e=>setPostagemEdit({...postagemEdit,link:e.target.value})} placeholder="https://youtube.com/..." style={inp} />
             </div>
-            {(postagemEdit.plataforma==="YouTube"||!postagemEdit.plataforma) && (
-              <div style={{marginBottom:14}}>
-                <div style={lbl}>🎬 Título do vídeo (YouTube)</div>
-                <input value={postagemEdit.titulo_yt||""} onChange={e=>setPostagemEdit({...postagemEdit,titulo_yt:e.target.value})} placeholder="Ex: CABO PEREIRA no Bulldog Show..." style={inp} />
-              </div>
-            )}
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>🎬 Título do conteúdo</div>
+              <input value={postagemEdit.titulo_yt||""} onChange={e=>setPostagemEdit({...postagemEdit,titulo_yt:e.target.value})} placeholder="Ex: CABO PEREIRA no Bulldog Show..." style={inp} />
+            </div>
             {(postagemEdit.plataforma==="YouTube"||!postagemEdit.plataforma) && (
               <div style={{marginBottom:14}}>
                 <div style={lbl}>🖼 Link da Thumbnail</div>
