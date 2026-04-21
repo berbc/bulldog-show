@@ -82,6 +82,8 @@ export default function Home() {
   const [statsEp, setStatsEp] = useState(null);
   const [showAllConvidados, setShowAllConvidados] = useState(false);
   const [showAllViews, setShowAllViews] = useState(false);
+  const [viewsModal, setViewsModal] = useState(null); // 'yt' | 'social' | null
+  const [statsModal, setStatsModal] = useState(null); // 'gravados' | 'publicados' | 'cortes' | 'tierlists'
   const [statsEdit, setStatsEdit] = useState(null);
   const [statsEditMode, setStatsEditMode] = useState(false);
   const [equipe, setEquipe] = useState([]);
@@ -558,6 +560,15 @@ export default function Home() {
   const sortedGames = [...games].filter(g=>g.nome.toLowerCase().includes(gameSearch.toLowerCase())).sort((a,b)=>gameSort==="stars_desc"?(b.estrelas||0)-(a.estrelas||0):gameSort==="za"?b.nome.localeCompare(a.nome):a.nome.localeCompare(b.nome));
   const sortedEpisodes = [...episodes].filter(e=>epStatusFilter==="todos"||e.status===epStatusFilter).sort((a,b)=>epSort==="numero"?epNum(a.title)-epNum(b.title):epSort==="data"?(a.gravacao_data||"").localeCompare(b.gravacao_data||""):a.status.localeCompare(b.status));
 
+  const PLAT_CONFIG = {
+    YouTube:   {color:"#FF0000", bg:"rgba(255,0,0,0.12)",      border:"rgba(255,0,0,0.35)",      icon:"▶"},
+    Shorts:    {color:"#FF0000", bg:"rgba(255,0,0,0.08)",      border:"rgba(255,0,0,0.25)",      icon:"📱"},
+    Instagram: {color:"#C13584", bg:"rgba(193,53,132,0.12)",   border:"rgba(193,53,132,0.35)",   icon:"📸"},
+    TikTok:    {color:"#EE1D52", bg:"rgba(238,29,82,0.12)",    border:"rgba(238,29,82,0.35)",    icon:"🎵"},
+    Spotify:   {color:"#1DB954", bg:"rgba(29,185,84,0.12)",    border:"rgba(29,185,84,0.35)",    icon:"🎵"},
+  };
+  const platCfg = (p) => PLAT_CONFIG[p] || {color:"#7EC8F0",bg:"rgba(27,104,150,0.15)",border:"rgba(27,104,150,0.35)",icon:"▶"};
+
   const CHECKLIST_ITEMS = [
     {key:"convidados",label:"👥 Convidados"},
     {key:"tema_tier",label:"🏆 Tema Tier List"},
@@ -667,60 +678,75 @@ export default function Home() {
               const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
               return (
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
-                  <StatCard label="Episódios Gravados" value={gravados} />
-                  <StatCard label="Episódios Publicados" value={publishedEps.length} color="#10B981" />
-                  <StatCard label="Cortes Publicados" value={postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length} color={ACCENT} />
-                  <StatCard label="Tier Lists Publicadas" value={postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length} color="#F59E0B" />
-                  <StatCard label="Views YouTube" value={ytViews>0?ytViews.toLocaleString("pt-BR"):"0"} color="#EF4444" />
-                  <StatCard label="Views Redes Sociais" value={socialViews>0?socialViews.toLocaleString("pt-BR"):"0"} color="#8B5CF6" />
+                  {[
+                    {key:"gravados",    label:"Episódios Gravados",   value:gravados,                                                                                                                color:ACCENT},
+                    {key:"publicados",  label:"Episódios Publicados", value:publishedEps.length,                                                                                                    color:"#10B981"},
+                    {key:"cortes",      label:"Cortes Publicados",    value:postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length,                                                     color:ACCENT},
+                    {key:"tierlists",   label:"Tier Lists Publicadas",value:postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length,                                                 color:"#F59E0B"},
+                  ].map(item=>(
+                    <div key={item.key} onClick={()=>setStatsModal(item.key)} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=item.color} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{item.label}</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:item.color}}>{item.value}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:4}}>clique para ver</div>
+                    </div>
+                  ))}
+                  <div onClick={()=>setViewsModal("yt")} style={{background:CARD,border:"1px solid rgba(239,68,68,0.4)",borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#EF4444"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(239,68,68,0.4)"}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Views YouTube</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:4}}>clique para detalhar</div>
+                  </div>
+                  <div onClick={()=>setViewsModal("social")} style={{background:CARD,border:"1px solid rgba(139,92,246,0.4)",borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#8B5CF6"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(139,92,246,0.4)"}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Views Redes Sociais</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:"#8B5CF6"}}>{socialViews>0?socialViews.toLocaleString("pt-BR"):"0"}</div>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:4}}>clique para detalhar</div>
+                  </div>
                   <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
                 </div>
               );
             })()}
             {(() => {
+              const PLATS = Object.entries(PLAT_CONFIG).map(([key,v])=>({key,color:v.color,icon:v.icon}));
               const epData = episodes.filter(e=>(e.links||[]).some(l=>l.views>0)).map(ep=>{
                 const links = ep.links||[];
-                const yt = links.filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
-                const shorts = links.filter(l=>l.plataforma==="Shorts").reduce((s,l)=>s+(l.views||0),0);
-                const social = links.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok").reduce((s,l)=>s+(l.views||0),0);
-                const total = yt+shorts+social;
-                return {id:ep.id, title:ep.title, full:yt, corte:shorts, tier:social, total};
+                const byPlat = {};
+                PLATS.forEach(p=>{ byPlat[p.key]=links.filter(l=>l.plataforma===p.key).reduce((s,l)=>s+(l.views||0),0); });
+                const total = Object.values(byPlat).reduce((s,v)=>s+v,0);
+                return {id:ep.id, title:ep.title, byPlat, total};
               }).filter(e=>e.total>0).sort((a,b)=>epNum(a.title)-epNum(b.title));
               if (!epData.length) return null;
-              const maxTotal = Math.max(...epData.map(e=>e.total));
+              const maxPlat = {};
+              PLATS.forEach(p=>{ maxPlat[p.key]=Math.max(...epData.map(e=>e.byPlat[p.key]||0),1); });
               return (
                 <div style={{...card,padding:20,marginBottom:20}}>
-                  <div style={{fontSize:16,letterSpacing:2,marginBottom:4}}>📊 VIEWS POR EPISÓDIO</div>
-                  <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
-                    {[["YouTube","#8B5CF6"],["Shorts",ACCENT],["Redes Sociais","#F59E0B"]].map(([t,c])=>(
-                      <div key={t} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
-                        <div style={{width:10,height:10,borderRadius:2,background:c}} />{t}
+                  <div style={{fontSize:16,letterSpacing:2,marginBottom:12}}>📊 VIEWS POR EPISÓDIO</div>
+                  {/* Legenda */}
+                  <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+                    {PLATS.map(p=>(
+                      <div key={p.key} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:p.color}} />{p.key}
                       </div>
                     ))}
                   </div>
-                  {epData.map(ep=>{
-                    const fPct=maxTotal>0?Math.round((ep.full/maxTotal)*100):0;
-                    const cPct=maxTotal>0?Math.round((ep.corte/maxTotal)*100):0;
-                    const tPct=maxTotal>0?Math.round((ep.tier/maxTotal)*100):0;
-                    return (
-                      <div key={ep.id} style={{marginBottom:14}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{ep.title}</div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,display:"flex",gap:12}}>
-                            {ep.full>0 && <span style={{color:"#8B5CF6"}}>Full: {ep.full.toLocaleString("pt-BR")}</span>}
-                            {ep.corte>0 && <span style={{color:ACCENT}}>Cortes: {ep.corte.toLocaleString("pt-BR")}</span>}
-                            {ep.tier>0 && <span style={{color:"#F59E0B"}}>Tier: {ep.tier.toLocaleString("pt-BR")}</span>}
-                            <span style={{color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} total</span>
-                          </div>
-                        </div>
-                        <div style={{background:"#0A1F30",borderRadius:4,height:12,overflow:"hidden",display:"flex"}}>
-                          {ep.full>0 && <div style={{height:"100%",width:`${fPct}%`,background:"#8B5CF6"}} />}
-                          {ep.corte>0 && <div style={{height:"100%",width:`${cPct}%`,background:ACCENT}} />}
-                          {ep.tier>0 && <div style={{height:"100%",width:`${tPct}%`,background:"#F59E0B"}} />}
-                        </div>
+                  {epData.map(ep=>(
+                    <div key={ep.id} style={{marginBottom:18}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,color:TEXT}}>{ep.title}</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.total.toLocaleString("pt-BR")} total</div>
                       </div>
-                    );
-                  })}
+                      {PLATS.filter(p=>ep.byPlat[p.key]>0).map(p=>{
+                        const pct = Math.round((ep.byPlat[p.key]/maxPlat[p.key])*100);
+                        return (
+                          <div key={p.key} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:65,flexShrink:0}}>{p.icon} {p.key}</div>
+                            <div style={{flex:1,background:"#0A1F30",borderRadius:3,height:8,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,transition:"width .4s"}} />
+                            </div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,textAlign:"right",flexShrink:0,fontWeight:600}}>{ep.byPlat[p.key].toLocaleString("pt-BR")}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               );
             })()}
@@ -756,7 +782,7 @@ export default function Home() {
                   }))).sort((a,b)=>b.views-a.views);
                   if (allViews.length===0) return <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda</div>;
                   return (showAllViews?allViews:allViews.slice(0,5)).map((item,i)=>{
-                    const tipoColor = item.tipo==="Full"?"#8B5CF6":item.tipo==="Tier List"?"#F59E0B":item.tipo==="Corte"?ACCENT:item.tipo==="YouTube"||item.tipo==="Shorts"?"#EF4444":item.tipo==="Instagram"?"#E1306C":"#69C9D0";
+                    const tipoColor = item.tipo==="Full"?"#8B5CF6":item.tipo==="Tier List"?"#F59E0B":item.tipo==="Corte"?ACCENT:platCfg(item.tipo).color;
                     const icon = item.link?.includes("youtu")?"▶":item.plataforma?.includes("Shorts")?"📱":item.link?.includes("instagram")?"📸":"🎵";
                     return (
                       <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
@@ -1004,6 +1030,116 @@ export default function Home() {
           </div>
         )}
 
+
+      {/* MODAL STATS DETALHE */}
+      {statsModal && (
+        <div onClick={e=>e.target===e.currentTarget&&setStatsModal(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:580,maxHeight:"85vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:20,letterSpacing:2}}>
+                {statsModal==="gravados"&&"🎙 EPISÓDIOS GRAVADOS"}
+                {statsModal==="publicados"&&"✅ EPISÓDIOS PUBLICADOS"}
+                {statsModal==="cortes"&&"✂️ CORTES PUBLICADOS"}
+                {statsModal==="tierlists"&&"🏆 TIER LISTS PUBLICADAS"}
+              </div>
+              <button onClick={()=>setStatsModal(null)} style={btnGhost}>✕</button>
+            </div>
+            {statsModal==="gravados" && (
+              <div>
+                {[...episodes].filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=>{
+                  const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                  return (
+                    <div key={ep.id} onClick={()=>{openEp(ep);setStatsModal(null);setActiveTab(1);}} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:TEXT}}>{ep.title}</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
+                      </div>
+                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {statsModal==="publicados" && (
+              <div>
+                {[...publishedEps].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=>(
+                  <div key={ep.id} onClick={()=>{openEp(ep);setStatsModal(null);setActiveTab(1);}} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:TEXT}}>{ep.title}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
+                    </div>
+                    <span style={{background:"rgba(16,185,129,0.15)",color:"#10B981",borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>Publicado</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(statsModal==="cortes"||statsModal==="tierlists") && (
+              <div>
+                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+                  const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
+                  const platIcons = plats.map(pl=>platCfg(pl).icon).join(" ");
+                  return (
+                    <div key={p.id} style={{padding:"10px 0",borderBottom:`1px solid ${BORDER}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,flex:1}}>{p.titulo_yt||p.notas||"Sem título"}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{platIcons}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{p.data?new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):""}</span>
+                      </div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginBottom:4}}>{p.episodio_title||""}</div>
+                      {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.link}</a>}
+                      {p.views>0&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,marginTop:2,fontWeight:600}}>{p.views.toLocaleString("pt-BR")} views</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VIEWS DETALHE */}
+      {viewsModal && (
+        <div onClick={e=>e.target===e.currentTarget&&setViewsModal(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:540,maxHeight:"85vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:20,letterSpacing:2}}>{viewsModal==="yt"?"▶ VIEWS YOUTUBE":"📱 VIEWS REDES SOCIAIS"}</div>
+              <button onClick={()=>setViewsModal(null)} style={btnGhost}>✕</button>
+            </div>
+            {(() => {
+              const platFilter = viewsModal==="yt"
+                ? l => l.plataforma==="YouTube"
+                : l => l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts";
+              const platIcon = l => platCfg(l.plataforma).icon;
+              const platColor = l => platCfg(l.plataforma).color;
+              const epData = episodes.map(ep=>({
+                ep, links:(ep.links||[]).filter(platFilter).filter(l=>l.views>0)
+              })).filter(d=>d.links.length>0).sort((a,b)=>
+                d => d.links.reduce((s,l)=>s+(l.views||0),0)
+              ).sort((a,b)=>b.links.reduce((s,l)=>s+(l.views||0),0)-a.links.reduce((s,l)=>s+(l.views||0),0));
+              if (!epData.length) return <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum view registrado ainda.</div>;
+              return epData.map(({ep,links})=>{
+                const total = links.reduce((s,l)=>s+(l.views||0),0);
+                return (
+                  <div key={ep.id} style={{marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{ep.title}</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:viewsModal==="yt"?"#EF4444":"#8B5CF6"}}>{total.toLocaleString("pt-BR")}</div>
+                    </div>
+                    {links.map((l,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid rgba(27,104,150,0.1)`}}>
+                        <span style={{color:platColor(l),fontSize:14,flexShrink:0}}>{platIcon(l)}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0,minWidth:70}}>{l.plataforma}</span>
+                        <a href={l.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.url||"Sem link"}</a>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,fontWeight:600,flexShrink:0}}>{(l.views||0).toLocaleString("pt-BR")}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* MODAL EPISÓDIO */}
       {selectedEp&&editData&&(
@@ -1285,7 +1421,7 @@ export default function Home() {
                   {["YouTube","Shorts","Instagram","TikTok"].map(plat => {
                     const plats = Array.isArray(postagemEdit.plataforma) ? postagemEdit.plataforma : [postagemEdit.plataforma||"YouTube"];
                     const active = plats.includes(plat);
-                    const platColor = plat==="YouTube"?"#EF4444":plat==="Shorts"?"#FF6B35":plat==="Instagram"?"#E1306C":"#69C9D0";
+                    const platColor = platCfg(plat).color;
                     return (
                       <button key={plat} onClick={()=>{
                         const cur = Array.isArray(postagemEdit.plataforma)?postagemEdit.plataforma:[postagemEdit.plataforma||"YouTube"];
