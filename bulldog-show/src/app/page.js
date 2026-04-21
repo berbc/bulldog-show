@@ -661,479 +661,9 @@ export default function Home() {
                 return (diff >= -1) && (diff <= 7);
               });
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
-              const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
-              return (
-                <div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
-                    <div onClick={()=>{if(proxima){openEp(proxima);setActiveTab(1);}}} style={{...card,padding:20,border:`1px solid rgba(36,135,190,0.5)`,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(36,135,190,0.9)"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(36,135,190,0.5)"}>
-                      <div style={lbl}>📅 Próxima Gravação</div>
-                      {proxima ? (
-                        <div>
-                          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ACCENT}}>{new Date(proxima.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,marginTop:4}}>{proxima.title} · {proxima.gravacao_horario}</div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{proxima.convidados?.join(", ")||"Sem convidados"}</div>
-                        </div>
-                      ) : <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma agendada</div>}
-                    </div>
-                    <div onClick={()=>setActiveTab(2)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=BL} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
-                      <div style={lbl}>📤 Posts Esta Semana</div>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{postsSemana.filter(p=>p.status==="postado").length}/{postsSemana.length}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>postados esta semana</div>
-                    </div>
-                    <div onClick={()=>setActiveTab(4)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#EF4444"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
-                      <div style={lbl}>▶ Views YouTube</div>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>views acumulados</div>
-                    </div>
-                    <div onClick={()=>setActiveTab(3)} style={{...card,padding:20,border:epsSemChecklist.length>0?"1px solid rgba(245,158,11,0.4)":undefined,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#F59E0B"} onMouseLeave={e=>e.currentTarget.style.borderColor=epsSemChecklist.length>0?"rgba(245,158,11,0.4)":"rgba(27,104,150,0.3)"}>
-                      <div style={lbl}>⚠️ Checklists Incompletos</div>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:epsSemChecklist.length>0?"#F59E0B":"#10B981"}}>{epsSemChecklist.length}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>episódios com tarefas pendentes</div>
-                    </div>
-                  </div>
-                  {postsSemana.filter(p=>p.status!=="postado").length>0 && (
-                    <div style={{...card,padding:20,marginBottom:16}}>
-                      <div onClick={()=>setActiveTab(2)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:ACCENT}}>📆 POSTS PENDENTES ESTA SEMANA →</div>
-                      {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
-                        const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                        return (
-                          <div key={p.id} onClick={()=>setActiveTab(2)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,width:80,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
-                            <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.episodio_title||"Sem episódio"}</span>
-                            {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
-                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {epsSemChecklist.length>0 && (
-                    <div style={{...card,padding:20}}>
-                      <div onClick={()=>setActiveTab(3)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:"#F59E0B"}}>⚠️ EPISÓDIOS COM TAREFAS PENDENTES →</div>
-                      {epsSemChecklist.slice(0,5).map(ep=>{
-                        const done = (ep.checklist||[]).length;
-                        const pct = Math.round((done/10)*100);
-                        return (
-                          <div key={ep.id} onClick={()=>{openEp(ep);setActiveTab(1);}} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{ep.title}</div>
-                              <div style={{background:"#0A1F30",borderRadius:3,height:4,overflow:"hidden",marginTop:4,width:120}}>
-                                <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:3}} />
-                              </div>
-                            </div>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{done}/10</span>
-                            <span style={{background:STATUS_CONFIG[ep.status]?.bg,color:STATUS_CONFIG[ep.status]?.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{STATUS_CONFIG[ep.status]?.label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-
-        )}
-
-        {/* TAB 1: EPISÓDIOS */}
-        {activeTab===1 && (
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({episodes.length})</span></div>
-              <button style={btnBlue} onClick={createEp}>+ NOVO EPISÓDIO</button>
-            </div>
-            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-              <select value={epSort} onChange={e=>setEpSort(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="numero">Por Número</option>
-                <option value="data">Por Data</option>
-                <option value="status">Por Status</option>
-              </select>
-              <select value={epStatusFilter} onChange={e=>setEpStatusFilter(e.target.value)} style={{...inp,width:"auto"}}>
-                <option value="todos">Todos</option>
-                {Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-              </select>
-            </div>
-            <div style={{display:"grid",gap:8}}>
-              {sortedEpisodes.map(ep=>{
-                const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
-                const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
-                const checkDone = (ep.checklist||[]).length;
-                return (
-                  <div key={ep.id} className="epc" onClick={()=>openEp(ep)} style={{...card,cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"transform .15s, border-color .15s"}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
-                        <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
-                        <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
-                        {ep.status_edicao&&ep.status_edicao!=="pendente" && <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>}
-                        {ep.retroativo && <span style={{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>Retroativo</span>}
-                      </div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,display:"flex",gap:12,flexWrap:"wrap"}}>
-                        {ep.convidados?.length>0 && <span>👤 {ep.convidados.join(", ")}</span>}
-                        {ep.gravacao_data && <span>📅 {new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</span>}
-                        {ep.tier_list && <span>🏆 {ep.tier_list}</span>}
-                        {checkDone>0 && <span style={{color:checkDone===10?"#10B981":MUTED}}>✅ {checkDone}/10</span>}
-                      </div>
-                    </div>
-                    <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                      {copied===ep.id ? <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>✓ Copiado</span> : <button onClick={e=>{e.stopPropagation();copyLink(ep.id);}} style={{...btnGhost,fontSize:11,padding:"5px 10px"}}>🔗 Link</button>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: AGENDA */}
-        {activeTab===2 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>📅 AGENDA <span style={{color:BL}}>DO PROGRAMA</span></div>
-
-            {/* Navegação */}
-            <div style={{display:"flex",gap:8,marginBottom:24}}>
-              <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Anterior</button>
-              <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Hoje</button>
-              <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próxima →</button>
-            </div>
-
-            {getWeekDates(postagemWeekOffset).map(slot => {
-              const slotPostagens = getPostagens(slot.date);
-              const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
-              const isToday = slot.date === toLocalDate(new Date());
-              const hasContent = slotPostagens.length > 0 || gravacoes.length > 0;
-              const getTipoStyle = (tipo) => {
-                if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.5)"};
-                if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.5)"};
-                return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:`1px solid rgba(27,104,150,0.5)`};
-              };
-              return (
-                <div key={slot.date} style={{marginBottom:10}}>
-                  {/* Cabeçalho do dia */}
-                  <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:16,alignItems:"center",background:isToday?"rgba(27,104,150,0.12)":hasContent?"rgba(27,104,150,0.05)":"transparent",border:`1px solid ${isToday?"rgba(36,135,190,0.6)":hasContent?BORDER:"rgba(27,104,150,0.12)"}`,borderRadius:10,padding:"14px 18px"}}>
-                    {/* Data */}
-                    <div>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:2,color:isToday?ACCENT:hasContent?TEXT:"#1A3A50"}}>{slot.label}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:isToday?ACCENT:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long"})}</div>
-                      {isToday && <span style={{background:ACCENT,color:BG,borderRadius:10,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600,letterSpacing:1}}>HOJE</span>}
-                    </div>
-
-                    {/* Conteúdo do dia */}
-                    {hasContent ? (
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {gravacoes.map(ep => {
-                          const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
-                          return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:14,padding:"14px 16px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
-                              {/* Hora lateral */}
-                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{ep.gravacao_horario||"10:00"}</div>
-                              </div>
-                              {/* Bloco vertical */}
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#E8F4FF",background:"rgba(232,244,255,0.12)",borderRadius:4,padding:"1px 8px",flexShrink:0}}>GRAVAÇÃO</span>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{ep.title}</span>
-                                </div>
-                                {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:TEXT,marginTop:2}}>{ep.convidados.join(" · ")}</div>}
-                                {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
-                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#94A3B8",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
-                              </div>
-                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:3}}>{sc.label}</span>
-                            </div>
-                          );
-                        })}
-                        {slotPostagens.map(p => {
-                          const ts = getTipoStyle(p.tipo);
-                          const statusColor = p.status==="postado"?"#E8F4FF":p.status==="agendado"?"#F59E0B":MUTED;
-                          const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
-                          const platIcon = plats.includes("Instagram")?"📸":plats.includes("TikTok")?"🎵":plats.includes("Shorts")?"📱":"▶";
-                          const platColor = plats.includes("Instagram")?"#E1306C":plats.includes("TikTok")?"#69C9D0":plats.includes("Shorts")?"#FF6B35":"#EF4444";
-                          const platLabel = plats.join(" · ");
-                          const titulo = p.titulo_yt || p.notas?.trim() || null;
-                          return (
-                            <div key={p.id} style={{display:"flex",gap:14,padding:"14px 16px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
-                              {/* Hora lateral */}
-                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{p.horario||"18:00"}</div>
-                              </div>
-                              {/* Bloco vertical */}
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"1px 8px",flexShrink:0}}>{p.tipo.toUpperCase()}</span>
-                                  {titulo && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{titulo.toUpperCase()}</span>}
-                                </div>
-                                {p.episodio_title && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:MUTED,marginTop:2}}>{p.episodio_title.toUpperCase()}</div>}
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {platLabel.toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
-                                {p.responsavel && <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:MUTED,marginTop:2}}>{p.responsavel.toUpperCase()}</div>}
-                              </div>
-                              <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0,paddingTop:3}}>
-                                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase"}}>{p.status}</span>
-                                <div style={{display:"flex",gap:4}}>
-                                  <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(','):['YouTube']});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
-                                  <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px"}}>✕</button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#1A3A50"}}>Nenhuma atividade</div>
-                    )}
-
-                    {/* Botão add */}
-                    <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:["YouTube"],horario:"18:00",views:0,drive_link:"",responsavel:"",titulo_yt:"",thumbnail_url:""});}} style={{...btnGhost,fontSize:11,padding:"5px 12px",flexShrink:0}}>+ Post</button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Resumo semana */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:20}}>
-              {["postado","agendado","pendente"].map(s => {
-                const count = getWeekDates(postagemWeekOffset).flatMap(slot=>getPostagens(slot.date)).filter(p=>p.status===s).length;
-                const color = s==="postado"?"#10B981":s==="agendado"?"#F59E0B":MUTED;
-                return (
-                  <div key={s} style={{...card,padding:"14px 16px",textAlign:"center",marginBottom:0}}>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{s}</div>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color}}>{count}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: PRODUÇÃO */}
-        {activeTab===3 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE CONTEÚDO</span></div>
-
-            {/* KANBAN EPISÓDIOS */}
-            {(() => {
-              const EP_COLS = [
-                {key:"tema",       label:"Tema",       color:"#7EC8F0"},
-                {key:"convidados", label:"Convidados", color:"#60A5FA"},
-                {key:"tema_tier",  label:"Tier List",  color:"#F59E0B"},
-                {key:"pauta",      label:"Pauta",      color:"#A78BFA"},
-                {key:"gravar",     label:"Gravação",   color:"#E8F4FF"},
-                {key:"editar",     label:"Edição",     color:"#8B5CF6"},
-                {key:"thumbnail",  label:"Thumbnail",  color:"#EC4899"},
-                {key:"postar",     label:"Postagem",   color:"#34D399"},
-              ];
-              const getColIdx = (ep) => {
-                const cl = ep.checklist || [];
-                let idx = 0;
-                for (let i = 0; i < EP_COLS.length; i++) { if (cl.includes(EP_COLS[i].key)) idx = i+1; }
-                return Math.min(idx, EP_COLS.length-1);
-              };
-              const moveEp = async (ep, toIdx) => {
-                const newCl = EP_COLS.slice(0, toIdx).map(c=>c.key);
-                await saveChecklist(ep.id, newCl);
-              };
-              const eps = episodes.filter(e=>e.status!=="publicado");
-              return (
-                <div style={{marginBottom:28}}>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📺 Episódios</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:8}}>
-                    {EP_COLS.map((col,ci) => {
-                      const items = eps.filter(ep=>getColIdx(ep)===ci);
-                      return (
-                        <div key={col.key}
-                          onDragOver={e=>e.preventDefault()}
-                          onDrop={async e=>{
-                            e.preventDefault();
-                            const id = parseInt(e.dataTransfer.getData("text/plain"));
-                            const ep = eps.find(e=>e.id===id);
-                            if (ep) await moveEp(ep, ci);
-                          }}
-                          style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160}}>
-                          <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
-                            <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length}</div>
-                          </div>
-                          <div style={{padding:6,display:"flex",flexDirection:"column",gap:5}}>
-                            {items.map(ep => {
-                              const dData = [...postagens].filter(p=>p.episodio_id===ep.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0]?.data;
-                              const dias = dData?Math.ceil((new Date(dData+"T12:00:00")-new Date())/(1000*60*60*24)):null;
-                              const diasCor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
-                              const diasTxt = dias===null?null:dias<0?"atr.":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
-                              return (
-                                <div key={ep.id}
-                                  draggable
-                                  onDragStart={e=>e.dataTransfer.setData("text/plain",String(ep.id))}
-                                  onClick={()=>openEp(ep)}
-                                  style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:6,padding:"8px 9px",cursor:"grab",userSelect:"none"}}
-                                  onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.3)"}
-                                  onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                                    <span style={{background:"rgba(36,135,190,0.2)",color:"#7EC8F0",borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>EP</span>
-                                    {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"0px 4px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤{diasTxt}</span>}
-                                  </div>
-                                  <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:TEXT,lineHeight:1.3,wordBreak:"break-word"}}>{ep.title}</div>
-                                  {ep.convidados?.length>0&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:2,lineHeight:1.3}}>{ep.convidados.join(" · ")}</div>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* KANBAN CORTES */}
-            {(() => {
-              const CR_COLS = [
-                {key:"editar",    label:"Edição",    color:"#8B5CF6"},
-                {key:"thumbnail", label:"Thumbnail", color:"#EC4899"},
-                {key:"postar",    label:"Postagem",  color:"#34D399"},
-              ];
-              const getCRColIdx = (p) => {
-                const clItems = getCorteChecklist(p.tipo, p.plataforma);
-                const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
-                let idx = 0;
-                for (let i = 0; i < clItems.length; i++) { if (done.includes(clItems[i].key)) idx = i+1; }
-                return Math.min(idx, CR_COLS.length-1);
-              };
-              const moveCR = async (p, toIdx) => {
-                const clItems = getCorteChecklist(p.tipo, p.plataforma);
-                const newDone = clItems.slice(0, toIdx).map(i=>i.key);
-                await saveCorteChecklist(p.id, newDone);
-              };
-              const cortes = postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List"));
-              if (!cortes.length) return null;
-              return (
-                <div style={{marginBottom:28}}>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>✂️ Cortes & Posts</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,maxWidth:700}}>
-                    {CR_COLS.map((col,ci) => {
-                      const items = cortes.filter(p=>getCRColIdx(p)===ci);
-                      return (
-                        <div key={col.key}
-                          onDragOver={e=>e.preventDefault()}
-                          onDrop={async e=>{
-                            e.preventDefault();
-                            const id = parseInt(e.dataTransfer.getData("text/plain"));
-                            const p = cortes.find(p=>p.id===id);
-                            if (p) await moveCR(p, ci);
-                          }}
-                          style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160}}>
-                          <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
-                            <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length}</div>
-                          </div>
-                          <div style={{padding:6,display:"flex",flexDirection:"column",gap:5}}>
-                            {items.map(p => {
-                              const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                              const dias = p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
-                              const diasCor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
-                              const diasTxt = dias===null?null:dias<0?"atr.":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
-                              const titulo = p.titulo_yt||p.notas||"Sem título";
-                              const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
-                              const platIcons = plats.map(pl=>pl==="YouTube"?"▶":pl==="Shorts"?"📱":pl==="Instagram"?"📸":"🎵").join(" ");
-                              return (
-                                <div key={p.id}
-                                  draggable
-                                  onDragStart={e=>e.dataTransfer.setData("text/plain",String(p.id))}
-                                  style={{background:CARD,border:`1px solid ${tipoColor}44`,borderRadius:6,padding:"8px 9px",cursor:"grab",userSelect:"none"}}
-                                  onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.3)"}
-                                  onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                                    <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>{p.tipo}</span>
-                                    {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"0px 4px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤{diasTxt}</span>}
-                                  </div>
-                                  <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:TEXT,lineHeight:1.3,wordBreak:"break-word"}}>{titulo}</div>
-                                  <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:2}}>{platIcons} {p.episodio_title||""}</div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* CORTES DO CRONOGRAMA */}
-            {(() => {
-              const cortesPendentes = postagens.filter(p => {
-                if (p.status === "postado") return false;
-                if (p.tipo !== "Corte" && p.tipo !== "Full" && p.tipo !== "Tier List") return false;
-                const cl = getCorteChecklist(p.tipo, p.plataforma);
-                const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
-                return done.length < cl.length;
-              }).sort((a,b)=>(a.data||"").localeCompare(b.data||""));
-              if (!cortesPendentes.length) return null;
-              return (
-                <div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,marginTop:8,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Conteúdo Pendente</div>
-                  {cortesPendentes.map(p => {
-                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                    const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
-                    const platIcons = plats.map(pl=>pl==="YouTube"?"▶":pl==="Shorts"?"📱":pl==="Instagram"?"📸":"🎵").join(" ");
-                    const dias = p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
-                    const cor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
-                    const txt = dias===null?"sem data":dias<0?"atrasado":dias===0?"hoje":dias===1?"amanhã":`${dias} dias`;
-                    const clItems = getCorteChecklist(p.tipo, p.plataforma);
-                    const doneCl = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
-                    const pct = Math.round((doneCl.length/clItems.length)*100);
-                    return (
-                      <div key={p.id} style={{...card,padding:"16px 18px",marginBottom:8}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:pct<100?10:0,flexWrap:"wrap"}}>
-                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,flexShrink:0}}>{p.tipo}</span>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.notas||"Sem título"}</div>
-                            {p.episodio_title&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title}</div>}
-                          </div>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{platIcons} {plats.join(" · ")}</span>
-                          <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:pct===100?"#10B981":MUTED,flexShrink:0}}>{doneCl.length}/{clItems.length}</span>
-                          <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:plats});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}}>✏️</button>
-                        </div>
-                        <div style={{background:"#0A1F30",borderRadius:4,height:4,overflow:"hidden",marginBottom:8}}>
-                          <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
-                        </div>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:5}}>
-                          {clItems.map(item => {
-                            const isDone = doneCl.includes(item.key);
-                            return (
-                              <div key={item.key} onClick={()=>{
-                                const next = isDone?doneCl.filter(c=>c!==item.key):[...doneCl,item.key];
-                                saveCorteChecklist(p.id, next);
-                              }} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:5,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`}}>
-                                <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                  {isDone && <span style={{color:"#fff",fontSize:8}}>✓</span>}
-                                </div>
-                                <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-
-
-          </div>
-        )}
-
-        {/* TAB 4: ESTATÍSTICAS */}
-        {activeTab===4 && (
-          <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
-            {(() => {
-              const ytViews = postagens.filter(p=>p.plataforma==="YouTube"||!p.plataforma).reduce((s,p)=>s+(p.views||0),0);
-              const socialViews = postagens.filter(p=>p.plataforma==="Instagram"||p.plataforma==="TikTok").reduce((s,p)=>s+(p.views||0),0);
+              const allEpLinks = episodes.flatMap(e=>(e.links||[]));
+              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
+              const socialViews = allEpLinks.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts").reduce((s,l)=>s+(l.views||0),0);
               const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
               return (
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
@@ -1148,22 +678,21 @@ export default function Home() {
               );
             })()}
             {(() => {
-              const epIds = [...new Set(postagens.filter(p=>p.episodio_id&&p.views>0).map(p=>p.episodio_id))];
-              if (!epIds.length) return null;
-              const epData = epIds.map(id=>{
-                const ep=episodes.find(e=>e.id===id);
-                const posts=postagens.filter(p=>p.episodio_id===id&&p.views>0);
-                const full=posts.filter(p=>p.tipo==="Full").reduce((s,p)=>s+(p.views||0),0);
-                const corte=posts.filter(p=>p.tipo==="Corte").reduce((s,p)=>s+(p.views||0),0);
-                const tier=posts.filter(p=>p.tipo==="Tier List").reduce((s,p)=>s+(p.views||0),0);
-                return {id,title:ep?.title||`Ep ${id}`,full,corte,tier,total:full+corte+tier};
-              }).sort((a,b)=>epNum(a.title)-epNum(b.title));
+              const epData = episodes.filter(e=>(e.links||[]).some(l=>l.views>0)).map(ep=>{
+                const links = ep.links||[];
+                const yt = links.filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
+                const shorts = links.filter(l=>l.plataforma==="Shorts").reduce((s,l)=>s+(l.views||0),0);
+                const social = links.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok").reduce((s,l)=>s+(l.views||0),0);
+                const total = yt+shorts+social;
+                return {id:ep.id, title:ep.title, full:yt, corte:shorts, tier:social, total};
+              }).filter(e=>e.total>0).sort((a,b)=>epNum(a.title)-epNum(b.title));
+              if (!epData.length) return null;
               const maxTotal = Math.max(...epData.map(e=>e.total));
               return (
                 <div style={{...card,padding:20,marginBottom:20}}>
                   <div style={{fontSize:16,letterSpacing:2,marginBottom:4}}>📊 VIEWS POR EPISÓDIO</div>
                   <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
-                    {[["Full","#8B5CF6"],["Corte",ACCENT],["Tier List","#F59E0B"]].map(([t,c])=>(
+                    {[["YouTube","#8B5CF6"],["Shorts",ACCENT],["Redes Sociais","#F59E0B"]].map(([t,c])=>(
                       <div key={t} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
                         <div style={{width:10,height:10,borderRadius:2,background:c}} />{t}
                       </div>
@@ -1218,25 +747,32 @@ export default function Home() {
                   <div style={{fontSize:15,letterSpacing:2}}>📊 VIEWS</div>
                   {postagens.filter(p=>p.views>0).length>5 && <button onClick={()=>setShowAllViews(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllViews?"▲":"▼ todos"}</button>}
                 </div>
-                {postagens.filter(p=>p.views>0).length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda</div>
-                  : (showAllViews?[...postagens]:[...postagens].slice(0,5)).filter(p=>p.views>0).sort((a,b)=>b.views-a.views).map((p,i)=>{
-                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                    const icon = p.link?.includes("youtu")?"▶":p.link?.includes("instagram")?"📸":"🎵";
+                {(() => {
+                  // Views only from episodes.links
+                  const allViews = episodes.flatMap(ep=>(ep.links||[]).filter(l=>l.views>0).map(l=>({
+                    id:"l-"+ep.id+"-"+l.url, views:l.views,
+                    label:ep.title, tipo:l.plataforma||"YouTube",
+                    link:l.url, plataforma:l.plataforma
+                  }))).sort((a,b)=>b.views-a.views);
+                  if (allViews.length===0) return <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda</div>;
+                  return (showAllViews?allViews:allViews.slice(0,5)).map((item,i)=>{
+                    const tipoColor = item.tipo==="Full"?"#8B5CF6":item.tipo==="Tier List"?"#F59E0B":item.tipo==="Corte"?ACCENT:item.tipo==="YouTube"||item.tipo==="Shorts"?"#EF4444":item.tipo==="Instagram"?"#E1306C":"#69C9D0";
+                    const icon = item.link?.includes("youtu")?"▶":item.plataforma?.includes("Shorts")?"📱":item.link?.includes("instagram")?"📸":"🎵";
                     return (
-                      <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
+                      <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
                         <div style={{display:"flex",gap:8,alignItems:"center",flex:1,minWidth:0}}>
                           <span style={{color:MUTED,fontSize:10,width:16,flexShrink:0}}>{i+1}.</span>
-                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{p.episodio_title||"—"}</span>
+                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{item.tipo}</span>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{item.label}</span>
                         </div>
                         <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                          <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{p.views.toLocaleString("pt-BR")}</span>
-                          {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{icon}</a>}
+                          <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{item.views.toLocaleString("pt-BR")}</span>
+                          {item.link && <a href={item.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{icon}</a>}
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                })()}
               </div>
             </div>
             <div style={{...card,padding:16,marginBottom:20}}>
@@ -1663,7 +1199,7 @@ export default function Home() {
                 {(statsEdit.links||[]).map((link,i)=>(
                   <div key={i} style={{display:"flex",gap:8,marginBottom:8}}>
                     <select value={link.plataforma||"YouTube"} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,width:120,flex:"0 0 120px"}}>
-                      <option>YouTube</option><option>Instagram</option><option>TikTok</option>
+                      <option>YouTube</option><option>Shorts</option><option>Instagram</option><option>TikTok</option><option>Spotify</option>
                     </select>
                     <input value={link.url} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL do corte..." style={{...inp,flex:1}} />
                     <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:100,flex:"0 0 100px"}} />
