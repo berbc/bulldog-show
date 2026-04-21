@@ -415,7 +415,8 @@ export default function Home() {
       drive_link: postagemEdit.drive_link || "",
       responsavel: postagemEdit.responsavel || "",
       titulo_yt: postagemEdit.titulo_yt || "",
-      thumbnail_url: postagemEdit.thumbnail_url || ""
+      thumbnail_url: postagemEdit.thumbnail_url || "",
+      notas_checklist: postagemEdit.notas_checklist || "[]"
     };
     let data;
     if (postagemEdit.id) {
@@ -431,6 +432,8 @@ export default function Home() {
         return [...filtered,data].sort((a,b)=>a.data.localeCompare(b.data)||a.id-b.id);
       });
       setPostagemModal(null); setPostagemEdit(null); flash();
+      // Force reload to ensure stats are up to date
+      loadPostagens();
     }
   };
   const deletePostagem = async (id) => {
@@ -577,7 +580,6 @@ export default function Home() {
     const notasJson = JSON.stringify(checklist);
     await supabase.from("postagens").update({notas_checklist: notasJson}).eq("id", postId);
     setPostagens(prev => prev.map(p => p.id === postId ? {...p, notas_checklist: notasJson} : p));
-    flash();
   };
 
   if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
