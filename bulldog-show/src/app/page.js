@@ -182,10 +182,22 @@ export default function Home() {
     if (!vid) return null;
     try {
       const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+      if (!apiKey) return null;
       const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${vid}&part=statistics&key=${apiKey}`);
+      if (!res.ok) return null;
       const data = await res.json();
-      return parseInt(data?.items?.[0]?.statistics?.viewCount || 0);
+      const count = parseInt(data?.items?.[0]?.statistics?.viewCount || 0);
+      return count > 0 ? count : null;
     } catch(e) { return null; }
+  };
+
+  const refreshPostagemViews = async (p) => {
+    if (!p.link || (!p.link.includes("youtu.be") && !p.link.includes("youtube.com"))) return;
+    const fetched = await fetchYouTubeViews(p.link);
+    if (fetched !== null && fetched > 0 && fetched !== p.views) {
+      await supabase.from("postagens").update({views: fetched}).eq("id", p.id);
+      setPostagens(prev => prev.map(x => x.id === p.id ? {...x, views: fetched} : x));
+    }
   };
 
   const fetchAndUpdateViews = async (ep) => {
@@ -394,12 +406,12 @@ export default function Home() {
   const savePostagem = async () => {
     if (!postagemEdit) return;
     let views = postagemEdit.views || 0;
-    if (postagemEdit.link && postagemEdit.link.includes("youtu")) {
-      // Link presente: busca views atualizadas
-      const fetched = await fetchYouTubeViews(postagemEdit.link);
-      if (fetched !== null) views = fetched;
-    } else if (!postagemEdit.link || postagemEdit.link.trim() === "") {
-      // Link removido: zera views
+    const linkTrimmed = (postagemEdit.link || "").trim();
+    if (linkTrimmed && (linkTrimmed.includes("youtu.be") || linkTrimmed.includes("youtube.com") || linkTrimmed.includes("youtube"))) {
+      // Link YouTube: sempre busca views atualizadas ao salvar
+      const fetched = await fetchYouTubeViews(linkTrimmed);
+      if (fetched !== null && fetched > 0) views = fetched;
+    } else if (!linkTrimmed) {
       views = 0;
     }
     const payload = {
