@@ -418,6 +418,7 @@ export default function Home() {
       episodio_title: postagemEdit.episodio_title || "",
       tipo: postagemEdit.tipo,
       status: postagemEdit.status,
+      data: postagemEdit.data,
       plataforma: Array.isArray(postagemEdit.plataforma) ? postagemEdit.plataforma.join(",") : (postagemEdit.plataforma || "YouTube"),
       horario: postagemEdit.horario || "18:00",
       link: postagemEdit.link || "",
