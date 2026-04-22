@@ -117,7 +117,7 @@ export default function Home() {
   const [postagemModal, setPostagemModal] = useState(null);
   const [postagemEdit, setPostagemEdit] = useState(null);
   const [postagens, setPostagens] = useState([]);
-  const cronoRef = useRef(null);
+  const widgetRef = useRef(null);
   const [corteChecklists, setCorteChecklists] = useState({});
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
@@ -1556,7 +1556,7 @@ export default function Home() {
       {/* CRONÔMETRO FLUTUANTE */}
       {cronoModal && (
         <div
-          ref={cronoRef}
+          ref={widgetRef}
           style={{
             position:"fixed",
             right: cronoPos.x !== null ? "auto" : 24,
@@ -1574,7 +1574,7 @@ export default function Home() {
           {/* Header arrastável */}
           <div
             onMouseDown={e=>{
-              const el = cronoRef.current;
+              const el = widgetRef.current;
               const rect = el.getBoundingClientRect();
               const offX = e.clientX - rect.left;
               const offY = e.clientY - rect.top;
