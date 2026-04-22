@@ -1552,7 +1552,7 @@ export default function Home() {
       )}
 
       {/* CRONÔMETRO FLUTUANTE */}
-      {cronoOpen && cronoEpId && (()=>{const cronoEp=episodes.find(e=>e.id===cronoEpId)||{id:cronoEpId,title:"Episódio",cortes_gravacao:[]};return(
+      {cronoOpen && cronoEpId && (()=>{const cronoEp=episodes.find(e=>e.id===cronoEpId)||{id:cronoEpId,title:"Episódio",cortes_gravacao:[]};return (
         <div
           ref={widgetRef}
           style={{
@@ -1638,7 +1638,7 @@ export default function Home() {
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:8,textAlign:"center"}}>Espaço = pausar · C = corte · arraste para mover</div>
           </div>
         </div>
-      );})())}
+      );})()}
 
       {/* MODAL EPISÓDIO */}
       {selectedEp&&editData&&(
