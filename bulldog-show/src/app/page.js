@@ -92,6 +92,10 @@ export default function Home() {
   const [showAllConvidados, setShowAllConvidados] = useState(false);
   const [showAllViews, setShowAllViews] = useState(false);
   const [cronoModal, setCronoModal] = useState(null); // episode object
+  const [cronoPos, setCronoPos] = useState({x: null, y: null}); // floating position
+  const [editingCorteId, setEditingCorteId] = useState(null);
+  const [editingCorteNota, setEditingCorteNota] = useState("");
+  const cronoRef = useRef(null);
   const [viewsModal, setViewsModal] = useState(null);
   const [statsModal, setStatsModal] = useState(null);
   const [statsEdit, setStatsEdit] = useState(null);
@@ -396,6 +400,13 @@ export default function Home() {
     const novos = (ep.cortes_gravacao||[]).filter(c=>c.id!==corteId);
     await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
     setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
+    setCronoModal(prev=>prev?.id===ep.id?{...prev,cortes_gravacao:novos}:prev);
+  };
+  const editarCorte = async (ep, corteId, novaNota) => {
+    const novos = (ep.cortes_gravacao||[]).map(c=>c.id===corteId?{...c,nota:novaNota}:c);
+    await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
+    setCronoModal(prev=>prev?.id===ep.id?{...prev,cortes_gravacao:novos}:prev);
   };
   const saveChecklist = async (epId, checklist) => {
     await supabase.from("episodes").update({checklist}).eq("id",epId);
@@ -1542,56 +1553,91 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL CRONÔMETRO */}
+      {/* CRONÔMETRO FLUTUANTE */}
       {cronoModal && (
-        <div style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.95)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:600,padding:26}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontSize:20,letterSpacing:2}}>🎙 {cronoModal.title}</div>
-              <button onClick={()=>{setCronoModal(null);cronoPause();}} style={btnGhost}>✕ Fechar</button>
-            </div>
-            {/* Cronômetro */}
-            <div style={{padding:"20px 16px",background:"rgba(27,104,150,0.06)",borderRadius:8,border:`1px solid ${BORDER}`,marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:48,letterSpacing:3,color:cronoEpId===cronoModal.id?ACCENT:MUTED,minWidth:140}}>
-                    {cronoFmt(cronoEpId===cronoModal.id?cronoTime:0)}
-                  </div>
-                  {cronoEpId===cronoModal.id&&cronoRunning
-                    ? <button onClick={cronoPause} style={{...btnGhost,padding:"8px 18px"}}>⏸ Pausar</button>
-                    : <button onClick={()=>cronoStart(cronoModal.id)} style={{...btnBlue,padding:"8px 18px"}}>▶ {cronoEpId===cronoModal.id?"Continuar":"Iniciar"}</button>
-                  }
-                  <button onClick={()=>cronoReset(cronoModal.id)} style={{...btnGhost,padding:"8px 12px"}}>↺ Reset</button>
-                </div>
-                <button onClick={()=>marcarCorte(cronoModal)} disabled={cronoEpId!==cronoModal.id||cronoTime===0} style={{background:cronoEpId===cronoModal.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"10px 22px",cursor:cronoEpId===cronoModal.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1}}>
-                  ✂️ MARCAR CORTE
-                </button>
+        <div
+          ref={cronoRef}
+          style={{
+            position:"fixed",
+            right: cronoPos.x !== null ? "auto" : 24,
+            bottom: cronoPos.y !== null ? "auto" : 24,
+            left: cronoPos.x !== null ? cronoPos.x : "auto",
+            top: cronoPos.y !== null ? cronoPos.y : "auto",
+            width:340,
+            background:"#0A1F30",
+            border:`1px solid ${BORDER2}`,
+            borderRadius:12,
+            boxShadow:"0 8px 32px rgba(0,0,0,0.6)",
+            zIndex:200,
+            overflow:"hidden",
+          }}>
+          {/* Header arrastável */}
+          <div
+            onMouseDown={e=>{
+              const el = cronoRef.current;
+              const rect = el.getBoundingClientRect();
+              const offX = e.clientX - rect.left;
+              const offY = e.clientY - rect.top;
+              const onMove = mv => setCronoPos({x: mv.clientX - offX, y: mv.clientY - offY});
+              const onUp = () => { document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); };
+              document.addEventListener("mousemove",onMove);
+              document.addEventListener("mouseup",onUp);
+            }}
+            style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(27,104,150,0.2)",cursor:"grab",borderBottom:`1px solid ${BORDER}`}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:ACCENT}}>🎙 {cronoModal.title}</div>
+            <button onClick={()=>{setCronoModal(null);cronoPause();setCronoPos({x:null,y:null});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16}}>✕</button>
+          </div>
+          {/* Cronômetro */}
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:40,letterSpacing:3,color:cronoEpId===cronoModal.id?ACCENT:MUTED}}>
+                {cronoFmt(cronoEpId===cronoModal.id?cronoTime:0)}
               </div>
-              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:8}}>Espaço = pausar · C = marcar corte</div>
-              {cronoNotaAtiva&&cronoEpId===cronoModal.id && (
-                <div style={{marginTop:12,display:"flex",gap:8,alignItems:"center"}}>
-                  <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0}}>✂️ {cronoNotaAtiva.timeStr}</div>
-                  <input value={cronoNotaAtiva.nota} onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})} onKeyDown={e=>e.key==="Enter"&&salvarCorte(cronoModal)} placeholder="Descreve o corte... (Enter para salvar)" style={{...inp,flex:1}} autoFocus />
-                  <button onClick={()=>salvarCorte(cronoModal)} style={btnBlue}>💾</button>
-                  <button onClick={()=>setCronoNotaAtiva(null)} style={btnGhost}>✕</button>
-                </div>
-              )}
+              <div style={{display:"flex",gap:6}}>
+                {cronoEpId===cronoModal.id&&cronoRunning
+                  ? <button onClick={cronoPause} style={{...btnGhost,padding:"5px 10px",fontSize:11}}>⏸</button>
+                  : <button onClick={()=>cronoStart(cronoModal.id)} style={{...btnBlue,padding:"5px 10px",fontSize:11}}>▶</button>
+                }
+                <button onClick={()=>cronoReset(cronoModal.id)} style={{...btnGhost,padding:"5px 8px",fontSize:11}}>↺</button>
+              </div>
             </div>
-            {/* Lista de cortes */}
-            {(cronoModal.cortes_gravacao||[]).length>0 && (
-              <div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes marcados ({cronoModal.cortes_gravacao.length})</div>
-                <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:200,overflowY:"auto"}}>
-                  {cronoModal.cortes_gravacao.map(c=>(
-                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:"rgba(239,68,68,0.06)",borderRadius:5,border:"1px solid rgba(239,68,68,0.2)"}}>
-                      <span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:"#EF4444",flexShrink:0,minWidth:50}}>{c.timeStr}</span>
-                      <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{c.nota||<span style={{color:MUTED}}>Sem nota</span>}</span>
-                      <button onClick={()=>deletarCorte(cronoModal,c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:11}}>✕</button>
-                    </div>
-                  ))}
-                </div>
+            <button onClick={()=>marcarCorte(cronoModal)} disabled={cronoEpId!==cronoModal.id||cronoTime===0} style={{width:"100%",background:cronoEpId===cronoModal.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"8px 0",cursor:cronoEpId===cronoModal.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,marginBottom:10}}>
+              ✂️ MARCAR CORTE
+            </button>
+            {cronoNotaAtiva&&cronoEpId===cronoModal.id && (
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10}}>
+                <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 8px",fontFamily:"'Bebas Neue'",fontSize:12,color:"#EF4444",flexShrink:0}}>{cronoNotaAtiva.timeStr}</div>
+                <input value={cronoNotaAtiva.nota} onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})} onKeyDown={e=>e.key==="Enter"&&salvarCorte(cronoModal)} placeholder="Nome do corte... (Enter)" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}} autoFocus />
+                <button onClick={()=>salvarCorte(cronoModal)} style={{...btnBlue,padding:"5px 8px",fontSize:11}}>💾</button>
+                <button onClick={()=>setCronoNotaAtiva(null)} style={{...btnGhost,padding:"5px 6px",fontSize:11}}>✕</button>
               </div>
             )}
+            {/* Lista cortes */}
+            {(cronoModal.cortes_gravacao||[]).length>0 && (
+              <div style={{maxHeight:160,overflowY:"auto"}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Cortes ({cronoModal.cortes_gravacao.length})</div>
+                {[...cronoModal.cortes_gravacao].reverse().map(c=>(
+                  <div key={c.id} style={{padding:"5px 0",borderBottom:`1px solid ${BORDER}`}}>
+                    {editingCorteId===c.id ? (
+                      <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:"#EF4444",flexShrink:0,minWidth:44}}>{c.timeStr}</span>
+                        <input value={editingCorteNota} onChange={e=>setEditingCorteNota(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){editarCorte(cronoModal,c.id,editingCorteNota);setEditingCorteId(null);}if(e.key==="Escape")setEditingCorteId(null);}} style={{...inp,flex:1,fontSize:11,padding:"3px 6px"}} autoFocus />
+                        <button onClick={()=>{editarCorte(cronoModal,c.id,editingCorteNota);setEditingCorteId(null);}} style={{...btnBlue,padding:"3px 6px",fontSize:10}}>✓</button>
+                        <button onClick={()=>setEditingCorteId(null)} style={{...btnGhost,padding:"3px 6px",fontSize:10}}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:"#EF4444",flexShrink:0,minWidth:44}}>{c.timeStr}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:TEXT,flex:1,cursor:"pointer"}} onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}}>{c.nota||<span style={{color:MUTED}}>clique para nomear</span>}</span>
+                        <button onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10,flexShrink:0}}>✏️</button>
+                        <button onClick={()=>deletarCorte(cronoModal,c.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,flexShrink:0}}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:8,textAlign:"center"}}>Espaço = pausar · C = corte · arraste para mover</div>
           </div>
         </div>
       )}
