@@ -1839,6 +1839,10 @@ export default function Home() {
                 <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}><option value="pendente">Pendente</option><option value="agendado">Agendado</option><option value="postado">Postado</option></select>
               </div>
               <div>
+                <div style={lbl}>Data</div>
+                <input type="date" value={postagemEdit.data||""} onChange={e=>setPostagemEdit({...postagemEdit,data:e.target.value})} style={inp} />
+              </div>
+              <div>
                 <div style={lbl}>Horário</div>
                 <input type="time" value={postagemEdit.horario||"18:00"} onChange={e=>setPostagemEdit({...postagemEdit,horario:e.target.value})} style={inp} />
               </div>
