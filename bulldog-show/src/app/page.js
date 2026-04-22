@@ -1141,6 +1141,7 @@ export default function Home() {
               if (!epData.length) return null;
               const maxPerPlat = {};
               PLATS5.forEach(p=>{ maxPerPlat[p.key] = Math.max(...epData.map(e=>e.byPlat[p.key]||0), 1); });
+              const globalMax = Math.max(...epData.flatMap(e=>PLATS5.map(p=>e.byPlat[p.key]||0)), 1);
               return (
                 <div style={{...card,padding:20,marginBottom:20}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -1160,7 +1161,7 @@ export default function Home() {
                         <div style={{fontFamily:"'DM Sans'",fontSize:11,color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} views</div>
                       </div>
                       {PLATS5.filter(p=>ep.byPlat[p.key]>0).map(p=>{
-                        const pct = Math.round((ep.byPlat[p.key]/maxPerPlat[p.key])*100);
+                        const pct = Math.round((ep.byPlat[p.key]/Math.max(...PLATS5.map(p2=>ep.byPlat[p2.key]||0),1))*100);
                         return (
                           <div key={p.key} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                             <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,flexShrink:0}}>{p.icon} {p.key}</div>
