@@ -1884,15 +1884,21 @@ export default function Home() {
                   <div><div style={lbl}>📈 ROI (%)</div><div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:statsEp.roi>0?"#10B981":MUTED}}>{statsEp.roi>0?`${statsEp.roi}%`:"—"}</div></div>
                 </div>
                 <div style={lbl}>🎬 Links de Cortes</div>
-                {(statsEp.links||[]).map((link,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:10}}>{link.plataforma||"YT"}</span>
-                      <a href={link.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:12,color:ACCENT,textDecoration:"none"}}>{link.url?.slice(0,40)}...</a>
+                {(statsEp.links||[]).map((link,i)=>{
+                  const cfg = platCfg(link.plataforma);
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
+                      <span style={{background:cfg.bg,color:cfg.color,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{cfg.icon} {link.plataforma||"YT"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        {link.url
+                          ? <a href={link.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,textDecoration:"none",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}} onMouseEnter={e=>e.currentTarget.style.color=ACCENT} onMouseLeave={e=>e.currentTarget.style.color=TEXT}>{link.titulo||link.url.slice(0,50)}</a>
+                          : <span style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,fontWeight:600}}>{link.titulo||"Sem título"}</span>
+                        }
+                      </div>
+                      <span style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,fontWeight:600,flexShrink:0}}>{(link.views||0).toLocaleString("pt-BR")}</span>
                     </div>
-                    <span style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,fontWeight:600}}>{(link.views||0).toLocaleString("pt-BR")} views</span>
-                  </div>
-                ))}
+                  );
+                })}
                 <div style={{marginTop:16,padding:14,background:"rgba(27,104,150,0.1)",borderRadius:8}}>
                   <div style={lbl}>Total de Views</div>
                   <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{(statsEp.links||[]).reduce((s,l)=>s+(l.views||0),0).toLocaleString("pt-BR")}</div>
