@@ -17,11 +17,15 @@ const STATUS_CONFIG = {
   publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
 };
 const PLAT_CONFIG = {
-  YouTube:   {color:"#FF0000", bg:"rgba(255,0,0,0.12)",     border:"rgba(255,0,0,0.3)",     icon:"▶"},
-  Shorts:    {color:"#E8F4FF", bg:"rgba(232,244,255,0.08)", border:"rgba(232,244,255,0.2)", icon:"📱"},
-  Instagram: {color:"#1B6896", bg:"rgba(27,104,150,0.18)",  border:"rgba(27,104,150,0.4)",  icon:"📸"},
-  TikTok:    {color:"#AAAAAA", bg:"rgba(170,170,170,0.1)",  border:"rgba(170,170,170,0.3)", icon:"🎵"},
-  Spotify:   {color:"#1DB954", bg:"rgba(29,185,84,0.12)",   border:"rgba(29,185,84,0.3)",   icon:"🎧"},
+  "YT Full":     {color:"#FF0000", bg:"rgba(255,0,0,0.12)",     border:"rgba(255,0,0,0.3)",     icon:"▶"},
+  "YT Corte":    {color:"#FF6666", bg:"rgba(255,102,102,0.12)", border:"rgba(255,102,102,0.3)", icon:"✂️"},
+  "YT Tier List":{color:"#F59E0B", bg:"rgba(245,158,11,0.12)",  border:"rgba(245,158,11,0.3)",  icon:"🏆"},
+  "YT Shorts":   {color:"#E8F4FF", bg:"rgba(232,244,255,0.08)", border:"rgba(232,244,255,0.2)", icon:"📱"},
+  YouTube:       {color:"#FF0000", bg:"rgba(255,0,0,0.12)",     border:"rgba(255,0,0,0.3)",     icon:"▶"},
+  Shorts:        {color:"#E8F4FF", bg:"rgba(232,244,255,0.08)", border:"rgba(232,244,255,0.2)", icon:"📱"},
+  Instagram:     {color:"#1B6896", bg:"rgba(27,104,150,0.18)",  border:"rgba(27,104,150,0.4)",  icon:"📸"},
+  TikTok:        {color:"#AAAAAA", bg:"rgba(170,170,170,0.1)",  border:"rgba(170,170,170,0.3)", icon:"🎵"},
+  Spotify:       {color:"#1DB954", bg:"rgba(29,185,84,0.12)",   border:"rgba(29,185,84,0.3)",   icon:"🎧"},
 };
 const platCfg = (p) => PLAT_CONFIG[p] || {color:"#7EC8F0",bg:"rgba(27,104,150,0.15)",border:"rgba(27,104,150,0.3)",icon:"▶"};
 
@@ -94,6 +98,7 @@ export default function Home() {
   const [cronoOpen, setCronoOpen] = useState(false); // floating widget open
   const [cronoPos, setCronoPos] = useState({x: null, y: null}); // floating position
   const [editingCorteId, setEditingCorteId] = useState(null);
+  const [cronoHeight, setCronoHeight] = useState(null); // null = auto
   const [editingCorteNota, setEditingCorteNota] = useState("");
   const cronoRef = useRef(null);
   const [viewsModal, setViewsModal] = useState(null);
@@ -670,7 +675,7 @@ export default function Home() {
               });
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
-              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
+              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
               return (
                 <div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
@@ -1110,8 +1115,8 @@ export default function Home() {
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
             {(() => {
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
-              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube").reduce((s,l)=>s+(l.views||0),0);
-              const socialViews = allEpLinks.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts").reduce((s,l)=>s+(l.views||0),0);
+              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
+              const socialViews = allEpLinks.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts"||l.plataforma==="YT Shorts").reduce((s,l)=>s+(l.views||0),0);
               const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
               return (
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
@@ -1561,13 +1566,16 @@ export default function Home() {
             bottom: cronoPos.y !== null ? "auto" : 24,
             left: cronoPos.x !== null ? cronoPos.x : "auto",
             top: cronoPos.y !== null ? cronoPos.y : "auto",
-            width:340,
+            width:420,
+            height: cronoHeight ? cronoHeight : "auto",
             background:"#0A1F30",
             border:`1px solid ${BORDER2}`,
             borderRadius:12,
             boxShadow:"0 8px 32px rgba(0,0,0,0.6)",
             zIndex:200,
             overflow:"hidden",
+            display:"flex",
+            flexDirection:"column",
           }}>
           {/* Header arrastável */}
           <div
@@ -1612,30 +1620,45 @@ export default function Home() {
             )}
             {/* Lista cortes */}
             {(cronoEp.cortes_gravacao||[]).length>0 && (
-              <div style={{maxHeight:160,overflowY:"auto"}}>
-                <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Cortes ({cronoEp.cortes_gravacao.length})</div>
+              <div style={{flex:1,overflowY:cronoHeight?"auto":"visible",minHeight:0}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes ({cronoEp.cortes_gravacao.length})</div>
                 {[...cronoEp.cortes_gravacao].reverse().map(c=>(
-                  <div key={c.id} style={{padding:"5px 0",borderBottom:`1px solid ${BORDER}`}}>
+                  <div key={c.id} style={{padding:"7px 0",borderBottom:`1px solid ${BORDER}`}}>
                     {editingCorteId===c.id ? (
                       <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                        <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:"#EF4444",flexShrink:0,minWidth:44}}>{c.timeStr}</span>
-                        <input value={editingCorteNota} onChange={e=>setEditingCorteNota(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){editarCorte(cronoEp,c.id,editingCorteNota);setEditingCorteId(null);}if(e.key==="Escape")setEditingCorteId(null);}} style={{...inp,flex:1,fontSize:11,padding:"3px 6px"}} autoFocus />
-                        <button onClick={()=>{editarCorte(cronoEp,c.id,editingCorteNota);setEditingCorteId(null);}} style={{...btnBlue,padding:"3px 6px",fontSize:10}}>✓</button>
-                        <button onClick={()=>setEditingCorteId(null)} style={{...btnGhost,padding:"3px 6px",fontSize:10}}>✕</button>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0,minWidth:52}}>{c.timeStr}</span>
+                        <input value={editingCorteNota} onChange={e=>setEditingCorteNota(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){editarCorte(cronoEp,c.id,editingCorteNota);setEditingCorteId(null);}if(e.key==="Escape")setEditingCorteId(null);}} style={{...inp,flex:1,fontSize:13,padding:"4px 8px"}} autoFocus />
+                        <button onClick={()=>{editarCorte(cronoEp,c.id,editingCorteNota);setEditingCorteId(null);}} style={{...btnBlue,padding:"4px 8px",fontSize:11}}>✓</button>
+                        <button onClick={()=>setEditingCorteId(null)} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
                       </div>
                     ) : (
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontFamily:"'Bebas Neue'",fontSize:12,color:"#EF4444",flexShrink:0,minWidth:44}}>{c.timeStr}</span>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:TEXT,flex:1,cursor:"pointer"}} onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}}>{c.nota||<span style={{color:MUTED}}>clique para nomear</span>}</span>
-                        <button onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10,flexShrink:0}}>✏️</button>
-                        <button onClick={()=>deletarCorte(cronoEp,c.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,flexShrink:0}}>✕</button>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0,minWidth:52}}>{c.timeStr}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,flex:1,cursor:"pointer",lineHeight:1.4}} onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}}>{c.nota||<span style={{color:MUTED}}>clique para nomear</span>}</span>
+                        <button onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,flexShrink:0}}>✏️</button>
+                        <button onClick={()=>deletarCorte(cronoEp,c.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:13,flexShrink:0}}>✕</button>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
             )}
-            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:8,textAlign:"center"}}>Espaço = pausar · C = corte · arraste para mover</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:8,textAlign:"center",paddingBottom:4}}>Espaço = pausar · C = corte · arraste para mover</div>
+          </div>
+          {/* Resize handle - arrasta para redimensionar altura */}
+          <div
+            onMouseDown={e=>{
+              e.preventDefault();
+              const startY = e.clientY;
+              const startH = widgetRef.current?.getBoundingClientRect().height || 400;
+              const onMove = mv => setCronoHeight(Math.max(300, startH + (mv.clientY - startY)));
+              const onUp = () => { document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); };
+              document.addEventListener("mousemove",onMove);
+              document.addEventListener("mouseup",onUp);
+            }}
+            style={{height:8,background:"rgba(27,104,150,0.3)",cursor:"ns-resize",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}
+          >
+            <div style={{width:32,height:3,borderRadius:2,background:"rgba(27,104,150,0.6)"}}/>
           </div>
         </div>
       );})()}
@@ -1832,16 +1855,27 @@ export default function Home() {
                 </div>
                 <div style={lbl}>🎬 Links de Cortes</div>
                 {(statsEdit.links||[]).map((link,i)=>(
-                  <div key={i} style={{display:"flex",gap:8,marginBottom:8}}>
-                    <select value={link.plataforma||"YouTube"} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,width:120,flex:"0 0 120px"}}>
-                      <option>YouTube</option><option>Shorts</option><option>Instagram</option><option>TikTok</option><option>Spotify</option>
-                    </select>
-                    <input value={link.url} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL do corte..." style={{...inp,flex:1}} />
-                    <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:100,flex:"0 0 100px"}} />
-                    <button onClick={()=>{const l=statsEdit.links.filter((_,j)=>j!==i);setStatsEdit({...statsEdit,links:l});}} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
+                  <div key={i} style={{background:"rgba(27,104,150,0.06)",borderRadius:8,padding:"10px 12px",marginBottom:8,border:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",gap:8,marginBottom:6}}>
+                      <select value={link.plataforma||"YT Full"} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,flex:"0 0 130px"}}>
+                        <option>YT Full</option>
+                        <option>YT Corte</option>
+                        <option>YT Tier List</option>
+                        <option>YT Shorts</option>
+                        <option>Instagram</option>
+                        <option>TikTok</option>
+                        <option>Spotify</option>
+                      </select>
+                      <input value={link.titulo||""} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],titulo:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="Título do conteúdo..." style={{...inp,flex:1}} />
+                      <button onClick={()=>{const l=statsEdit.links.filter((_,j)=>j!==i);setStatsEdit({...statsEdit,links:l});}} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <input value={link.url||""} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL..." style={{...inp,flex:1}} />
+                      <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:110,flex:"0 0 110px"}} />
+                    </div>
                   </div>
                 ))}
-                <button onClick={()=>setStatsEdit({...statsEdit,links:[...(statsEdit.links||[]),{url:"",plataforma:"YouTube",views:0}]})} style={{...btnGhost,fontSize:11,marginTop:4}}>+ Adicionar link</button>
+                <button onClick={()=>setStatsEdit({...statsEdit,links:[...(statsEdit.links||[]),{url:"",plataforma:"YT Full",titulo:"",views:0}]})} style={{...btnGhost,fontSize:11,marginTop:4}}>+ Adicionar link</button>
               </div>
             ):(
               <div>
