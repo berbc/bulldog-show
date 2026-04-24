@@ -2,1493 +2,2041 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
-// ─── DESIGN TOKENS (Bulldog base, preto/amarelo) ─────────────
-const BG    = "#0A0A08";
-const BG2   = "#111110";
-const CARD  = "#141412";
-const BORDER= "rgba(251,191,36,0.2)";
-const BORDER2="rgba(251,191,36,0.4)";
-const TEXT  = "#F0EDE4";
-const MUTED = "#7A7870";
-const ACCENT= "#FBBF24";
-const GREEN = "#10B981";
-const RED   = "#EF4444";
-const BLUE  = "#60A5FA";
-const PURP  = "#8B5CF6";
+const STATUS_EDICAO_CONFIG = {
+  pendente:  { label: "Pendente",   color: "#5A8BA8", bg: "rgba(90,139,168,0.15)" },
+  editando:  { label: "Editando",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  revisao:   { label: "Em Revisão", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
+  aprovado:  { label: "Aprovado",   color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  publicado: { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
+};
+const STATUS_CONFIG = {
+  planejado:  { label: "Planejado",  color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  confirmado: { label: "Confirmado", color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  gravado:    { label: "Gravado",    color: "#2487BE", bg: "rgba(36,135,190,0.15)" },
+  editado:    { label: "Editado",    color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
+  publicado:  { label: "Publicado",  color: "#7EC8F0", bg: "rgba(27,104,150,0.2)"  }
+};
+const PLAT_CONFIG = {
+  "YT Full":     {color:"#FF0000", bg:"rgba(255,0,0,0.12)",     border:"rgba(255,0,0,0.3)",     icon:"▶"},
+  "YT Corte":    {color:"#FF6666", bg:"rgba(255,102,102,0.12)", border:"rgba(255,102,102,0.3)", icon:"✂️"},
+  "YT Tier List":{color:"#F59E0B", bg:"rgba(245,158,11,0.12)",  border:"rgba(245,158,11,0.3)",  icon:"🏆"},
+  "YT Shorts":   {color:"#E8F4FF", bg:"rgba(232,244,255,0.08)", border:"rgba(232,244,255,0.2)", icon:"📱"},
+  YouTube:       {color:"#FF0000", bg:"rgba(255,0,0,0.12)",     border:"rgba(255,0,0,0.3)",     icon:"▶"},
+  Shorts:        {color:"#E8F4FF", bg:"rgba(232,244,255,0.08)", border:"rgba(232,244,255,0.2)", icon:"📱"},
+  Instagram:     {color:"#1B6896", bg:"rgba(27,104,150,0.18)",  border:"rgba(27,104,150,0.4)",  icon:"📸"},
+  TikTok:        {color:"#AAAAAA", bg:"rgba(170,170,170,0.1)",  border:"rgba(170,170,170,0.3)", icon:"🎵"},
+  Spotify:       {color:"#1DB954", bg:"rgba(29,185,84,0.12)",   border:"rgba(29,185,84,0.3)",   icon:"🎧"},
+};
+const platCfg = (p) => PLAT_CONFIG[p] || {color:"#7EC8F0",bg:"rgba(27,104,150,0.15)",border:"rgba(27,104,150,0.3)",icon:"▶"};
 
-const card  = {background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:18,marginBottom:10};
-const lbl   = {color:MUTED,fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:6,fontFamily:"'DM Sans'"};
-const inp   = {background:"#0A0A08",border:`1px solid ${BORDER}`,borderRadius:6,color:TEXT,padding:"8px 12px",fontFamily:"'DM Sans'",fontSize:13,outline:"none",width:"100%"};
-const btnGold  = {background:ACCENT,color:BG,border:"none",borderRadius:6,padding:"8px 18px",cursor:"pointer",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1};
-const btnGhost = {background:"transparent",color:MUTED,border:`1px solid ${BORDER}`,borderRadius:6,padding:"8px 18px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13};
+const epNum = (t) => { const m = (t || "").match("[0-9]+"); return m ? parseInt(m[0]) : 0; };
+const TABS = ["🏠 Dashboard","📋 Episódios","📅 Agenda","🎬 Produção","📊 Estatísticas","💡 Banco de Ideias"];
+const B="#1B6896",BL="#2487BE",BG="#081C2B",CARD="#0D2840";
+const BORDER="rgba(27,104,150,0.3)",BORDER2="rgba(27,104,150,0.6)";
+const TEXT="#E8F4FF",MUTED="#5A8BA8",ACCENT="#7EC8F0";
+const card={background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:18,marginBottom:10};
+const lbl={color:MUTED,fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:6,fontFamily:"'DM Sans'"};
+const val={color:TEXT,fontSize:14,lineHeight:1.5,fontFamily:"'DM Sans'"};
+const inp={background:"#0A2236",border:`1px solid ${BORDER}`,borderRadius:6,color:TEXT,padding:"8px 12px",fontFamily:"'DM Sans'",fontSize:13,outline:"none",width:"100%"};
+const btnBlue={background:B,color:"#fff",border:"none",borderRadius:6,padding:"8px 18px",cursor:"pointer",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1};
+const btnGhost={background:"transparent",color:MUTED,border:`1px solid ${BORDER}`,borderRadius:6,padding:"8px 18px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13};
 
-// ─── CONSTANTS ───────────────────────────────────────────────
-const TABS = ["🏠 Dashboard","⚡ Focus OS","📅 Agenda","🎬 Canais Dark","◈ Clientes","💰 Finanças","📚 Biblioteca","🔥 Trending"];
-const NICHES = ["Curiosidades Gerais","Psicologia & Comportamento","Mistério & Paranormal","True Crime","História Sombria","Ciência Sombria","Filosofia Existencial","Lendas Urbanas BR"];
-const NICHE_KEYWORDS = {"Curiosidades Gerais":"curiosidades fatos incríveis","Psicologia & Comportamento":"psicologia comportamento humano","Mistério & Paranormal":"misterio paranormal sobrenatural","True Crime":"crime real investigação","História Sombria":"historia sombria chocante","Ciência Sombria":"ciencia sombria experimentos","Filosofia Existencial":"filosofia existencial vida morte","Lendas Urbanas BR":"lendas urbanas brasil"};
-const NICHE_CPM = {"Curiosidades Gerais":"$4–8","Psicologia & Comportamento":"$8–15","Mistério & Paranormal":"$5–9","True Crime":"$6–11","História Sombria":"$7–13","Ciência Sombria":"$8–14","Filosofia Existencial":"$10–18","Lendas Urbanas BR":"$4–7"};
-const PIPELINE = ["Roteiro","Locução","Geração de Imagens","Edição","Thumb e Título","Postagem"];
-const PIPELINE_COLORS = {"Roteiro":ACCENT,"Locução":BLUE,"Geração de Imagens":PURP,"Edição":RED,"Thumb e Título":"#FB923C","Postagem":GREEN};
-const TASK_TYPES = ["Roteiro","Gravação","Edição","Thumbnail","Revisão","Upload","Reunião","Pesquisa"];
-const SCRIPT_SECTIONS = ["GANCHO","CONSTRUÇÃO","A VIRADA","DESENVOLVIMENTO","DESFECHO","CTA"];
-const SECTION_COLORS = {"GANCHO":"#F59E0B","CONSTRUÇÃO":ACCENT,"A VIRADA":BLUE,"DESENVOLVIMENTO":PURP,"DESFECHO":GREEN,"CTA":TEXT};
-const CAMERA_ANGLES = ["A","B","C","D","E","F"];
-const ANGLE_LABELS = {"A":"Céu fisheye de baixo","B":"Over shoulder","C":"Top-down aéreo","D":"Bottom-up contra o sol","E":"Raso do solo","F":"Macro / close dramático"};
+const Stars = ({ value, onChange, readonly }) => (
+  <div style={{display:"flex",gap:3}}>
+    {[1,2,3,4,5].map(s => (
+      <span key={s} onClick={()=>!readonly&&onChange(s)} style={{cursor:readonly?"default":"pointer",fontSize:16,color:s<=value?"#F59E0B":"#1E4060"}}>★</span>
+    ))}
+  </div>
+);
+const StatCard = ({ label, value, sub, color }) => (
+  <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px"}}>
+    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{label}</div>
+    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:color||ACCENT}}>{value}</div>
+    {sub && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginTop:4}}>{sub}</div>}
+  </div>
+);
 
-// ─── HELPERS ─────────────────────────────────────────────────
-const toLocalDate = d=>{const dt=new Date(d);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;};
-const today = ()=>toLocalDate(new Date());
-const deadlineDiff = d=>{if(!d)return 999;const now=new Date();now.setHours(0,0,0,0);return Math.round((new Date(d+"T12:00:00")-now)/86400000);};
-const deadlineColor = d=>{const diff=deadlineDiff(d);if(diff<0||diff<=1)return RED;if(diff<=3)return ACCENT;return GREEN;};
-const deadlineLabel = d=>{if(!d)return"";const diff=deadlineDiff(d);if(diff<0)return`${Math.abs(diff)}d atraso`;if(diff===0)return"Hoje!";if(diff===1)return"Amanhã";return`${diff}d`;};
-const fmtCurrency = v=>`R$ ${(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}`;
-const fmtDate = d=>d?new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):"—";
-const taskScore = t=>({hot:100,warn:50,normal:10}[t.urgency||"normal"]+(10-Math.min(10,deadlineDiff(t.deadline)||10))*5-(t.estimated_hours||1));
+export default function Home() {
+  const [user, setUser] = useState(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [episodes, setEpisodes] = useState([]);
+  const [tierLists, setTierLists] = useState([]);
+  const [convidados, setConvidados] = useState([]);
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedEp, setSelectedEp] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [copied, setCopied] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newTierList, setNewTierList] = useState("");
+  const [newConvidado, setNewConvidado] = useState("");
+  const [newGame, setNewGame] = useState({nome:"",descricao:"",jogadores:"",duracao:"",dificuldade:"Fácil",ideias:"",estrelas:0});
+  const [addingGame, setAddingGame] = useState(false);
+  const [editingGame, setEditingGame] = useState(null);
+  const [expandedGame, setExpandedGame] = useState(null);
+  const [newEpConvidado, setNewEpConvidado] = useState("");
+  const [newEpTier, setNewEpTier] = useState("");
+  const [epSort, setEpSort] = useState("numero");
+  const [epStatusFilter, setEpStatusFilter] = useState("todos");
+  const [tierSearch, setTierSearch] = useState("");
+  const [tierSort, setTierSort] = useState("az");
+  const [convSearch, setConvSearch] = useState("");
+  const [gameSearch, setGameSearch] = useState("");
+  const [gameSort, setGameSort] = useState("az");
+  const [statsEp, setStatsEp] = useState(null);
+  const [showAllConvidados, setShowAllConvidados] = useState(false);
+  const [showAllViews, setShowAllViews] = useState(false);
+  const [cronoOpen, setCronoOpen] = useState(false); // floating widget open
+  const [cronoPos, setCronoPos] = useState({x: null, y: null}); // floating position
+  const [editingCorteId, setEditingCorteId] = useState(null);
+  const [cronoHeight, setCronoHeight] = useState(null); // null = auto
+  const [editingCorteNota, setEditingCorteNota] = useState("");
+  const cronoRef = useRef(null);
+  const [viewsModal, setViewsModal] = useState(null);
+  const [statsModal, setStatsModal] = useState(null);
+  const [statsEdit, setStatsEdit] = useState(null);
+  const [statsEditMode, setStatsEditMode] = useState(false);
+  const [equipe, setEquipe] = useState([]);
+  const [comentarios, setComentarios] = useState([]);
+  const [pautas, setPautas] = useState([]);
+  const [newPauta, setNewPauta] = useState({titulo:"",descricao:"",estrelas:0});
+  const [editingPauta, setEditingPauta] = useState(null);
+  const [cronoEpId, setCronoEpId] = useState(null);
+  const [cronoRunning, setCronoRunning] = useState(false);
+  const [cronoTime, setCronoTime] = useState(0);
+  const [cronoNotaAtiva, setCronoNotaAtiva] = useState(null);
+  const [newComentario, setNewComentario] = useState("");
+  const [newMembro, setNewMembro] = useState({nome:"",funcao:""});
+  const [addingMembro, setAddingMembro] = useState(false);
+  const [comentarioAutor, setComentarioAutor] = useState("");
+  const [postagemWeekOffset, setPostagemWeekOffset] = useState(0);
+  const [postagemModal, setPostagemModal] = useState(null);
+  const [postagemEdit, setPostagemEdit] = useState(null);
+  const [postagens, setPostagens] = useState([]);
+  const widgetRef = useRef(null);
+  const [corteChecklists, setCorteChecklists] = useState({});
 
-// ─── MAIN ────────────────────────────────────────────────────
-export default function DarkApp() {
-  // AUTH
-  const [user,setUser]=useState(null);
-  const [loginEmail,setLoginEmail]=useState("");
-  const [loginPassword,setLoginPassword]=useState("");
-  const [loginError,setLoginError]=useState("");
-  const [loginLoading,setLoginLoading]=useState(false);
-  const [checkingAuth,setCheckingAuth]=useState(true);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  const flashError = (msg) => { setErrorMsg(msg); setTimeout(() => setErrorMsg(""), 4000); };
 
-  // DATA
-  const [clients,setClients]=useState([]);
-  const [tasks,setTasks]=useState([]);
-  const [videos,setVideos]=useState([]);
-  const [ideas,setIdeas]=useState([]);
-  const [posts,setPosts]=useState([]);
-  const [invoices,setInvoices]=useState([]);
-  const [goals,setGoals]=useState([]);
-  const [library,setLibrary]=useState([]);
-  const [userStats,setUserStats]=useState({xp:0,level:1,streak:0,tasks_completed:0,pomodoros_completed:0});
-  const [trendingData,setTrendingData]=useState({br:[],global:[],niches:{}});
-  const [trendingPrev,setTrendingPrev]=useState({});
-  const [trendingLoading,setTrendingLoading]=useState(false);
-  const [lastUpdated,setLastUpdated]=useState(null);
-  const [loading,setLoading]=useState(true);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setCheckingAuth(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  // UI
-  const [activeTab,setActiveTab]=useState(0);
-  const [saved,setSaved]=useState(false);
-  const [errorMsg,setErrorMsg]=useState("");
-  const [confetti,setConfetti]=useState(false);
-  const [quickCapture,setQuickCapture]=useState(false);
-  const [quickText,setQuickText]=useState("");
-  const [quickDest,setQuickDest]=useState("idea");
-  const [weekOffset,setWeekOffset]=useState(0);
-
-  // Focus
-  const [focusTaskId,setFocusTaskId]=useState(null);
-  const [timerRunning,setTimerRunning]=useState(false);
-  const [timerSeconds,setTimerSeconds]=useState(25*60);
-  const [timerMode,setTimerMode]=useState("work");
-  const [activeEntry,setActiveEntry]=useState(null);
-  const timerRef=useRef(null);
-
-  // Dark videos
-  const [selectedVideo,setSelectedVideo]=useState(null);
-  const [videoModal,setVideoModal]=useState(false);
-  const [videoEdit,setVideoEdit]=useState(null);
-  const [scriptModal,setScriptModal]=useState(false);
-  const [scriptData,setScriptData]=useState(null);
-  const [scriptTakes,setScriptTakes]=useState([]);
-  const [scriptTab,setScriptTab]=useState("youtube");
-  const [pipelineFilter,setPipelineFilter]=useState("todos");
-  const [darkSection,setDarkSection]=useState("pipeline");
-
-  // Clients / Tasks
-  const [clientModal,setClientModal]=useState(false);
-  const [clientEdit,setClientEdit]=useState(null);
-  const [selectedClient,setSelectedClient]=useState(null);
-  const [taskModal,setTaskModal]=useState(false);
-  const [taskEdit,setTaskEdit]=useState(null);
-  const [approvalModal,setApprovalModal]=useState(null);
-
-  // Finance
-  const [invoiceModal,setInvoiceModal]=useState(false);
-  const [invoiceEdit,setInvoiceEdit]=useState(null);
-  const [invoiceFilter,setInvoiceFilter]=useState("todos");
-
-  // Library
-  const [libModal,setLibModal]=useState(false);
-  const [libEdit,setLibEdit]=useState(null);
-  const [libFilter,setLibFilter]=useState("todos");
-  const [libSearch,setLibSearch]=useState("");
-
-  // Goals
-  const [goalModal,setGoalModal]=useState(false);
-  const [goalEdit,setGoalEdit]=useState(null);
-
-  // Trending
-  const [trendingTab,setTrendingTab]=useState("brasil");
-
-  // ── FLASH ──
-  const flash=()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);};
-  const flashError=m=>{setErrorMsg(m);setTimeout(()=>setErrorMsg(""),4000);};
-  const triggerConfetti=()=>{setConfetti(true);setTimeout(()=>setConfetti(false),2500);};
-
-  // ── AUTH ──
-  useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{setUser(session?.user??null);setCheckingAuth(false);});
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>setUser(session?.user??null));
-    return()=>subscription.unsubscribe();
-  },[]);
-  const login=async()=>{setLoginLoading(true);setLoginError("");const{error}=await supabase.auth.signInWithPassword({email:loginEmail,password:loginPassword});if(error)setLoginError(error.message);setLoginLoading(false);};
-  const logout=async()=>await supabase.auth.signOut();
-
-  // ── LOAD ──
-  const loadAll=useCallback(async()=>{
+  const loadData = useCallback(async () => {
     setLoading(true);
-    try{
-      const[cl,tk,vi,id,po,inv,go,lib,us]=await Promise.all([
-        supabase.from("clients").select("*").eq("active",true).order("name"),
-        supabase.from("tasks").select("*").order("created_at",{ascending:false}),
-        supabase.from("videos").select("*").order("created_at",{ascending:false}),
-        supabase.from("ideas").select("*").order("created_at",{ascending:false}),
-        supabase.from("posts").select("*").order("scheduled_date"),
-        supabase.from("invoices").select("*").order("due_date"),
-        supabase.from("goals").select("*"),
-        supabase.from("library").select("*").order("score",{ascending:false}),
-        supabase.from("user_stats").select("*").limit(1),
+    try {
+      const [ep, tl, cv, gm] = await Promise.all([
+        supabase.from("episodes").select("*").order("id"),
+        supabase.from("tier_lists").select("*").order("nome"),
+        supabase.from("convidados").select("*").order("nome"),
+        supabase.from("games").select("*").order("nome"),
       ]);
-      if(cl.data)setClients(cl.data);
-      if(tk.data)setTasks(tk.data);
-      if(vi.data)setVideos(vi.data);
-      if(id.data)setIdeas(id.data);
-      if(po.data)setPosts(po.data);
-      if(inv.data)setInvoices(inv.data);
-      if(go.data)setGoals(go.data);
-      if(lib.data)setLibrary(lib.data);
-      if(us.data?.[0])setUserStats(us.data[0]);
-      else{const{data:ns}=await supabase.from("user_stats").insert({xp:0,level:1,streak:0,tasks_completed:0,pomodoros_completed:0,last_active:today()}).select().single();if(ns)setUserStats(ns);}
-    }catch(e){flashError("Erro ao carregar dados");}
+      if (ep.data) setEpisodes(ep.data);
+      if (tl.data) setTierLists(tl.data);
+      if (cv.data) setConvidados(cv.data);
+      if (gm.data) setGames(gm.data);
+    } catch(e) { flashError("Erro ao carregar dados"); }
     setLoading(false);
-  },[]);
-  useEffect(()=>{if(user)loadAll();},[user,loadAll]);
+  }, []);
+  useEffect(() => { if (user) loadData(); }, [user, loadData]);
 
-  // ── TRENDING ──
-  const fetchTrending=useCallback(async()=>{
-    const apiKey=process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
-    if(!apiKey)return;
-    setTrendingLoading(true);
-    try{
-      const prev={...trendingPrev};
-      const mapVideo=(v)=>({
-        id:v.id,title:v.snippet?.title,channel:v.snippet?.channelTitle,
-        thumb:v.snippet?.thumbnails?.medium?.url,
-        views:parseInt(v.statistics?.viewCount||0),
-        url:`https://youtube.com/watch?v=${v.id?.videoId||v.id}`,
-        prevViews:prev[v.id?.videoId||v.id]||0,
-        growth:prev[v.id?.videoId||v.id]?Math.round(((parseInt(v.statistics?.viewCount||0)-prev[v.id?.videoId||v.id])/Math.max(1,prev[v.id?.videoId||v.id]))*100):0,
-      });
+  const loadPostagens = useCallback(async () => {
+    try {
+      const { data } = await supabase.from("postagens").select("*").order("data,id");
+      if (data) setPostagens(data);
+    } catch(e) {}
+  }, []);
+  useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
-      const fetchRegion=async(region)=>{
-        const res=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=${region}&maxResults=15&key=${apiKey}`);
-        const d=await res.json();
-        return(d.items||[]).map(mapVideo);
+  const loadEquipe = useCallback(async () => {
+    const { data } = await supabase.from("equipe").select("*").order("nome");
+    if (data) setEquipe(data);
+  }, []);
+  useEffect(() => { if (user) loadEquipe(); }, [user, loadEquipe]);
+
+  const loadPautas = useCallback(async () => {
+    const { data } = await supabase.from("pautas").select("*").order("estrelas", {ascending:false});
+    if (data) setPautas(data);
+  }, []);
+  useEffect(() => { if (user) loadPautas(); }, [user, loadPautas]);
+
+  const loadComentarios = useCallback(async (epId) => {
+    const { data } = await supabase.from("comentarios").select("*").eq("episodio_id", epId).order("created_at");
+    if (data) setComentarios(data);
+  }, []);
+
+  const login = async () => {
+    setLoginLoading(true); setLoginError("");
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+    if (error) setLoginError(error.message);
+    setLoginLoading(false);
+  };
+  const logout = async () => { await supabase.auth.signOut(); };
+
+  const getYouTubeVideoId = (url) => {
+    const u = url || "";
+    if (u.includes("v=")) return u.split("v=")[1]?.split("&")[0];
+    if (u.includes("youtu.be/")) return u.split("youtu.be/")[1]?.split("?")[0];
+    if (u.includes("/shorts/")) return u.split("/shorts/")[1]?.split("?")[0];
+    return null;
+  };
+
+  const fetchYouTubeViews = async (url) => {
+    const vid = getYouTubeVideoId(url);
+    if (!vid) return null;
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${vid}&part=statistics&key=${apiKey}`);
+      const data = await res.json();
+      return parseInt(data?.items?.[0]?.statistics?.viewCount || 0);
+    } catch(e) { return null; }
+  };
+
+  const fetchAndUpdateViews = async (ep) => {
+    const links = ep.links || [];
+    const updated = await Promise.all(links.map(async (l) => {
+      if (!l.url || !l.url.includes("youtu")) return l;
+      const v = await fetchYouTubeViews(l.url);
+      return v !== null ? {...l, views: v} : l;
+    }));
+    const { data } = await supabase.from("episodes").update({links: updated}).eq("id", ep.id).select().single();
+    if (data) setEpisodes(prev => prev.map(e => e.id === data.id ? data : e));
+  };
+
+  const toLocalDate = (d) => {
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  };
+  const fmt = (d) => new Date(d).toLocaleDateString("pt-BR", {weekday:"short",day:"2-digit",month:"short"});
+  const epsByDate = (ds) => episodes.filter(e => !e.retroativo && e.gravacao_data === ds);
+  const getNextWednesdays = () => {
+    const result = [], now = new Date();
+    now.setHours(0,0,0,0);
+    let d = new Date(now);
+    while (d.getDay() !== 3) d.setDate(d.getDate()+1);
+    for (let i = 0; i < 8; i++) {
+      result.push(new Date(d));
+      d.setDate(d.getDate()+7);
+    }
+    return result;
+  };
+
+  const getWeekDates = (offset=0) => {
+    const days = ["SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO","DOMINGO"];
+    const tipos = ["Corte","Corte","Full","Corte","Tier List","Corte","Corte"];
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dow===0?6:dow-1) + offset*7);
+    monday.setHours(0,0,0,0);
+    return Array.from({length:7},(_,i)=>{
+      const d = new Date(monday);
+      d.setDate(monday.getDate()+i);
+      return { date: toLocalDate(d), label: days[i], tipo: tipos[i] };
+    });
+  };
+  const getPostagens = (date) => postagens.filter(p => p.data === date);
+
+  const openEp = (ep) => {
+    setSelectedEp(ep);
+    setEditData({...ep, convidados: ep.convidados || []});
+    setEditMode(false);
+    setComentarios([]);
+    loadComentarios(ep.id);
+  };
+
+  const saveEp = async () => {
+    if (!editData) return;
+    try {
+      const payload = {
+        title: editData.title,
+        status: editData.status || "planejado",
+        convidados: editData.convidados || [],
+        tier_list: editData.tier_list || "",
+        debate: editData.debate || "",
+        game: editData.game || "",
+        gravacao_data: editData.gravacao_data || null,
+        gravacao_horario: editData.gravacao_horario || "",
+        gravacao_duracao: editData.gravacao_duracao || "",
+        local: editData.local || "",
+        endereco: editData.endereco || "",
+        pauta: editData.pauta || "",
+        notas: editData.notas || "",
+        mensagem_convidado: editData.mensagem_convidado || "",
+        retroativo: editData.retroativo || false,
+        drive_link: editData.drive_link || "",
+        status_edicao: editData.status_edicao || "pendente",
+        investimento: editData.investimento || 0,
+        roi: editData.roi || 0,
       };
-
-      const fetchNiche=async(keyword)=>{
-        const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(keyword)}&type=video&order=viewCount&regionCode=BR&maxResults=8&key=${apiKey}`);
-        const d=await res.json();
-        const ids=(d.items||[]).map(i=>i.id?.videoId).filter(Boolean).join(",");
-        if(!ids)return[];
-        const stats=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${ids}&key=${apiKey}`);
-        const sd=await stats.json();
-        return(sd.items||[]).map(mapVideo);
-      };
-
-      const[br,global,...nicheResults]=await Promise.all([
-        fetchRegion("BR"),fetchRegion("US"),
-        ...NICHES.map(n=>fetchNiche(NICHE_KEYWORDS[n])),
-      ]);
-
-      const newPrev={};
-      [...br,...global,...nicheResults.flat()].forEach(v=>{newPrev[v.id]=v.views;});
-      setTrendingPrev(newPrev);
-
-      const nicheMap={};
-      NICHES.forEach((n,i)=>{nicheMap[n]=nicheResults[i]||[];});
-      setTrendingData({br,global,niches:nicheMap});
-      setLastUpdated(new Date());
-    }catch(e){flashError("Erro ao buscar trending");}
-    setTrendingLoading(false);
-  },[trendingPrev]);
-
-  // ── TIMER ──
-  useEffect(()=>{
-    if(timerRunning){
-      timerRef.current=setInterval(()=>{
-        setTimerSeconds(s=>{
-          if(s<=1){clearInterval(timerRef.current);setTimerRunning(false);handleTimerEnd();return timerMode==="work"?5*60:25*60;}
-          return s-1;
-        });
-      },1000);
-    }else clearInterval(timerRef.current);
-    return()=>clearInterval(timerRef.current);
-  },[timerRunning]);
-
-  const handleTimerEnd=async()=>{
-    if(timerMode==="work"){
-      triggerConfetti();
-      const ns={...userStats,xp:(userStats.xp||0)+25,pomodoros_completed:(userStats.pomodoros_completed||0)+1};
-      setUserStats(ns);if(userStats.id)await supabase.from("user_stats").update(ns).eq("id",userStats.id);
-      setTimerMode("break");
-    }else{setTimerMode("work");setTimerSeconds(25*60);}
+      const { data, error } = await supabase.from("episodes").update(payload).eq("id", editData.id).select().single();
+      if (error) { flashError("Erro ao salvar"); return; }
+      if (data) {
+        setEpisodes(prev => prev.map(e => e.id === data.id ? data : e));
+        setSelectedEp(data);
+        setEditData({...data, convidados: data.convidados || []});
+        setEditMode(false);
+        flash();
+      }
+    } catch(e) { flashError("Erro ao salvar"); }
   };
 
-  const startTimer=async(taskId)=>{
-    if(activeEntry)await stopTimeEntry();
-    setFocusTaskId(taskId);setTimerRunning(true);setTimerSeconds(25*60);setTimerMode("work");
-    const task=tasks.find(t=>t.id===taskId);if(!task)return;
-    const{data}=await supabase.from("time_entries").insert({task_id:taskId,client_id:task.client_id,started_at:new Date().toISOString()}).select().single();
-    if(data)setActiveEntry(data);
-  };
-  const stopTimeEntry=async()=>{
-    if(!activeEntry)return;
-    const now=new Date();const mins=Math.round((now-new Date(activeEntry.started_at))/60000);
-    await supabase.from("time_entries").update({ended_at:now.toISOString(),duration_minutes:mins}).eq("id",activeEntry.id);
-    setActiveEntry(null);setTimerRunning(false);
-  };
-  const completeTask=async(taskId)=>{
-    await stopTimeEntry();
-    const{data}=await supabase.from("tasks").update({done:true,done_at:new Date().toISOString()}).eq("id",taskId).select().single();
-    if(data){setTasks(prev=>prev.map(t=>t.id===taskId?data:t));triggerConfetti();
-      const ns={...userStats,xp:(userStats.xp||0)+50,tasks_completed:(userStats.tasks_completed||0)+1};
-      setUserStats(ns);if(userStats.id)await supabase.from("user_stats").update(ns).eq("id",userStats.id);
-      setFocusTaskId(null);flash();}
+  const deleteEp = async (id) => {
+    if (!confirm("Deletar episódio?")) return;
+    await supabase.from("episodes").delete().eq("id", id);
+    setEpisodes(prev => prev.filter(e => e.id !== id));
+    setSelectedEp(null);
   };
 
-  // ── QUICK CAPTURE ──
-  const saveQuickCapture=async()=>{
-    if(!quickText.trim())return;
-    if(quickDest==="idea"){const{data}=await supabase.from("ideas").insert({title:quickText.trim(),source:"quick"}).select().single();if(data)setIdeas(prev=>[data,...prev]);}
-    else{const{data}=await supabase.from("tasks").insert({title:quickText.trim(),urgency:"normal",estimated_hours:1}).select().single();if(data)setTasks(prev=>[data,...prev]);}
-    setQuickText("");setQuickCapture(false);flash();
+  const createEp = async () => {
+    const num = episodes.length + 1;
+    const { data } = await supabase.from("episodes").insert({
+      title: `Episódio ${num}`, status: "planejado", convidados: [],
+      local: "Rádio FM O Dia", endereco: "R. Carlos Machado 131, Barra da Tijuca, RJ",
+      gravacao_horario: "10:00", checklist: [], cortes_gravacao: []
+    }).select().single();
+    if (data) { setEpisodes(prev => [...prev, data]); openEp(data); }
   };
 
-  // ── CLIENTS ──
-  const saveClient=async()=>{
-    if(!clientEdit?.name?.trim())return;
-    let data;
-    if(clientEdit.id){const r=await supabase.from("clients").update(clientEdit).eq("id",clientEdit.id).select().single();data=r.data;if(data)setClients(prev=>prev.map(c=>c.id===data.id?data:c));}
-    else{const r=await supabase.from("clients").insert({...clientEdit,active:true}).select().single();data=r.data;if(data)setClients(prev=>[...prev,data]);}
-    setClientModal(false);setClientEdit(null);flash();
-  };
-  const deleteClient=async(id)=>{if(!confirm("Excluir cliente?"))return;await supabase.from("clients").update({active:false}).eq("id",id);setClients(prev=>prev.filter(c=>c.id!==id));};
-
-  // ── TASKS ──
-  const saveTask=async()=>{
-    if(!taskEdit?.title?.trim())return;
-    let data;
-    if(taskEdit.id){const r=await supabase.from("tasks").update(taskEdit).eq("id",taskEdit.id).select().single();data=r.data;if(data)setTasks(prev=>prev.map(t=>t.id===data.id?data:t));}
-    else{const r=await supabase.from("tasks").insert(taskEdit).select().single();data=r.data;if(data)setTasks(prev=>[data,...prev]);}
-    setTaskModal(false);setTaskEdit(null);flash();
-  };
-  const deleteTask=async(id)=>{await supabase.from("tasks").delete().eq("id",id);setTasks(prev=>prev.filter(t=>t.id!==id));};
-
-  // ── VIDEOS ──
-  const saveVideo=async()=>{
-    if(!videoEdit?.title?.trim())return;
-    let data;
-    const darkClient=clients.find(c=>c.name==="Canais Dark");
-    if(videoEdit.id){const r=await supabase.from("videos").update(videoEdit).eq("id",videoEdit.id).select().single();data=r.data;if(data)setVideos(prev=>prev.map(v=>v.id===data.id?data:v));}
-    else{const r=await supabase.from("videos").insert({...videoEdit,client_id:videoEdit.client_id||darkClient?.id}).select().single();data=r.data;if(data)setVideos(prev=>[data,...prev]);}
-    setVideoModal(false);setVideoEdit(null);flash();
-  };
-  const deleteVideo=async(id)=>{if(!confirm("Excluir vídeo?"))return;await supabase.from("videos").delete().eq("id",id);setVideos(prev=>prev.filter(v=>v.id!==id));};
-  const moveVideo=async(videoId,newStatus)=>{
-    const{data}=await supabase.from("videos").update({status:newStatus}).eq("id",videoId).select().single();
-    if(data)setVideos(prev=>prev.map(v=>v.id===data.id?data:v));
+  const addConvidadoInEp = async () => {
+    if (!newEpConvidado.trim()) return;
+    const list = [...(editData.convidados||[]), newEpConvidado.trim()];
+    setEditData({...editData, convidados: list});
+    setNewEpConvidado("");
+    if (!editData.id) return;
+    const { data } = await supabase.from("convidados").insert({nome: newEpConvidado.trim()}).select().single();
+    if (data) setConvidados(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
   };
 
-  const useIdeaAsVideo=async(idea)=>{
-    const darkClient=clients.find(c=>c.name==="Canais Dark");
-    const{data}=await supabase.from("videos").insert({title:idea.title,niche:idea.niche||"Curiosidades Gerais",status:"Roteiro",client_id:darkClient?.id,notes:idea.description||""}).select().single();
-    if(data){
-      setVideos(prev=>[data,...prev]);
-      await supabase.from("ideas").update({used:true}).eq("id",idea.id);
-      setIdeas(prev=>prev.map(i=>i.id===idea.id?{...i,used:true}:i));
-      setVideoEdit({...data});setVideoModal(true);flash();
+  const addTierInEp = async () => {
+    if (!newEpTier.trim()) return;
+    setEditData({...editData, tier_list: newEpTier.trim()});
+    setNewEpTier("");
+    const existing = tierLists.find(t => t.nome.toLowerCase() === newEpTier.toLowerCase());
+    if (!existing) {
+      const { data } = await supabase.from("tier_lists").insert({nome: newEpTier.trim()}).select().single();
+      if (data) setTierLists(prev => [...prev, data].sort((a,b)=>a.nome.localeCompare(b.nome)));
     }
   };
 
-  // ── SCRIPT ──
-  const openScript=video=>{
-    setScriptData({...video});
-    const takes=video.script?JSON.parse(video.script||"[]"):[];
-    setScriptTakes(takes.length?takes:[{id:Date.now(),section:"GANCHO",startTime:"00:00",endTime:"00:07",angle:"A",narration:"",visual:"",prompt:""}]);
-    setScriptModal(true);
-  };
-  const addTake=section=>{const last=scriptTakes[scriptTakes.length-1];setScriptTakes(prev=>[...prev,{id:Date.now(),section:section||last?.section||"GANCHO",startTime:last?.endTime||"00:00",endTime:"",angle:"A",narration:"",visual:"",prompt:""}]);};
-  const updateTake=(id,field,value)=>setScriptTakes(prev=>prev.map(t=>t.id===id?{...t,[field]:value}:t));
-  const deleteTake=id=>setScriptTakes(prev=>prev.filter(t=>t.id!==id));
-  const saveScript=async()=>{
-    if(!scriptData)return;
-    const{data}=await supabase.from("videos").update({script:JSON.stringify(scriptTakes)}).eq("id",scriptData.id).select().single();
-    if(data){setVideos(prev=>prev.map(v=>v.id===data.id?data:v));flash();}
+  const copyLink = (id) => {
+    navigator.clipboard.writeText(`${window.location.origin}/ep/${id}`);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  // ── INVOICES ──
-  const saveInvoice=async()=>{
-    if(!invoiceEdit?.amount||!invoiceEdit?.client_id)return;
+  // Global search results
+  const searchResults = searchQuery.trim().length > 1 ? [
+    ...episodes.filter(e => e.title?.toLowerCase().includes(searchQuery.toLowerCase()) || e.convidados?.some(c=>c.toLowerCase().includes(searchQuery.toLowerCase()))).map(e=>({type:"Episódio",label:e.title,sub:e.convidados?.join(", ")||"",action:()=>{openEp(e);setActiveTab(1);setSearchOpen(false);}})),
+    ...convidados.filter(c=>c.nome.toLowerCase().includes(searchQuery.toLowerCase())).map(c=>({type:"Convidado",label:c.nome,sub:"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
+    ...pautas.filter(p=>p.titulo.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Pauta",label:p.titulo,sub:p.descricao||"",action:()=>{setActiveTab(5);setSearchOpen(false);}})),
+    ...postagens.filter(p=>p.episodio_title?.toLowerCase().includes(searchQuery.toLowerCase())||p.notas?.toLowerCase().includes(searchQuery.toLowerCase())).map(p=>({type:"Post",label:`${p.tipo} · ${p.episodio_title||"Sem ep"}`,sub:p.data,action:()=>{setActiveTab(2);setSearchOpen(false);}})),
+  ].slice(0,8) : [];
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey||e.ctrlKey) && e.key==="k") { e.preventDefault(); setSearchOpen(s=>!s); setSearchQuery(""); }
+      if (e.key==="Escape") { setSearchOpen(false); setSearchQuery(""); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT") return;
+      if (e.code==="Space"&&cronoEpId) { e.preventDefault(); cronoRunning?cronoPause():cronoStart(cronoEpId); }
+      if (e.code==="KeyC"&&cronoEpId&&cronoTime>0&&!cronoNotaAtiva) {
+        const ep = episodes.find(ep=>ep.id===cronoEpId);
+        if (ep) marcarCorte(ep);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [cronoEpId, cronoRunning, cronoTime, cronoNotaAtiva, episodes]);
+
+  useEffect(() => () => { if (cronoRef.current) clearInterval(cronoRef.current); }, []);
+
+  const cronoStart = (epId) => {
+    if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); }
+    setCronoRunning(true);
+    if (cronoRef.current) clearInterval(cronoRef.current);
+    cronoRef.current = setInterval(() => setCronoTime(t => t+1), 1000);
+  };
+  const cronoPause = () => {
+    setCronoRunning(false);
+    if (cronoRef.current) { clearInterval(cronoRef.current); cronoRef.current = null; }
+  };
+  const cronoReset = (epId) => { cronoPause(); setCronoTime(0); setCronoEpId(epId); };
+  const cronoFmt = (s) => {
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    if (h>0) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  };
+  const marcarCorte = (ep) => { setCronoNotaAtiva({time:cronoTime,timeStr:cronoFmt(cronoTime),nota:""}); };
+  const salvarCorte = async (ep) => {
+    if (!cronoNotaAtiva) return;
+    const cortes = ep.cortes_gravacao || [];
+    const novo = {id:Date.now(),time:cronoNotaAtiva.time,timeStr:cronoNotaAtiva.timeStr,nota:cronoNotaAtiva.nota,criadoEm:new Date().toISOString()};
+    const novos = [...cortes, novo].sort((a,b)=>a.time-b.time);
+    await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
+    setCronoNotaAtiva(null); flash();
+  };
+  const deletarCorte = async (ep, corteId) => {
+    const novos = (ep.cortes_gravacao||[]).filter(c=>c.id!==corteId);
+    await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
+  };
+  const editarCorte = async (ep, corteId, novaNota) => {
+    const novos = (ep.cortes_gravacao||[]).map(c=>c.id===corteId?{...c,nota:novaNota}:c);
+    await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
+  };
+  const saveChecklist = async (epId, checklist) => {
+    await supabase.from("episodes").update({checklist}).eq("id",epId);
+    setEpisodes(prev=>prev.map(e=>e.id===epId?{...e,checklist}:e));
+    if (selectedEp?.id===epId) setSelectedEp(prev=>({...prev,checklist}));
+  };
+
+  const savePostagem = async () => {
+    if (!postagemEdit) return;
+    let views = postagemEdit.views || 0;
+    if (postagemEdit.link && postagemEdit.link.includes("youtu")) {
+      // Link presente: busca views atualizadas
+      const fetched = await fetchYouTubeViews(postagemEdit.link);
+      if (fetched !== null) views = fetched;
+    } else if (!postagemEdit.link || postagemEdit.link.trim() === "") {
+      // Link removido: zera views
+      views = 0;
+    }
+    const payload = {
+      episodio_id: postagemEdit.episodio_id || null,
+      episodio_title: postagemEdit.episodio_title || "",
+      tipo: postagemEdit.tipo,
+      status: postagemEdit.status,
+      data: postagemEdit.data,
+      plataforma: Array.isArray(postagemEdit.plataforma) ? postagemEdit.plataforma.join(",") : (postagemEdit.plataforma || "YouTube"),
+      horario: postagemEdit.horario || "18:00",
+      link: postagemEdit.link || "",
+      notas: postagemEdit.notas || "",
+      views: views,
+      drive_link: postagemEdit.drive_link || "",
+      responsavel: postagemEdit.responsavel || "",
+      titulo_yt: postagemEdit.titulo_yt || "",
+      thumbnail_url: postagemEdit.thumbnail_url || ""
+    };
     let data;
-    if(invoiceEdit.id){const r=await supabase.from("invoices").update(invoiceEdit).eq("id",invoiceEdit.id).select().single();data=r.data;if(data)setInvoices(prev=>prev.map(i=>i.id===data.id?data:i));}
-    else{const r=await supabase.from("invoices").insert(invoiceEdit).select().single();data=r.data;if(data)setInvoices(prev=>[...prev,data]);}
-    setInvoiceModal(false);setInvoiceEdit(null);flash();
+    if (postagemEdit.id) {
+      const res = await supabase.from("postagens").update(payload).eq("id",postagemEdit.id).select().single();
+      data = res.data;
+    } else {
+      const res = await supabase.from("postagens").insert({...payload,data:postagemEdit.data}).select().single();
+      data = res.data;
+    }
+    if (data) {
+      setPostagens(prev=>{
+        const filtered = prev.filter(p=>p.id!==data.id);
+        return [...filtered,data].sort((a,b)=>a.data.localeCompare(b.data)||a.id-b.id);
+      });
+      setPostagemModal(null); setPostagemEdit(null); flash();
+    }
   };
-  const deleteInvoice=async(id)=>{await supabase.from("invoices").delete().eq("id",id);setInvoices(prev=>prev.filter(i=>i.id!==id));};
-  const markInvoicePaid=async(id)=>{const{data}=await supabase.from("invoices").update({status:"pago",paid_date:today()}).eq("id",id).select().single();if(data)setInvoices(prev=>prev.map(i=>i.id===data.id?data:i));flash();};
-
-  // ── LIBRARY ──
-  const saveLib=async()=>{
-    if(!libEdit?.content?.trim())return;
-    let data;
-    if(libEdit.id){const r=await supabase.from("library").update(libEdit).eq("id",libEdit.id).select().single();data=r.data;if(data)setLibrary(prev=>prev.map(l=>l.id===data.id?data:l));}
-    else{const r=await supabase.from("library").insert(libEdit).select().single();data=r.data;if(data)setLibrary(prev=>[data,...prev]);}
-    setLibModal(false);setLibEdit(null);flash();
-  };
-  const deleteLib=async(id)=>{await supabase.from("library").delete().eq("id",id);setLibrary(prev=>prev.filter(l=>l.id!==id));};
-
-  // ── GOALS ──
-  const saveGoal=async()=>{
-    if(!goalEdit)return;
-    let data;
-    if(goalEdit.id){const r=await supabase.from("goals").update(goalEdit).eq("id",goalEdit.id).select().single();data=r.data;if(data)setGoals(prev=>prev.map(g=>g.id===data.id?data:g));}
-    else{const r=await supabase.from("goals").insert(goalEdit).select().single();data=r.data;if(data)setGoals(prev=>[...prev,data]);}
-    setGoalModal(false);setGoalEdit(null);flash();
+  const deletePostagem = async (id) => {
+    await supabase.from("postagens").delete().eq("id",id);
+    setPostagens(prev=>prev.filter(p=>p.id!==id));
   };
 
-  // ── IDEAS ──
-  const saveIdea=async(title,niche="")=>{const{data}=await supabase.from("ideas").insert({title,niche,source:"manual"}).select().single();if(data)setIdeas(prev=>[data,...prev]);flash();};
-  const deleteIdea=async(id)=>{await supabase.from("ideas").delete().eq("id",id);setIdeas(prev=>prev.filter(i=>i.id!==id));};
-
-  // ── COMPUTED ──
-  const pendingTasks=tasks.filter(t=>!t.done).sort((a,b)=>taskScore(b)-taskScore(a));
-  const thisMonthKey=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`;
-  const monthInvoices=invoices.filter(i=>i.issued_date?.startsWith(thisMonthKey));
-  const totalEmitido=monthInvoices.reduce((s,i)=>s+(i.amount||0),0);
-  const totalRecebido=monthInvoices.filter(i=>i.status==="pago").reduce((s,i)=>s+(i.amount||0),0);
-  const totalPendente=monthInvoices.filter(i=>i.status==="pendente").reduce((s,i)=>s+(i.amount||0),0);
-  const totalVencido=monthInvoices.filter(i=>i.status==="vencido"||(i.status==="pendente"&&deadlineDiff(i.due_date)<0)).reduce((s,i)=>s+(i.amount||0),0);
-  const getClientColor=cId=>{const c=clients.find(c=>c.id===cId);return c?.color||ACCENT;};
-  const getClientName=cId=>clients.find(c=>c.id===cId)?.name||"—";
-  const currentGoals=goals.filter(g=>g.month===thisMonthKey);
-  const timerFmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-  const getWeekDates=(offset=0)=>{
-    const days=["SEG","TER","QUA","QUI","SEX","SÁB","DOM"];
-    const now=new Date();const dow=now.getDay();
-    const mon=new Date(now);mon.setDate(now.getDate()-(dow===0?6:dow-1)+offset*7);mon.setHours(0,0,0,0);
-    return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return{date:toLocalDate(d),label:days[i],dayNum:d.getDate()};});
+  const openStats = (ep) => { setStatsEp(ep); setStatsEdit(null); setStatsEditMode(false); };
+  const saveStats = async () => {
+    if (!statsEdit) return;
+    const { data } = await supabase.from("episodes").update({
+      investimento: statsEdit.investimento||0, roi: statsEdit.roi||0, links: statsEdit.links||[]
+    }).eq("id",statsEdit.id).select().single();
+    if (data) { setEpisodes(prev=>prev.map(e=>e.id===data.id?data:e)); setStatsEp(data); setStatsEditMode(false); flash(); }
   };
 
-  // ── LOGIN ──
-  if(checkingAuth)return<div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
+  const addComentario = async (epId) => {
+    if (!newComentario.trim()||!comentarioAutor.trim()) return;
+    const { data } = await supabase.from("comentarios").insert({episodio_id:epId,autor:comentarioAutor,texto:newComentario.trim()}).select().single();
+    if (data) { setComentarios(prev=>[...prev,data]); setNewComentario(""); flash(); }
+  };
+  const deleteComentario = async (id) => {
+    await supabase.from("comentarios").delete().eq("id",id);
+    setComentarios(prev=>prev.filter(c=>c.id!==id));
+  };
+  const addMembro = async () => {
+    if (!newMembro.nome.trim()) return;
+    const { data } = await supabase.from("equipe").insert(newMembro).select().single();
+    if (data) { setEquipe(prev=>[...prev,data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewMembro({nome:"",funcao:""}); setAddingMembro(false); flash(); }
+  };
+  const removeMembro = async (id) => {
+    await supabase.from("equipe").delete().eq("id",id);
+    setEquipe(prev=>prev.filter(m=>m.id!==id));
+  };
+  const addPauta = async () => {
+    if (!newPauta.titulo.trim()) return;
+    const { data } = await supabase.from("pautas").insert(newPauta).select().single();
+    if (data) { setPautas(prev=>[...prev,data]); setNewPauta({titulo:"",descricao:"",estrelas:0}); flash(); }
+  };
+  const removePauta = async (id) => {
+    await supabase.from("pautas").delete().eq("id",id);
+    setPautas(prev=>prev.filter(p=>p.id!==id));
+  };
+  const updatePautaStars = async (id,estrelas) => {
+    await supabase.from("pautas").update({estrelas}).eq("id",id);
+    setPautas(prev=>prev.map(p=>p.id===id?{...p,estrelas}:p));
+  };
+  const togglePautaUsado = async (id,usado) => {
+    await supabase.from("pautas").update({usado}).eq("id",id);
+    setPautas(prev=>prev.map(p=>p.id===id?{...p,usado}:p));
+  };
+  const savePauta = async () => {
+    if (!editingPauta) return;
+    const { data } = await supabase.from("pautas").update({titulo:editingPauta.titulo,descricao:editingPauta.descricao}).eq("id",editingPauta.id).select().single();
+    if (data) { setPautas(prev=>prev.map(p=>p.id===data.id?data:p)); setEditingPauta(null); flash(); }
+  };
 
-  if(!user)return(
+  // Tier lists CRUD
+  const addTierList = async () => {
+    if (!newTierList.trim()) return;
+    const { data } = await supabase.from("tier_lists").insert({nome:newTierList.trim(),estrelas:0}).select().single();
+    if (data) { setTierLists(prev=>[...prev,data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewTierList(""); flash(); }
+  };
+  const removeTierList = async (id) => {
+    await supabase.from("tier_lists").delete().eq("id",id);
+    setTierLists(prev=>prev.filter(t=>t.id!==id));
+  };
+  const updateTierStars = async (id,estrelas) => {
+    await supabase.from("tier_lists").update({estrelas}).eq("id",id);
+    setTierLists(prev=>prev.map(t=>t.id===id?{...t,estrelas}:t));
+  };
+  const addConvidado = async () => {
+    if (!newConvidado.trim()) return;
+    const { data } = await supabase.from("convidados").insert({nome:newConvidado.trim()}).select().single();
+    if (data) { setConvidados(prev=>[...prev,data].sort((a,b)=>a.nome.localeCompare(b.nome))); setNewConvidado(""); flash(); }
+  };
+  const removeConvidado = async (id) => {
+    await supabase.from("convidados").delete().eq("id",id);
+    setConvidados(prev=>prev.filter(c=>c.id!==id));
+  };
+  const addGame = async () => {
+    if (!newGame.nome.trim()) return;
+    const { data } = await supabase.from("games").insert(newGame).select().single();
+    if (data) { setGames(prev=>[...prev,data]); setNewGame({nome:"",descricao:"",jogadores:"",duracao:"",dificuldade:"Fácil",ideias:"",estrelas:0}); setAddingGame(false); flash(); }
+  };
+  const removeGame = async (id) => {
+    await supabase.from("games").delete().eq("id",id);
+    setGames(prev=>prev.filter(g=>g.id!==id));
+  };
+  const updateGameStars = async (id,estrelas) => {
+    await supabase.from("games").update({estrelas}).eq("id",id);
+    setGames(prev=>prev.map(g=>g.id===id?{...g,estrelas}:g));
+  };
+  const saveGame = async () => {
+    if (!editingGame) return;
+    const { data } = await supabase.from("games").update(editingGame).eq("id",editingGame.id).select().single();
+    if (data) { setGames(prev=>prev.map(g=>g.id===data.id?data:g)); setEditingGame(null); flash(); }
+  };
+
+  // Computed values
+  const publishedEps = episodes.filter(e=>e.status==="publicado");
+  const totalInvestido = episodes.reduce((s,e)=>s+(e.investimento||0),0);
+  const convidadoCount = {};
+  episodes.forEach(ep=>(ep.convidados||[]).forEach(c=>{convidadoCount[c]=(convidadoCount[c]||0)+1;}));
+  const convidadoRanking = Object.entries(convidadoCount).sort((a,b)=>b[1]-a[1]);
+  const gameCount = {};
+  episodes.forEach(ep=>{if(ep.game)gameCount[ep.game]=(gameCount[ep.game]||0)+1;});
+  const sortedConvidados = [...convidados].filter(c=>c.nome.toLowerCase().includes(convSearch.toLowerCase())).sort((a,b)=>a.nome.localeCompare(b.nome));
+  const sortedTierLists = [...tierLists].filter(t=>t.nome.toLowerCase().includes(tierSearch.toLowerCase())).sort((a,b)=>tierSort==="stars_desc"?(b.estrelas||0)-(a.estrelas||0):tierSort==="za"?b.nome.localeCompare(a.nome):a.nome.localeCompare(b.nome));
+  const sortedGames = [...games].filter(g=>g.nome.toLowerCase().includes(gameSearch.toLowerCase())).sort((a,b)=>gameSort==="stars_desc"?(b.estrelas||0)-(a.estrelas||0):gameSort==="za"?b.nome.localeCompare(a.nome):a.nome.localeCompare(b.nome));
+  const sortedEpisodes = [...episodes].filter(e=>epStatusFilter==="todos"||e.status===epStatusFilter).sort((a,b)=>epSort==="numero"?epNum(a.title)-epNum(b.title):epSort==="data"?(a.gravacao_data||"").localeCompare(b.gravacao_data||""):a.status.localeCompare(b.status));
+
+  const CHECKLIST_ITEMS = [
+    {key:"convidados",label:"👥 Convidados"},
+    {key:"tema_tier",label:"🏆 Tema Tier List"},
+    {key:"tema_programa",label:"📺 Tema do Programa"},
+    {key:"producao_tier",label:"⚙️ Produção Tier List"},
+    {key:"pauta",label:"📋 Pauta"},
+    {key:"gravar",label:"🎙 Gravação"},
+    {key:"editar",label:"✂️ Edição"},
+    {key:"thumbnail",label:"🖼 Thumbnail"},
+    {key:"legenda",label:"📝 Legenda / Descrição"},
+    {key:"postar",label:"📤 Postagem"}
+  ];
+
+  const getCorteChecklist = (tipo, plataforma) => {
+    const plats = plataforma ? (Array.isArray(plataforma) ? plataforma : plataforma.split(",")) : ["YouTube"];
+    // Só redes sociais (sem YouTube): Edição + Postagem
+    const somenteRedes = plats.every(p => p === "Instagram" || p === "TikTok" || p === "Shorts");
+    if (somenteRedes) return [
+      {key:"edicao", label:"✂️ Edição"},
+      {key:"postagem", label:"📤 Postagem"}
+    ];
+    // YouTube (com ou sem redes): Edição + Thumbnail + Descrição + Postagem
+    return [
+      {key:"edicao", label:"✂️ Edição"},
+      {key:"thumbnail", label:"🖼 Thumbnail"},
+      {key:"descricao", label:"📝 Descrição"},
+      {key:"postagem", label:"📤 Postagem"}
+    ];
+  };
+
+  const saveCorteChecklist = async (postId, checklist) => {
+    const notasJson = JSON.stringify(checklist);
+    await supabase.from("postagens").update({notas_checklist: notasJson}).eq("id", postId);
+    setPostagens(prev => prev.map(p => p.id === postId ? {...p, notas_checklist: notasJson} : p));
+    flash();
+  };
+
+  if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
+
+  if (!user) return (
     <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
       <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:14,padding:40,width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:TEXT}}>DARK APP</div>
-          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,letterSpacing:2}}>PRODUCTION · FOCUS · FINANCE</div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:TEXT}}>BULLDOG SHOW</div>
+          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,letterSpacing:2}}>PRODUCTION MANAGER · INTERNO</div>
         </div>
-        <div style={{marginBottom:16}}><div style={lbl}>Email</div><input value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} type="email" placeholder="seu@email.com" style={inp}/></div>
-        <div style={{marginBottom:24}}><div style={lbl}>Senha</div><input value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} type="password" placeholder="••••••••" style={inp}/></div>
-        {loginError&&<div style={{fontFamily:"'DM Sans'",fontSize:12,color:RED,marginBottom:12}}>{loginError}</div>}
-        <button onClick={login} disabled={loginLoading} style={{...btnGold,width:"100%",opacity:loginLoading?.7:1}}>{loginLoading?"ENTRANDO...":"ENTRAR"}</button>
+        <div style={{marginBottom:16}}><div style={{...lbl,marginBottom:6}}>Email</div><input value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="seu@email.com" type="email" style={inp} /></div>
+        <div style={{marginBottom:24}}><div style={{...lbl,marginBottom:6}}>Senha</div><input value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="••••••••" type="password" style={inp} /></div>
+        {loginError && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#EF4444",marginBottom:12}}>{loginError}</div>}
+        <button onClick={login} disabled={loginLoading} style={{...btnBlue,width:"100%",opacity:loginLoading?0.7:1}}>{loginLoading?"ENTRANDO...":"ENTRAR"}</button>
       </div>
     </div>
   );
 
-  return(
+  return (
     <div style={{background:BG,minHeight:"100vh",color:TEXT}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0A0A08}::-webkit-scrollbar-thumb{background:${BORDER2};border-radius:2px}
-        .hover-row:hover{background:rgba(251,191,36,0.05)!important}
-        .hover-card:hover{transform:translateY(-2px);border-color:${BORDER2}!important}
-        textarea{resize:vertical}
-        input:focus,textarea:focus,select:focus{border-color:${ACCENT}!important;outline:none}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#040E18}::-webkit-scrollbar-thumb{background:#1B6896;border-radius:2px}
+        .epc:hover{transform:translateY(-2px);border-color:#2487BE !important;}
+        .tag{display:inline-block;background:rgba(27,104,150,0.2);border:1px solid rgba(27,104,150,0.6);color:#7EC8F0;border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;font-family:'DM Sans'}
+        .bi:hover .xb{opacity:1}.xb{opacity:0;transition:opacity .2s}
+        .stat-ep{cursor:pointer;transition:border-color .2s}.stat-ep:hover{border-color:#2487BE !important;}
       `}</style>
 
-      {/* ── HEADER ── */}
-      <div style={{background:BG2,borderBottom:`1px solid ${BORDER}`,padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:56,position:"sticky",top:0,zIndex:50}}>
-        <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:4,color:ACCENT}}>DARK APP</div>
-        <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,letterSpacing:2}}>PRODUCTION · FOCUS · FINANCE</div>
-        <div style={{flex:1}}/>
-        {saved&&<div style={{fontFamily:"'DM Sans'",fontSize:12,color:GREEN,background:"rgba(16,185,129,0.1)",padding:"4px 12px",borderRadius:20}}>✓ Salvo</div>}
-        {errorMsg&&<div style={{fontFamily:"'DM Sans'",fontSize:12,color:RED,background:"rgba(239,68,68,0.1)",padding:"4px 12px",borderRadius:20}}>⚠️ {errorMsg}</div>}
-        {timerRunning&&(
-          <div style={{display:"flex",alignItems:"center",gap:8,background:`${timerMode==="work"?ACCENT:GREEN}15`,border:`1px solid ${timerMode==="work"?ACCENT:GREEN}44`,borderRadius:8,padding:"4px 12px"}}>
-            <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:timerMode==="work"?ACCENT:GREEN,letterSpacing:2}}>{timerFmt(timerSeconds)}</span>
-            <button onClick={()=>setTimerRunning(false)} style={{...btnGhost,padding:"2px 6px",fontSize:10}}>⏸</button>
-          </div>
-        )}
+      {/* HEADER */}
+      <div style={{background:"rgba(13,40,64,0.95)",borderBottom:`1px solid ${BORDER}`,padding:"0 24px",display:"flex",alignItems:"center",gap:16,height:56,position:"sticky",top:0,zIndex:50}}>
+        <img src="/logo.png" alt="Bulldog" style={{height:38,width:38,borderRadius:6,objectFit:"cover"}} />
+        <div>
+          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:3,color:TEXT}}>BULLDOG SHOW</div>
+          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,letterSpacing:2,marginTop:-2}}>PRODUCTION MANAGER · INTERNO</div>
+        </div>
+        <div style={{flex:1}}></div>
+        {saved && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#10B981",background:"rgba(16,185,129,0.1)",padding:"4px 12px",borderRadius:20}}>✓ Salvo</div>}
+        {errorMsg && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#EF4444",background:"rgba(239,68,68,0.1)",padding:"4px 12px",borderRadius:20}}>⚠️ {errorMsg}</div>}
+        <button onClick={()=>setSearchOpen(true)} style={{...btnGhost,fontSize:11,padding:"5px 12px",display:"flex",alignItems:"center",gap:5}}>🔍 <span style={{opacity:0.6,fontSize:10}}>⌘K</span></button>
         <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>{user.email}</div>
         <button onClick={logout} style={{...btnGhost,fontSize:11,padding:"5px 12px"}}>Sair</button>
       </div>
 
-      {/* ── TABS ── */}
-      <div style={{display:"flex",gap:2,padding:"0 24px",borderBottom:`1px solid ${BORDER}`,background:BG2,overflowX:"auto"}}>
+      {/* TABS */}
+      <div style={{display:"flex",gap:2,padding:"12px 24px 0",borderBottom:`1px solid ${BORDER}`,background:"rgba(13,40,64,0.5)"}}>
         {TABS.map((t,i)=>(
-          <button key={i} onClick={()=>setActiveTab(i)} style={{fontFamily:"'DM Sans'",fontSize:13,color:activeTab===i?ACCENT:MUTED,background:"transparent",border:"none",borderBottom:activeTab===i?`2px solid ${ACCENT}`:"2px solid transparent",padding:"14px 18px",cursor:"pointer",transition:"all .15s",whiteSpace:"nowrap",fontWeight:activeTab===i?600:400}}>{t}</button>
+          <button key={i} onClick={()=>setActiveTab(i)} style={{fontFamily:"'DM Sans'",fontSize:13,color:activeTab===i?TEXT:MUTED,background:activeTab===i?"rgba(27,104,150,0.2)":"transparent",border:activeTab===i?`1px solid ${BORDER}`:"1px solid transparent",borderBottom:"none",borderRadius:"6px 6px 0 0",padding:"8px 16px",cursor:"pointer",transition:"all .15s"}}>{t}</button>
         ))}
       </div>
 
-      {/* ── CONTENT ── */}
+      {/* CONTENT */}
       <div style={{maxWidth:1400,margin:"0 auto",padding:"24px 24px"}}>
 
-        {/* ═══ DASHBOARD ═══ */}
-        {activeTab===0&&(()=>{
-          const nextTask=pendingTasks[0];
-          const urgentTasks=pendingTasks.filter(t=>t.urgency==="hot");
-          const [ideaInput,setIdeaInput]=useState("");
-          return(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
+        {/* TAB 0: DASHBOARD */}
+        {activeTab===0 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🏠 BOM DIA, <span style={{color:BL}}>BULLDOG SHOW</span></div>
+            {(() => {
+              const proxima = [...episodes].filter(e=>e.gravacao_data&&!e.retroativo).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data)).find(e=>e.gravacao_data>=toLocalDate(new Date()));
+              const hoje = toLocalDate(new Date());
+              const postsSemana = postagens.filter(p=>{
+                const d = new Date(p.data+"T12:00:00"), now = new Date();
+                const diff = (d-now)/(1000*60*60*24);
+                return (diff >= -1) && (diff <= 7);
+              });
+              const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
+              const allEpLinks = episodes.flatMap(e=>(e.links||[]));
+              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
+              return (
                 <div>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:2,color:TEXT}}>BOM DIA, <span style={{color:ACCENT}}>BERNARDO.</span></div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginTop:4}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})} · {pendingTasks.length} tarefas pendentes</div>
-                </div>
-                <button onClick={()=>{setGoalEdit({month:thisMonthKey,videos_target:0,revenue_target:0,hours_target:0});setGoalModal(true);}} style={{...btnGhost,fontSize:11}}>+ Meta do mês</button>
-              </div>
-
-              {/* FOCO AGORA */}
-              {nextTask?(
-                <div style={{...card,padding:24,borderColor:nextTask.urgency==="hot"?RED:BORDER2,marginBottom:20,position:"relative",overflow:"hidden"}}>
-                  <div style={{position:"absolute",left:0,top:0,bottom:0,width:4,background:nextTask.urgency==="hot"?RED:nextTask.urgency==="warn"?ACCENT:GREEN}}/>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:10,color:ACCENT,letterSpacing:2,marginBottom:8}}>⚡ FOCO AGORA</div>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:26,letterSpacing:1,marginBottom:6}}>{nextTask.title}</div>
-                  <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                    <span style={{background:`${getClientColor(nextTask.client_id)}22`,color:getClientColor(nextTask.client_id),border:`1px solid ${getClientColor(nextTask.client_id)}44`,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{getClientName(nextTask.client_id)}</span>
-                    {nextTask.deadline&&<span style={{background:`${deadlineColor(nextTask.deadline)}22`,color:deadlineColor(nextTask.deadline),border:`1px solid ${deadlineColor(nextTask.deadline)}44`,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{deadlineLabel(nextTask.deadline)}</span>}
-                    <span style={{background:"rgba(255,255,255,0.05)",color:MUTED,border:`1px solid ${BORDER}`,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11}}>{nextTask.estimated_hours}h est.</span>
-                  </div>
-                  <div style={{display:"flex",gap:10}}>
-                    <button onClick={()=>startTimer(nextTask.id)} style={btnGold}>▶ INICIAR POMODORO</button>
-                    <button onClick={()=>completeTask(nextTask.id)} style={{...btnGhost,color:GREEN,borderColor:`${GREEN}44`}}>✓ Concluir</button>
-                  </div>
-                </div>
-              ):(
-                <div style={{...card,textAlign:"center",padding:32,marginBottom:20}}>
-                  <div style={{fontSize:32,marginBottom:8}}>🎉</div>
-                  <div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:GREEN,letterSpacing:2}}>TUDO EM DIA!</div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,marginTop:4}}>Nenhuma tarefa pendente.</div>
-                </div>
-              )}
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 340px",gap:20}}>
-                <div>
-                  {/* Urgentes */}
-                  {urgentTasks.length>0&&(
-                    <div style={{...card,marginBottom:16}}>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:RED,letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>🔥 URGENTE</div>
-                      {urgentTasks.slice(0,5).map(t=>(
-                        <div key={t.id} className="hover-row" onClick={()=>startTimer(t.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
-                          <div style={{width:4,height:4,borderRadius:1,background:RED,flexShrink:0}}/>
-                          <div style={{flex:1}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:500}}>{t.title}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{getClientName(t.client_id)}</div>
-                          </div>
-                          <span style={{background:`${deadlineColor(t.deadline)}22`,color:deadlineColor(t.deadline),border:`1px solid ${deadlineColor(t.deadline)}44`,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{deadlineLabel(t.deadline)}</span>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
+                    <div onClick={()=>{if(proxima){openEp(proxima);setActiveTab(1);}}} style={{...card,padding:20,border:`1px solid rgba(36,135,190,0.5)`,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(36,135,190,0.9)"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(36,135,190,0.5)"}>
+                      <div style={lbl}>📅 Próxima Gravação</div>
+                      {proxima ? (
+                        <div>
+                          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ACCENT}}>{new Date(proxima.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,marginTop:4}}>{proxima.title} · {proxima.gravacao_horario}</div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{proxima.convidados?.join(", ")||"Sem convidados"}</div>
                         </div>
-                      ))}
+                      ) : <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma agendada</div>}
                     </div>
-                  )}
-
-                  {/* Metas */}
-                  <div style={{...card,marginBottom:16}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2}}>METAS DO MÊS</div>
-                      <button onClick={()=>{setGoalEdit({month:thisMonthKey,videos_target:0,revenue_target:0,hours_target:0});setGoalModal(true);}} style={{...btnGhost,fontSize:11,padding:"4px 10px"}}>+ Meta</button>
+                    <div onClick={()=>setActiveTab(2)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=BL} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
+                      <div style={lbl}>📤 Posts Esta Semana</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{postsSemana.filter(p=>p.status==="postado").length}/{postsSemana.length}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>postados esta semana</div>
                     </div>
-                    {currentGoals.length===0?(
-                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,textAlign:"center",padding:16}}>Nenhuma meta definida.</div>
-                    ):currentGoals.map(g=>(
-                      <div key={g.id} style={{marginBottom:12}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:500}}>{g.client_id?getClientName(g.client_id):"Geral"}</span>
-                          <span style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED}}>{g.videos_done||0}/{g.videos_target} vídeos</span>
-                        </div>
-                        <div style={{background:BG,borderRadius:3,height:5,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:`${Math.min(100,Math.round(((g.videos_done||0)/Math.max(1,g.videos_target))*100))}%`,background:ACCENT,borderRadius:3,transition:"width .5s"}}/>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Ideias rápidas */}
-                  <div style={{...card}}>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>💡 IDEIAS RÁPIDAS</div>
-                    <div style={{display:"flex",gap:8,marginBottom:14}}>
-                      <input value={ideaInput} onChange={e=>setIdeaInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&ideaInput.trim()){saveIdea(ideaInput.trim());setIdeaInput("");}}} placeholder="Ideia para vídeo, pauta, tema..." style={{...inp,flex:1}}/>
-                      <button onClick={()=>{if(ideaInput.trim()){saveIdea(ideaInput.trim());setIdeaInput("");}}} style={btnGold}>+</button>
+                    <div onClick={()=>setActiveTab(4)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#EF4444"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
+                      <div style={lbl}>▶ Views YouTube</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>views acumulados</div>
                     </div>
-                    {ideas.filter(i=>!i.used).slice(0,5).map(i=>(
-                      <div key={i.id} className="hover-row" style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
-                        <span style={{flex:1,fontFamily:"'DM Sans'",fontSize:12}}>{i.title}</span>
-                        {i.niche&&<span style={{background:`${ACCENT}15`,color:ACCENT,border:`1px solid ${ACCENT}33`,borderRadius:4,padding:"1px 6px",fontSize:10}}>{i.niche}</span>}
-                        <button onClick={()=>useIdeaAsVideo(i)} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:GREEN,borderColor:`${GREEN}33`}}>usar →</button>
-                        <button onClick={()=>deleteIdea(i.id)} style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:12}}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Trending mini */}
-                <div style={{...card}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2}}>🔥 TRENDING</div>
-                    <button onClick={()=>setActiveTab(7)} style={{...btnGhost,fontSize:10,padding:"3px 8px",color:ACCENT,borderColor:`${ACCENT}44`}}>Ver tudo →</button>
-                  </div>
-                  {trendingData.br.length===0?(
-                    <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,textAlign:"center",padding:20}}>
-                      <div style={{marginBottom:8}}>Configure a YouTube API Key.</div>
-                      <button onClick={()=>setActiveTab(7)} style={btnGold}>IR PARA TRENDING</button>
-                    </div>
-                  ):trendingData.br.slice(0,6).map((v,i)=>(
-                    <div key={v.id} className="hover-row" style={{display:"flex",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
-                      <span style={{fontFamily:"'IBM Plex Mono'",color:MUTED,fontSize:11,width:16,flexShrink:0}}>{i+1}</span>
-                      <div style={{flex:1,minWidth:0}}>
-                        <a href={v.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:500,color:TEXT,textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</a>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{v.views?.toLocaleString("pt-BR")} views {v.growth>50?`🚀 +${v.growth}%`:""}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ═══ FOCUS OS ═══ */}
-        {activeTab===1&&(()=>{
-          const LEVELS=[{n:1,label:"Iniciante",xp:0},{n:2,label:"Freelancer",xp:100},{n:3,label:"Creator",xp:250},{n:4,label:"Producer",xp:500},{n:5,label:"Director",xp:1000},{n:6,label:"Studio Boss",xp:2000}];
-          const currentLevel=LEVELS.filter(l=>l.xp<=(userStats.xp||0)).pop()||LEVELS[0];
-          const nextLevel=LEVELS.find(l=>l.xp>(userStats.xp||0));
-          const focusTask=pendingTasks.find(t=>t.id===focusTaskId)||pendingTasks[0];
-          return(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>FOCUS OS</div>
-                <button onClick={()=>{setTaskEdit({title:"",urgency:"hot",estimated_hours:1,deadline:today()});setTaskModal(true);}} style={btnGold}>+ NOVA TAREFA</button>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:20}}>
-                <div>
-                  {/* TIMER SEMPRE VISÍVEL */}
-                  <div style={{...card,padding:24,marginBottom:16,borderColor:timerMode==="work"?ACCENT:GREEN}}>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:timerMode==="work"?ACCENT:GREEN,letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>
-                      {timerMode==="work"?"🍅 Pomodoro — 25min":"☕ Descanso — 5min"}
-                    </div>
-                    {focusTask&&<div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,marginBottom:12,color:TEXT}}>{focusTask.title}</div>}
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:56,letterSpacing:-2,color:timerMode==="work"?ACCENT:GREEN,lineHeight:1,marginBottom:16}}>{timerFmt(timerSeconds)}</div>
-                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      {!timerRunning?(
-                        <button onClick={()=>focusTask&&startTimer(focusTask.id)} style={{...btnGold,opacity:focusTask?1:.5}}>▶ INICIAR POMODORO</button>
-                      ):(
-                        <button onClick={()=>{setTimerRunning(false);stopTimeEntry();}} style={{...btnGhost,color:ACCENT,borderColor:`${ACCENT}44`}}>⏸ PAUSAR</button>
-                      )}
-                      {focusTask&&<button onClick={()=>completeTask(focusTask.id)} style={{...btnGhost,color:GREEN,borderColor:`${GREEN}44`}}>✓ CONCLUIR</button>}
-                      {focusTask&&<button onClick={()=>setFocusTaskId(null)} style={{...btnGhost,fontSize:11}}>→ Pular</button>}
+                    <div onClick={()=>setActiveTab(3)} style={{...card,padding:20,border:epsSemChecklist.length>0?"1px solid rgba(245,158,11,0.4)":undefined,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#F59E0B"} onMouseLeave={e=>e.currentTarget.style.borderColor=epsSemChecklist.length>0?"rgba(245,158,11,0.4)":"rgba(27,104,150,0.3)"}>
+                      <div style={lbl}>⚠️ Checklists Incompletos</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:epsSemChecklist.length>0?"#F59E0B":"#10B981"}}>{epsSemChecklist.length}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>episódios com tarefas pendentes</div>
                     </div>
                   </div>
-
-                  {/* Lista de tarefas */}
-                  <div style={card}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,marginBottom:16}}>PLANO DO DIA — <span style={{color:MUTED,fontSize:14}}>ORDENADO POR PRIORIDADE</span></div>
-                    {pendingTasks.length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:20}}>🎉 Nenhuma tarefa pendente!</div>}
-                    {pendingTasks.map((t,i)=>{
-                      const isFocus=t.id===focusTaskId||(i===0&&!focusTaskId);
-                      return(
-                        <div key={t.id} className="hover-row" onClick={()=>startTimer(t.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 8px",borderBottom:`1px solid ${BORDER}`,background:isFocus?`${ACCENT}08`:undefined,borderRadius:isFocus?6:0,cursor:"pointer",transition:"all .15s"}}>
-                          <span style={{fontFamily:"'IBM Plex Mono'",color:MUTED,fontSize:11,width:24,flexShrink:0}}>#{i+1}</span>
-                          <div style={{width:5,height:5,borderRadius:1,background:{hot:RED,warn:ACCENT,normal:GREEN}[t.urgency||"normal"],flexShrink:0}}/>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:isFocus?600:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{getClientName(t.client_id)} · {t.type||"Tarefa"}</div>
-                          </div>
-                          <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
-                            {t.deadline&&<span style={{background:`${deadlineColor(t.deadline)}22`,color:deadlineColor(t.deadline),border:`1px solid ${deadlineColor(t.deadline)}44`,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:600}}>{deadlineLabel(t.deadline)}</span>}
-                            <span style={{background:"rgba(255,255,255,0.05)",color:MUTED,borderRadius:4,padding:"1px 6px",fontSize:10}}>{t.estimated_hours}h</span>
-                            <button onClick={e=>{e.stopPropagation();completeTask(t.id);}} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:GREEN,borderColor:`${GREEN}33`}}>✓</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* XP + Níveis */}
-                <div>
-                  <div style={{...card,marginBottom:14}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:2}}>LVL {currentLevel.n}</div>
-                      <span style={{background:`${ACCENT}22`,color:ACCENT,border:`1px solid ${ACCENT}44`,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{currentLevel.label}</span>
-                    </div>
-                    <div style={{fontFamily:"'IBM Plex Mono'",fontSize:11,color:MUTED,marginBottom:6}}>{userStats.xp||0} / {nextLevel?.xp||"MAX"} XP</div>
-                    <div style={{background:BG,borderRadius:3,height:6,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${Math.min(100,Math.round(((userStats.xp||0)-(currentLevel.xp||0))/Math.max(1,(nextLevel?.xp||500)-(currentLevel.xp||0))*100))}%`,background:GREEN,borderRadius:3,transition:"width .8s"}}/>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:14}}>
-                      {[{l:"Tarefas",v:userStats.tasks_completed||0},{l:"Pomodoros",v:userStats.pomodoros_completed||0},{l:"Streak",v:`🔥 ${userStats.streak||0}d`},{l:"XP Total",v:userStats.xp||0}].map(s=>(
-                        <div key={s.l} style={{background:BG,borderRadius:8,padding:"10px 12px"}}>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{s.l}</div>
-                          <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:ACCENT}}>{s.v}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={card}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:2,marginBottom:14}}>JORNADA DE NÍVEIS</div>
-                    {LEVELS.map(l=>{
-                      const done=(userStats.xp||0)>=(LEVELS[l.n]?.xp||9999);
-                      const current=l.n===currentLevel.n;
-                      return(
-                        <div key={l.n} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
-                          <div style={{width:28,height:28,borderRadius:"50%",border:`1.5px solid ${done?GREEN:current?ACCENT:BORDER}`,background:done?`${GREEN}20`:current?`${ACCENT}15`:undefined,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'IBM Plex Mono'",fontSize:11,color:done?GREEN:current?ACCENT:MUTED,fontWeight:600,flexShrink:0}}>
-                            {done?"✓":l.n}
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:current?600:400,color:current?ACCENT:done?GREEN:MUTED}}>LVL {l.n} — {l.label}</div>
-                          </div>
-                          <div style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED}}>{l.xp} XP</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ═══ AGENDA ═══ */}
-        {activeTab===2&&(()=>{
-          const weekDates=getWeekDates(weekOffset);
-          const todayStr=today();
-          return(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>AGENDA SEMANAL</div>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <button onClick={()=>setWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px"}}>← Anterior</button>
-                  <button onClick={()=>setWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",color:ACCENT,borderColor:`${ACCENT}44`}}>Hoje</button>
-                  <button onClick={()=>setWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px"}}>Próxima →</button>
-                  <button onClick={()=>{setTaskEdit({title:"",urgency:"normal",estimated_hours:1});setTaskModal(true);}} style={btnGold}>+ TAREFA</button>
-                </div>
-              </div>
-
-              {weekDates.map(({date,label,dayNum})=>{
-                const isToday=date===todayStr;
-                const dayTasks=tasks.filter(t=>t.deadline===date&&!t.done);
-                const totalH=dayTasks.reduce((s,t)=>s+(t.estimated_hours||0),0);
-                const loadColor=totalH>8?RED:totalH>5?ACCENT:GREEN;
-                const hasContent=dayTasks.length>0;
-                return(
-                  <div key={date} style={{marginBottom:10}}>
-                    <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:16,alignItems:"flex-start",background:isToday?"rgba(251,191,36,0.05)":hasContent?"rgba(255,255,255,0.02)":"transparent",border:`1px solid ${isToday?BORDER2:hasContent?BORDER:"rgba(255,255,255,0.04)"}`,borderRadius:10,padding:"14px 18px"}}>
-                      <div>
-                        <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:2,color:isToday?ACCENT:hasContent?TEXT:MUTED}}>{label}</div>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:12,color:isToday?ACCENT:MUTED}}>{new Date(date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long"})}</div>
-                        {isToday&&<span style={{background:ACCENT,color:BG,borderRadius:10,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600,letterSpacing:1}}>HOJE</span>}
-                        {totalH>0&&<div style={{marginTop:6,background:BG,borderRadius:3,height:3,overflow:"hidden",width:80}}><div style={{height:"100%",width:`${Math.min(100,(totalH/10)*100)}%`,background:loadColor,borderRadius:3}}/></div>}
-                        {totalH>0&&<div style={{fontFamily:"'IBM Plex Mono'",fontSize:9,color:loadColor,marginTop:2}}>{totalH}h</div>}
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {hasContent?dayTasks.map(t=>(
-                          <div key={t.id} onClick={()=>{setTaskEdit({...t});setTaskModal(true);}} style={{display:"flex",gap:14,padding:"12px 16px",background:`${getClientColor(t.client_id)}08`,border:`1px solid ${getClientColor(t.client_id)}33`,borderRadius:8,cursor:"pointer",alignItems:"center"}}>
-                            <div style={{flexShrink:0,minWidth:50,textAlign:"center"}}>
-                              <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:1,color:MUTED,lineHeight:1}}>{t.estimated_hours}H</div>
-                            </div>
-                            <div style={{flex:1}}>
-                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                                <span style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:1,color:getClientColor(t.client_id)}}>{getClientName(t.client_id).toUpperCase()}</span>
-                              </div>
-                              <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{t.title}</div>
-                              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{t.type||"Tarefa"}</div>
-                            </div>
-                            <span style={{background:`${deadlineColor(t.deadline)}22`,color:deadlineColor(t.deadline),border:`1px solid ${deadlineColor(t.deadline)}44`,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{t.urgency==="hot"?"🔥 URGENTE":t.urgency==="warn"?"⚠️ Atenção":"OK"}</span>
-                          </div>
-                        )):<div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhuma tarefa</div>}
-                      </div>
-                      <button onClick={()=>{setTaskEdit({title:"",urgency:"normal",estimated_hours:1,deadline:date});setTaskModal(true);}} style={{...btnGhost,fontSize:11,padding:"5px 12px",flexShrink:0}}>+ Tarefa</button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Próximas deadlines */}
-              <div style={{...card,marginTop:20}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,marginBottom:14}}>📌 PRÓXIMAS DEADLINES</div>
-                {tasks.filter(t=>!t.done&&t.deadline&&deadlineDiff(t.deadline)<=7).sort((a,b)=>deadlineDiff(a.deadline)-deadlineDiff(b.deadline)).map(t=>(
-                  <div key={t.id} className="hover-row" style={{display:"flex",alignItems:"center",gap:12,padding:"10px 8px",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}} onClick={()=>{setTaskEdit({...t});setTaskModal(true);}}>
-                    <div style={{width:10,height:10,borderRadius:2,background:deadlineColor(t.deadline),flexShrink:0}}/>
-                    <div style={{flex:1}}>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:500}}>{t.title}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{getClientName(t.client_id)}</div>
-                    </div>
-                    <span style={{background:`${deadlineColor(t.deadline)}22`,color:deadlineColor(t.deadline),border:`1px solid ${deadlineColor(t.deadline)}44`,borderRadius:4,padding:"2px 8px",fontSize:10,fontWeight:600}}>{fmtDate(t.deadline)} · {deadlineLabel(t.deadline)}</span>
-                  </div>
-                ))}
-                {tasks.filter(t=>!t.done&&t.deadline&&deadlineDiff(t.deadline)<=7).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:20}}>Nenhuma deadline nos próximos 7 dias 🎉</div>}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ═══ CANAIS DARK ═══ */}
-        {activeTab===3&&(()=>{
-          const [ideaInput,setIdeaInput]=useState("");
-          const filteredVideos=pipelineFilter==="todos"?videos:videos.filter(v=>v.status===pipelineFilter);
-          return(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>CANAIS DARK</div>
-                <div style={{display:"flex",gap:8}}>
-                  {["pipeline","ideias","nichos"].map(s=>(
-                    <button key={s} onClick={()=>setDarkSection(s)} style={{...btnGhost,color:darkSection===s?ACCENT:MUTED,borderColor:darkSection===s?`${ACCENT}44`:BORDER}}>{s.charAt(0).toUpperCase()+s.slice(1)}</button>
-                  ))}
-                  <button onClick={()=>{setVideoEdit({title:"",niche:"Curiosidades Gerais",status:"Roteiro",hook:"",notes:""});setVideoModal(true);}} style={btnGold}>+ NOVO VÍDEO</button>
-                </div>
-              </div>
-
-              {darkSection==="pipeline"&&(
-                <div>
-                  {/* Filter */}
-                  <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-                    {["todos",...PIPELINE].map(s=>(
-                      <button key={s} onClick={()=>setPipelineFilter(s)} style={{...btnGhost,fontSize:11,padding:"4px 12px",color:pipelineFilter===s?PIPELINE_COLORS[s]||ACCENT:MUTED,borderColor:pipelineFilter===s?`${PIPELINE_COLORS[s]||ACCENT}44`:BORDER,background:pipelineFilter===s?`${PIPELINE_COLORS[s]||ACCENT}10`:undefined}}>
-                        {s==="todos"?"Todos":s}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Timeline / Pipeline colunas */}
-                  <div style={{overflowX:"auto",paddingBottom:8}}>
-                    <div style={{display:"flex",gap:12,minWidth:"max-content"}}>
-                      {PIPELINE.map(status=>{
-                        const colVideos=filteredVideos.filter(v=>v.status===status);
-                        const color=PIPELINE_COLORS[status]||ACCENT;
-                        return(
-                          <div key={status}
-                            onDragOver={e=>e.preventDefault()}
-                            onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("videoId");if(id)moveVideo(id,status);}}
-                            style={{width:250,flexShrink:0,background:"rgba(255,255,255,0.02)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:300}}
-                          >
-                            <div style={{padding:"12px 12px 10px",borderBottom:`2px solid ${color}`,background:`${color}10`}}>
-                              <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color}}>{status}</div>
-                              <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:2}}>{colVideos.length} vídeo{colVideos.length!==1?"s":""}</div>
-                            </div>
-                            <div style={{padding:8,display:"flex",flexDirection:"column",gap:6}}>
-                              {colVideos.map(v=>(
-                                <div key={v.id} draggable onDragStart={e=>e.dataTransfer.setData("videoId",v.id)}
-                                  style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:8,padding:"10px 12px",cursor:"grab",transition:"all .15s"}}
-                                  className="hover-card"
-                                >
-                                  <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,marginBottom:6,lineHeight:1.35}}>{v.title}</div>
-                                  <div style={{display:"flex",gap:4,marginBottom:6}}>
-                                    <span style={{background:`${ACCENT}15`,color:ACCENT,border:`1px solid ${ACCENT}33`,borderRadius:4,padding:"1px 6px",fontSize:10}}>{v.niche}</span>
-                                  </div>
-                                  {v.publish_date&&<div style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED,marginBottom:6}}>📅 {fmtDate(v.publish_date)}</div>}
-                                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                                    <button onClick={()=>openScript(v)} style={{...btnGhost,padding:"2px 7px",fontSize:9,color:ACCENT,borderColor:`${ACCENT}33`}}>📄 Roteiro</button>
-                                    <button onClick={()=>{setVideoEdit({...v});setVideoModal(true);}} style={{...btnGhost,padding:"2px 7px",fontSize:9}}>✏️</button>
-                                    <button onClick={()=>setApprovalModal(v)} style={{...btnGhost,padding:"2px 7px",fontSize:9,color:BLUE,borderColor:`${BLUE}33`}}>🔗</button>
-                                    <button onClick={()=>deleteVideo(v.id)} style={{...btnGhost,padding:"2px 7px",fontSize:9,color:RED,borderColor:`${RED}33`}}>✕</button>
-                                  </div>
-                                </div>
-                              ))}
-                              {colVideos.length===0&&<div style={{color:MUTED,fontSize:11,textAlign:"center",padding:16}}>Arraste aqui</div>}
-                            </div>
+                  {postsSemana.filter(p=>p.status!=="postado").length>0 && (
+                    <div style={{...card,padding:20,marginBottom:16}}>
+                      <div onClick={()=>setActiveTab(2)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:ACCENT}}>📆 POSTS PENDENTES ESTA SEMANA →</div>
+                      {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+                        const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                        return (
+                          <div key={p.id} onClick={()=>setActiveTab(2)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,width:80,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
+                            <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.episodio_title||"Sem episódio"}</span>
+                            {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-
-                  {/* Cronograma diário */}
-                  <div style={{...card,marginTop:20}}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,marginBottom:14}}>📅 COMO AVANÇAR UM VÍDEO</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
-                      {[
-                        {dia:"DIA 1",cor:ACCENT,items:["Escolher ideia","Pesquisar referências","Definir hook"]},
-                        {dia:"DIA 2",cor:BLUE,items:["Escrever roteiro","Adicionar takes","Revisar narração"]},
-                        {dia:"DIA 3",cor:RED,items:["Gravar locução","Testar prompts NanoBanana","Gerar imagens"]},
-                        {dia:"DIA 4",cor:PURP,items:["Editar vídeo","Animar no Kling/Seedance","Adicionar legendas"]},
-                        {dia:"DIA 5",cor:"#FB923C",items:["Criar thumbnail","Escrever título","Escrever descrição"]},
-                        {dia:"DIA 6",cor:GREEN,items:["Revisão final","Upload","Agendar publicação"]},
-                      ].map(({dia,cor,items})=>(
-                        <div key={dia} style={{background:BG,borderRadius:8,padding:"12px 10px",borderTop:`2px solid ${cor}`}}>
-                          <div style={{fontFamily:"'Bebas Neue'",fontSize:12,color:cor,letterSpacing:1,marginBottom:8}}>{dia}</div>
-                          {items.map((item,i)=>(
-                            <div key={i} style={{display:"flex",gap:5,alignItems:"flex-start",marginBottom:5}}>
-                              <span style={{color:cor,fontSize:9,flexShrink:0,marginTop:2}}>→</span>
-                              <span style={{fontFamily:"'DM Sans'",fontSize:11,lineHeight:1.4,color:MUTED}}>{item}</span>
+                  )}
+                  {epsSemChecklist.length>0 && (
+                    <div style={{...card,padding:20}}>
+                      <div onClick={()=>setActiveTab(3)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:"#F59E0B"}}>⚠️ EPISÓDIOS COM TAREFAS PENDENTES →</div>
+                      {epsSemChecklist.slice(0,5).map(ep=>{
+                        const done = (ep.checklist||[]).length;
+                        const pct = Math.round((done/10)*100);
+                        return (
+                          <div key={ep.id} onClick={()=>{openEp(ep);setActiveTab(1);}} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{ep.title}</div>
+                              <div style={{background:"#0A1F30",borderRadius:3,height:4,overflow:"hidden",marginTop:4,width:120}}>
+                                <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:3}} />
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {darkSection==="ideias"&&(
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
-                  <div style={card}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,marginBottom:14}}>💡 BANCO DE IDEIAS</div>
-                    <div style={{display:"flex",gap:8,marginBottom:16}}>
-                      <input value={ideaInput} onChange={e=>setIdeaInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&ideaInput.trim()){saveIdea(ideaInput.trim());setIdeaInput("");}}} placeholder="Nova ideia de vídeo..." style={{...inp,flex:1}}/>
-                      <button onClick={()=>{if(ideaInput.trim()){saveIdea(ideaInput.trim());setIdeaInput("");}}} style={btnGold}>+</button>
-                    </div>
-                    {ideas.filter(i=>!i.used).map(i=>(
-                      <div key={i.id} className="hover-row" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 6px",borderBottom:`1px solid ${BORDER}`}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:500}}>{i.title}</div>
-                          {i.niche&&<div style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED,marginTop:2}}>{i.niche}</div>}
-                        </div>
-                        <button onClick={()=>useIdeaAsVideo(i)} style={{...btnGhost,padding:"3px 10px",fontSize:10,color:GREEN,borderColor:`${GREEN}33`}}>usar →</button>
-                        <button onClick={()=>deleteIdea(i.id)} style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:12}}>✕</button>
-                      </div>
-                    ))}
-                    {ideas.filter(i=>!i.used).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:20}}>Banco vazio. Adicione ideias acima!</div>}
-                  </div>
-                  <div style={card}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,marginBottom:14}}>✓ IDEIAS USADAS</div>
-                    {ideas.filter(i=>i.used).map(i=>(
-                      <div key={i.id} style={{display:"flex",gap:10,padding:"8px 6px",borderBottom:`1px solid ${BORDER}`,opacity:.5}}>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:12,textDecoration:"line-through",flex:1}}>{i.title}</span>
-                        {i.niche&&<span style={{background:`${ACCENT}15`,color:ACCENT,border:`1px solid ${ACCENT}33`,borderRadius:4,padding:"1px 6px",fontSize:10}}>{i.niche}</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {darkSection==="nichos"&&(
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16}}>
-                  {NICHES.map(n=>{
-                    const vids=videos.filter(v=>v.niche===n);
-                    const pub=vids.filter(v=>v.status==="Postagem").length;
-                    return(
-                      <div key={n} style={card} className="hover-card">
-                        <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,marginBottom:6}}>{n}</div>
-                        <div style={{fontFamily:"'IBM Plex Mono'",fontSize:12,color:ACCENT,marginBottom:12}}>CPM: {NICHE_CPM[n]}</div>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                          <div style={{background:BG,borderRadius:6,padding:"8px 10px"}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:1}}>Total</div>
-                            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:TEXT}}>{vids.length}</div>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{done}/10</span>
+                            <span style={{background:STATUS_CONFIG[ep.status]?.bg,color:STATUS_CONFIG[ep.status]?.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{STATUS_CONFIG[ep.status]?.label}</span>
                           </div>
-                          <div style={{background:BG,borderRadius:6,padding:"8px 10px"}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:1}}>Publicados</div>
-                            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,color:GREEN}}>{pub}</div>
-                          </div>
-                        </div>
-                        <div style={{background:BG,borderRadius:3,height:4,overflow:"hidden"}}><div style={{height:"100%",width:`${vids.length?Math.min(100,Math.round(pub/vids.length*100)):0}%`,background:GREEN,borderRadius:3}}/></div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* ═══ CLIENTES ═══ */}
-        {activeTab===4&&(
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>CLIENTES</div>
-              <button onClick={()=>{setClientEdit({name:"",color:ACCENT,type:"YouTube",frequency:"",rate_per_hour:0,notes:""});setClientModal(true);}} style={btnGold}>+ NOVO CLIENTE</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"280px 1fr",gap:20}}>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {clients.map(c=>{
-                  const pending=tasks.filter(t=>t.client_id===c.id&&!t.done).length;
-                  const isSelected=selectedClient?.id===c.id;
-                  return(
-                    <div key={c.id} onClick={()=>setSelectedClient(isSelected?null:c)} style={{...card,cursor:"pointer",border:`1px solid ${isSelected?c.color||ACCENT:BORDER}`,background:isSelected?`${c.color||ACCENT}08`:CARD,marginBottom:0,transition:"all .15s"}} className="hover-card">
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{width:36,height:36,borderRadius:8,background:`${c.color||ACCENT}20`,border:`1px solid ${c.color||ACCENT}40`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:13,color:c.color||ACCENT,flexShrink:0}}>
-                          {c.name.slice(0,2).toUpperCase()}
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{c.type} · {c.frequency}</div>
-                        </div>
-                        {pending>0&&<span style={{background:`${RED}22`,color:RED,border:`1px solid ${RED}44`,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:600}}>{pending}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {selectedClient?(
-                <div>
-                  <div style={{...card,marginBottom:14}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
-                      <div style={{display:"flex",gap:14,alignItems:"center"}}>
-                        <div style={{width:52,height:52,borderRadius:12,background:`${selectedClient.color||ACCENT}20`,border:`1px solid ${selectedClient.color||ACCENT}40`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue'",fontSize:18,color:selectedClient.color||ACCENT}}>
-                          {selectedClient.name.slice(0,2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2}}>{selectedClient.name}</div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>{selectedClient.type} · {selectedClient.frequency}</div>
-                          {selectedClient.rate_per_hour>0&&<div style={{fontFamily:"'IBM Plex Mono'",fontSize:11,color:ACCENT,marginTop:2}}>R$ {selectedClient.rate_per_hour}/h</div>}
-                        </div>
-                      </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>{setClientEdit({...selectedClient});setClientModal(true);}} style={btnGhost}>✏️ Editar</button>
-                        <button onClick={()=>deleteClient(selectedClient.id)} style={{...btnGhost,color:RED,borderColor:`${RED}44`}}>🗑 Excluir</button>
-                      </div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
-                      {[{l:"Tarefas ativas",v:tasks.filter(t=>t.client_id===selectedClient.id&&!t.done).length,c:ACCENT},{l:"Concluídas",v:tasks.filter(t=>t.client_id===selectedClient.id&&t.done).length,c:GREEN},{l:"Vídeos",v:videos.filter(v=>v.client_id===selectedClient.id).length,c:BLUE},{l:"NFs",v:invoices.filter(i=>i.client_id===selectedClient.id).length,c:PURP}].map(s=>(
-                        <div key={s.l} style={{background:BG,borderRadius:8,padding:"12px 14px"}}>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{s.l}</div>
-                          <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:1,color:s.c}}>{s.v}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {selectedClient.notes&&<div style={{marginTop:14,padding:"12px 14px",background:BG,borderRadius:8,fontFamily:"'DM Sans'",fontSize:13,color:MUTED,lineHeight:1.6}}>{selectedClient.notes}</div>}
-                  </div>
-
-                  <div style={card}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2}}>TAREFAS</div>
-                      <button onClick={()=>{setTaskEdit({title:"",client_id:selectedClient.id,urgency:"normal",estimated_hours:1,deadline:today()});setTaskModal(true);}} style={{...btnGhost,fontSize:11,padding:"4px 10px"}}>+ Tarefa</button>
-                    </div>
-                    {tasks.filter(t=>t.client_id===selectedClient.id).sort((a,b)=>(a.done?1:-1)).map(t=>(
-                      <div key={t.id} className="hover-row" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 8px",borderBottom:`1px solid ${BORDER}`,opacity:t.done?.5:1}}>
-                        <div onClick={()=>!t.done&&completeTask(t.id)} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?GREEN:BORDER2}`,background:t.done?GREEN:undefined,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                          {t.done&&<span style={{color:BG,fontSize:10}}>✓</span>}
-                        </div>
-                        <div style={{flex:1}}>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:500,textDecoration:t.done?"line-through":undefined}}>{t.title}</div>
-                          <div style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED}}>{t.type||"Tarefa"} · {t.estimated_hours}h</div>
-                        </div>
-                        {t.deadline&&<span style={{background:`${deadlineColor(t.deadline)}22`,color:deadlineColor(t.deadline),border:`1px solid ${deadlineColor(t.deadline)}44`,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:600}}>{deadlineLabel(t.deadline)}</span>}
-                        <button onClick={()=>{setTaskEdit({...t});setTaskModal(true);}} style={{...btnGhost,padding:"2px 6px",fontSize:10}}>✏️</button>
-                        <button onClick={()=>deleteTask(t.id)} style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:12}}>✕</button>
-                      </div>
-                    ))}
-                    {tasks.filter(t=>t.client_id===selectedClient.id).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:20}}>Nenhuma tarefa. Adicione acima.</div>}
-                  </div>
-                </div>
-              ):(
-                <div style={{...card,display:"flex",alignItems:"center",justifyContent:"center",minHeight:300}}>
-                  <div style={{textAlign:"center",color:MUTED}}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:32,color:BORDER,marginBottom:8}}>◈</div>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:14}}>Selecione um cliente para ver detalhes</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══ FINANÇAS ═══ */}
-        {activeTab===5&&(()=>{
-          const STATUS_COLORS={pendente:ACCENT,pago:GREEN,vencido:RED,cancelado:MUTED};
-          const filtered=invoices.filter(i=>invoiceFilter==="todos"||i.status===invoiceFilter).sort((a,b)=>(a.due_date||"").localeCompare(b.due_date||""));
-          return(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>FINANÇAS</div>
-                <button onClick={()=>{setInvoiceEdit({client_id:"",description:"",amount:0,status:"pendente",issued_date:today(),due_date:today(),notes:""});setInvoiceModal(true);}} style={btnGold}>+ NOVA NF</button>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
-                {[{l:"Emitido este mês",v:totalEmitido,c:TEXT},{l:"Recebido",v:totalRecebido,c:GREEN},{l:"Pendente",v:totalPendente,c:ACCENT},{l:"Vencido",v:totalVencido,c:RED}].map(m=>(
-                  <div key={m.l} style={card}>
-                    <div style={lbl}>{m.l}</div>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:m.c}}>{fmtCurrency(m.v)}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                {["todos","pendente","pago","vencido","cancelado"].map(f=>(
-                  <button key={f} onClick={()=>setInvoiceFilter(f)} style={{...btnGhost,fontSize:11,color:invoiceFilter===f?ACCENT:MUTED,borderColor:invoiceFilter===f?`${ACCENT}44`:BORDER,background:invoiceFilter===f?`${ACCENT}10`:undefined}}>
-                    {f.charAt(0).toUpperCase()+f.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              <div style={card}>
-                <div style={{display:"grid",gridTemplateColumns:"80px 1fr 120px 120px 100px 100px auto",gap:0,padding:"8px 12px",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase"}}>
-                  <div>NF</div><div>Descrição</div><div>Cliente</div><div style={{textAlign:"right"}}>Valor</div><div style={{textAlign:"center"}}>Vencimento</div><div style={{textAlign:"center"}}>Status</div><div style={{width:100}}/>
-                </div>
-                {filtered.length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:32}}>Nenhuma nota fiscal.</div>}
-                {filtered.map(i=>(
-                  <div key={i.id} className="hover-row" style={{display:"grid",gridTemplateColumns:"80px 1fr 120px 120px 100px 100px auto",gap:0,padding:"12px 12px",borderBottom:`1px solid ${BORDER}`,alignItems:"center"}}>
-                    <div style={{fontFamily:"'IBM Plex Mono'",fontSize:11,color:MUTED}}>{i.number||"—"}</div>
-                    <div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:500}}>{i.description||"Sem descrição"}</div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{fmtDate(i.issued_date)}</div>
-                    </div>
-                    <div><span style={{background:`${getClientColor(i.client_id)}22`,color:getClientColor(i.client_id),border:`1px solid ${getClientColor(i.client_id)}44`,borderRadius:4,padding:"2px 8px",fontSize:11,fontFamily:"'DM Sans'",fontWeight:600}}>{getClientName(i.client_id)}</span></div>
-                    <div style={{textAlign:"right",fontFamily:"'IBM Plex Mono'",fontWeight:600,fontSize:13,color:STATUS_COLORS[i.status]||TEXT}}>{fmtCurrency(i.amount)}</div>
-                    <div style={{textAlign:"center",fontFamily:"'IBM Plex Mono'",fontSize:11,color:deadlineColor(i.due_date)}}>{fmtDate(i.due_date)}</div>
-                    <div style={{textAlign:"center"}}><span style={{background:`${STATUS_COLORS[i.status]||TEXT}22`,color:STATUS_COLORS[i.status]||TEXT,border:`1px solid ${STATUS_COLORS[i.status]||TEXT}44`,borderRadius:4,padding:"2px 8px",fontSize:10,fontFamily:"'DM Sans'",fontWeight:600}}>{i.status}</span></div>
-                    <div style={{display:"flex",gap:4,width:100,justifyContent:"flex-end"}}>
-                      {i.status==="pendente"&&<button onClick={()=>markInvoicePaid(i.id)} style={{...btnGhost,padding:"2px 7px",fontSize:10,color:GREEN,borderColor:`${GREEN}33`}}>✓ Pago</button>}
-                      <button onClick={()=>{setInvoiceEdit({...i});setInvoiceModal(true);}} style={{...btnGhost,padding:"2px 6px",fontSize:10}}>✏️</button>
-                      <button onClick={()=>deleteInvoice(i.id)} style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:12}}>✕</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Por cliente */}
-              <div style={{...card,marginTop:16}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,marginBottom:14}}>RESUMO POR CLIENTE</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
-                  {clients.map(c=>{
-                    const cInv=invoices.filter(i=>i.client_id===c.id);
-                    const total=cInv.reduce((s,i)=>s+(i.amount||0),0);
-                    const pago=cInv.filter(i=>i.status==="pago").reduce((s,i)=>s+(i.amount||0),0);
-                    if(total===0)return null;
-                    return(
-                      <div key={c.id} style={{background:BG,borderRadius:10,padding:"14px 16px",borderLeft:`3px solid ${c.color||ACCENT}`}}>
-                        <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,marginBottom:8}}>{c.name}</div>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>Total</span>
-                          <span style={{fontFamily:"'IBM Plex Mono'",fontSize:12,color:TEXT,fontWeight:600}}>{fmtCurrency(total)}</span>
-                        </div>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>Recebido</span>
-                          <span style={{fontFamily:"'IBM Plex Mono'",fontSize:12,color:GREEN,fontWeight:600}}>{fmtCurrency(pago)}</span>
-                        </div>
-                        <div style={{background:BG2,borderRadius:3,height:4,overflow:"hidden"}}><div style={{height:"100%",width:`${total?Math.min(100,Math.round(pago/total*100)):0}%`,background:c.color||ACCENT,borderRadius:3}}/></div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ═══ BIBLIOTECA ═══ */}
-        {activeTab===6&&(()=>{
-          const TYPE_COLORS={hook:ACCENT,titulo:BLUE,cta:GREEN,thumbnail:PURP,template:RED};
-          const TYPE_ICONS={hook:"🎣",titulo:"📰",cta:"📣",thumbnail:"🖼",template:"📄"};
-          const filtered=library.filter(l=>libFilter==="todos"||l.type===libFilter).filter(l=>!libSearch||l.content.toLowerCase().includes(libSearch.toLowerCase()));
-          return(
-            <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>BIBLIOTECA</div>
-                <button onClick={()=>{setLibEdit({type:"hook",content:"",niche:"",score:0});setLibModal(true);}} style={btnGold}>+ ADICIONAR</button>
-              </div>
-              <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-                {["todos","hook","titulo","cta","thumbnail","template"].map(f=>(
-                  <button key={f} onClick={()=>setLibFilter(f)} style={{...btnGhost,fontSize:11,color:libFilter===f?ACCENT:MUTED,borderColor:libFilter===f?`${ACCENT}44`:BORDER,background:libFilter===f?`${ACCENT}10`:undefined}}>
-                    {f==="todos"?"Todos":`${TYPE_ICONS[f]||""} ${f}`}
-                  </button>
-                ))}
-                <input value={libSearch} onChange={e=>setLibSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:200,marginLeft:"auto"}}/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
-                {filtered.map(l=>(
-                  <div key={l.id} style={{...card,borderLeft:`3px solid ${TYPE_COLORS[l.type]||ACCENT}`,marginBottom:0}} className="hover-card">
-                    <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center"}}>
-                      <span style={{background:`${TYPE_COLORS[l.type]||ACCENT}22`,color:TYPE_COLORS[l.type]||ACCENT,border:`1px solid ${TYPE_COLORS[l.type]||ACCENT}44`,borderRadius:4,padding:"2px 8px",fontSize:10,fontFamily:"'DM Sans'",fontWeight:600}}>{TYPE_ICONS[l.type]||""} {l.type}</span>
-                      {l.niche&&<span style={{background:`${ACCENT}15`,color:ACCENT,border:`1px solid ${ACCENT}33`,borderRadius:4,padding:"2px 6px",fontSize:10}}>{l.niche}</span>}
-                      {l.views>0&&<span style={{background:`${GREEN}15`,color:GREEN,border:`1px solid ${GREEN}33`,borderRadius:4,padding:"2px 6px",fontSize:10}}>{l.views.toLocaleString("pt-BR")} views</span>}
-                    </div>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:13,lineHeight:1.65,color:TEXT,marginBottom:12,fontStyle:l.type==="hook"||l.type==="cta"?"italic":"normal"}}>{l.content}</div>
-                    {l.client_id&&<div style={{marginBottom:10}}><span style={{background:`${getClientColor(l.client_id)}22`,color:getClientColor(l.client_id),border:`1px solid ${getClientColor(l.client_id)}44`,borderRadius:4,padding:"2px 8px",fontSize:11,fontFamily:"'DM Sans'",fontWeight:600}}>{getClientName(l.client_id)}</span></div>}
-                    <div style={{display:"flex",gap:6}}>
-                      <button onClick={()=>navigator.clipboard.writeText(l.content)} style={{...btnGhost,fontSize:10,padding:"3px 8px",flex:1,color:ACCENT,borderColor:`${ACCENT}33`}}>📋 Copiar</button>
-                      <button onClick={()=>{setLibEdit({...l});setLibModal(true);}} style={{...btnGhost,fontSize:10,padding:"3px 8px"}}>✏️</button>
-                      <button onClick={()=>deleteLib(l.id)} style={{background:"none",border:"none",color:RED,cursor:"pointer",fontSize:12}}>✕</button>
-                    </div>
-                  </div>
-                ))}
-                {filtered.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:40,color:MUTED}}><div style={{fontFamily:"'Bebas Neue'",fontSize:24,color:BORDER,marginBottom:8}}>📚</div><div style={{fontFamily:"'DM Sans'",fontSize:14}}>Biblioteca vazia. Adicione hooks, títulos e CTAs!</div></div>}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ═══ TRENDING ═══ */}
-        {activeTab===7&&(
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2}}>🔥 TRENDING YOUTUBE</div>
-                {lastUpdated&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>Atualizado: {lastUpdated.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</div>}
-              </div>
-              <button onClick={fetchTrending} disabled={trendingLoading} style={{...btnGold,opacity:trendingLoading?.7:1}}>
-                {trendingLoading?"BUSCANDO...":"🔄 ATUALIZAR AGORA"}
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div style={{display:"flex",gap:2,borderBottom:`1px solid ${BORDER}`,marginBottom:20,overflowX:"auto"}}>
-              {["brasil","mundial",...NICHES].map(t=>(
-                <button key={t} onClick={()=>setTrendingTab(t)} style={{fontFamily:"'DM Sans'",fontSize:12,color:trendingTab===t?ACCENT:MUTED,background:"transparent",border:"none",borderBottom:trendingTab===t?`2px solid ${ACCENT}`:"2px solid transparent",padding:"10px 14px",cursor:"pointer",whiteSpace:"nowrap",fontWeight:trendingTab===t?600:400,transition:"all .15s"}}>
-                  {t==="brasil"?"🇧🇷 Brasil":t==="mundial"?"🌍 Mundial":t}
-                </button>
-              ))}
-            </div>
-
-            {trendingData.br.length===0?(
-              <div style={{...card,textAlign:"center",padding:48}}>
-                <div style={{fontFamily:"'Bebas Neue'",fontSize:24,color:MUTED,marginBottom:12}}>CONFIGURE A YOUTUBE API KEY</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,marginBottom:20}}>Adicione a variável NEXT_PUBLIC_YOUTUBE_API_KEY no Vercel e clique em Atualizar.</div>
-                <button onClick={fetchTrending} style={btnGold}>🔄 TENTAR BUSCAR</button>
-              </div>
-            ):(()=>{
-              const videos_list=trendingTab==="brasil"?trendingData.br:trendingTab==="mundial"?trendingData.global:trendingData.niches[trendingTab]||[];
-              const virals=videos_list.filter(v=>v.growth>50);
-              return(
-                <div>
-                  {virals.length>0&&(
-                    <div style={{...card,borderColor:`${RED}44`,marginBottom:20}}>
-                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:2,color:RED,marginBottom:12}}>🚀 VIRALIZANDO AGORA</div>
-                      {virals.map(v=>(
-                        <div key={v.id} style={{display:"flex",gap:12,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,alignItems:"center"}}>
-                          {v.thumb&&<img src={v.thumb} alt="" style={{width:60,height:45,borderRadius:4,objectFit:"cover",flexShrink:0}}/>}
-                          <div style={{flex:1,minWidth:0}}>
-                            <a href={v.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:600,color:TEXT,textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</a>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{v.channel} · {v.views?.toLocaleString("pt-BR")} views</div>
-                          </div>
-                          <span style={{background:`${RED}22`,color:RED,border:`1px solid ${RED}44`,borderRadius:4,padding:"2px 8px",fontFamily:"'IBM Plex Mono'",fontSize:11,fontWeight:600,flexShrink:0}}>🚀 +{v.growth}%</span>
-                          <button onClick={()=>saveIdea(v.title,trendingTab)} style={{...btnGhost,padding:"3px 8px",fontSize:10,color:GREEN,borderColor:`${GREEN}33`,flexShrink:0}}>+ideia</button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
-
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:12}}>
-                    {videos_list.map((v,i)=>(
-                      <div key={v.id} style={{...card,display:"flex",gap:12,marginBottom:0,alignItems:"flex-start"}} className="hover-card">
-                        <span style={{fontFamily:"'Bebas Neue'",fontSize:20,color:MUTED,width:30,flexShrink:0,lineHeight:1,marginTop:2}}>{i+1}</span>
-                        {v.thumb&&<img src={v.thumb} alt="" style={{width:80,height:60,borderRadius:6,objectFit:"cover",flexShrink:0}}/>}
-                        <div style={{flex:1,minWidth:0}}>
-                          <a href={v.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:600,color:TEXT,textDecoration:"none",display:"block",lineHeight:1.4,marginBottom:4}}>{v.title}</a>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginBottom:6}}>{v.channel} · {v.views?.toLocaleString("pt-BR")} views</div>
-                          {v.growth>0&&<span style={{background:`${v.growth>50?RED:v.growth>20?ACCENT:GREEN}22`,color:v.growth>50?RED:v.growth>20?ACCENT:GREEN,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:600}}>🚀 +{v.growth}%</span>}
-                          <div style={{marginTop:6}}>
-                            <button onClick={()=>saveIdea(v.title,trendingTab==="brasil"?"Trending BR":trendingTab==="mundial"?"Trending Global":trendingTab)} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:ACCENT,borderColor:`${ACCENT}33`}}>+ Salvar ideia</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {videos_list.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:40,color:MUTED,fontFamily:"'DM Sans'",fontSize:13}}>Clique em "Atualizar Agora" para buscar os trending.</div>}
-                  </div>
                 </div>
               );
             })()}
           </div>
+
         )}
 
-      </div>{/* /content */}
-
-      {/* ── QUICK CAPTURE BUTTON ── */}
-      <button onClick={()=>setQuickCapture(true)} style={{position:"fixed",bottom:28,right:28,width:52,height:52,borderRadius:"50%",background:ACCENT,color:BG,border:"none",cursor:"pointer",fontSize:24,fontWeight:700,boxShadow:`0 4px 20px ${ACCENT}44`,zIndex:100,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>+</button>
-
-      {/* ── MODAIS ── */}
-
-      {/* Quick capture */}
-      {quickCapture&&(
-        <div onClick={e=>e.target===e.currentTarget&&setQuickCapture(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:420,padding:28}}>
-            <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,marginBottom:16}}>CAPTURA RÁPIDA</div>
-            <textarea value={quickText} onChange={e=>setQuickText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&saveQuickCapture()} placeholder="Ideia, tarefa, pensamento..." style={{...inp,minHeight:80,marginBottom:14}} autoFocus/>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              {[["idea","💡 Banco de Ideias"],["task","✓ Tarefa"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setQuickDest(v)} style={{...btnGhost,flex:1,color:quickDest===v?ACCENT:MUTED,borderColor:quickDest===v?`${ACCENT}44`:BORDER,background:quickDest===v?`${ACCENT}10`:undefined}}>{l}</button>
-              ))}
+        {/* TAB 1: EPISÓDIOS */}
+        {activeTab===1 && (
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontSize:20,letterSpacing:2}}>EPISÓDIOS <span style={{color:BL}}>({episodes.length})</span></div>
+              <button style={btnBlue} onClick={createEp}>+ NOVO EPISÓDIO</button>
             </div>
-            <button onClick={saveQuickCapture} style={{...btnGold,width:"100%"}}>SALVAR → ENTER</button>
-          </div>
-        </div>
-      )}
-
-      {/* Task modal */}
-      {taskModal&&taskEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setTaskModal(false),setTaskEdit(null))} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:540,padding:28,maxHeight:"90vh",overflowY:"auto"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>{taskEdit.id?"EDITAR TAREFA":"NOVA TAREFA"}</div>
-              <button onClick={()=>{setTaskModal(false);setTaskEdit(null);}} style={btnGhost}>✕</button>
+            <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+              <select value={epSort} onChange={e=>setEpSort(e.target.value)} style={{...inp,width:"auto"}}>
+                <option value="numero">Por Número</option>
+                <option value="data">Por Data</option>
+                <option value="status">Por Status</option>
+              </select>
+              <select value={epStatusFilter} onChange={e=>setEpStatusFilter(e.target.value)} style={{...inp,width:"auto"}}>
+                <option value="todos">Todos</option>
+                {Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
             </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Título</div><input value={taskEdit.title||""} onChange={e=>setTaskEdit({...taskEdit,title:e.target.value})} style={inp}/></div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div style={{marginBottom:14}}><div style={lbl}>Cliente</div><select value={taskEdit.client_id||""} onChange={e=>setTaskEdit({...taskEdit,client_id:e.target.value})} style={inp}><option value="">Sem cliente</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Tipo</div><select value={taskEdit.type||"Roteiro"} onChange={e=>setTaskEdit({...taskEdit,type:e.target.value})} style={inp}>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Urgência</div><select value={taskEdit.urgency||"normal"} onChange={e=>setTaskEdit({...taskEdit,urgency:e.target.value})} style={inp}><option value="normal">Normal</option><option value="warn">Atenção</option><option value="hot">Urgente 🔥</option></select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Horas estimadas</div><input type="number" value={taskEdit.estimated_hours||1} step="0.5" min="0.5" onChange={e=>setTaskEdit({...taskEdit,estimated_hours:parseFloat(e.target.value)||1})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Deadline</div><input type="date" value={taskEdit.deadline||""} onChange={e=>setTaskEdit({...taskEdit,deadline:e.target.value})} style={inp}/></div>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Notas</div><textarea value={taskEdit.notes||""} onChange={e=>setTaskEdit({...taskEdit,notes:e.target.value})} style={{...inp,minHeight:60}}/></div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setTaskModal(false);setTaskEdit(null);}} style={btnGhost}>Cancelar</button>
-              <button onClick={saveTask} style={btnGold}>SALVAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Client modal */}
-      {clientModal&&clientEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setClientModal(false),setClientEdit(null))} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:500,padding:28,maxHeight:"90vh",overflowY:"auto"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>{clientEdit.id?"EDITAR CLIENTE":"NOVO CLIENTE"}</div>
-              <button onClick={()=>{setClientModal(false);setClientEdit(null);}} style={btnGhost}>✕</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div style={{marginBottom:14}}><div style={lbl}>Nome</div><input value={clientEdit.name||""} onChange={e=>setClientEdit({...clientEdit,name:e.target.value})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Cor</div><input type="color" value={clientEdit.color||ACCENT} onChange={e=>setClientEdit({...clientEdit,color:e.target.value})} style={{...inp,padding:4,height:40}}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Tipo</div><input value={clientEdit.type||""} onChange={e=>setClientEdit({...clientEdit,type:e.target.value})} placeholder="YouTube, Podcast..." style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Cadência</div><input value={clientEdit.frequency||""} onChange={e=>setClientEdit({...clientEdit,frequency:e.target.value})} placeholder="3x semana" style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Valor/hora (R$)</div><input type="number" value={clientEdit.rate_per_hour||0} onChange={e=>setClientEdit({...clientEdit,rate_per_hour:parseFloat(e.target.value)||0})} style={inp}/></div>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Notas</div><textarea value={clientEdit.notes||""} onChange={e=>setClientEdit({...clientEdit,notes:e.target.value})} style={{...inp,minHeight:60}}/></div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setClientModal(false);setClientEdit(null);}} style={btnGhost}>Cancelar</button>
-              <button onClick={saveClient} style={btnGold}>SALVAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Video modal */}
-      {videoModal&&videoEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setVideoModal(false),setVideoEdit(null))} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:580,padding:28,maxHeight:"90vh",overflowY:"auto"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>{videoEdit.id?"EDITAR VÍDEO":"NOVO VÍDEO"}</div>
-              <button onClick={()=>{setVideoModal(false);setVideoEdit(null);}} style={btnGhost}>✕</button>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Título</div><input value={videoEdit.title||""} onChange={e=>setVideoEdit({...videoEdit,title:e.target.value})} style={inp}/></div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div style={{marginBottom:14}}><div style={lbl}>Nicho</div><select value={videoEdit.niche||"Curiosidades Gerais"} onChange={e=>setVideoEdit({...videoEdit,niche:e.target.value})} style={inp}>{NICHES.map(n=><option key={n}>{n}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Status / Etapa</div><select value={videoEdit.status||"Roteiro"} onChange={e=>setVideoEdit({...videoEdit,status:e.target.value})} style={inp}>{PIPELINE.map(s=><option key={s}>{s}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Data publicação</div><input type="date" value={videoEdit.publish_date||""} onChange={e=>setVideoEdit({...videoEdit,publish_date:e.target.value})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>CPM nicho</div><input value={NICHE_CPM[videoEdit.niche]||"$4–8"} readOnly style={{...inp,opacity:.6}}/></div>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Hook (frase de abertura)</div><input value={videoEdit.hook||""} onChange={e=>setVideoEdit({...videoEdit,hook:e.target.value})} placeholder="Em 1999, Joan Murray saltou de um avião..." style={inp}/></div>
-            <div style={{marginBottom:14}}><div style={lbl}>Plataformas de postagem</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
-                {["YouTube","Instagram","TikTok","Shorts"].map(plat=>{
-                  const plats=videoEdit.platforms||[];
-                  const active=plats.includes(plat);
-                  return<button key={plat} onClick={()=>setVideoEdit({...videoEdit,platforms:active?plats.filter(p=>p!==plat):[...plats,plat]})} style={{...btnGhost,fontSize:11,color:active?ACCENT:MUTED,borderColor:active?`${ACCENT}44`:BORDER,background:active?`${ACCENT}10`:undefined}}>{plat}</button>;
-                })}
-              </div>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Notas</div><textarea value={videoEdit.notes||""} onChange={e=>setVideoEdit({...videoEdit,notes:e.target.value})} style={{...inp,minHeight:80}}/></div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setVideoModal(false);setVideoEdit(null);}} style={btnGhost}>Cancelar</button>
-              <button onClick={()=>openScript(videoEdit)} style={{...btnGhost,color:ACCENT,borderColor:`${ACCENT}44`}}>📄 Roteiro</button>
-              <button onClick={saveVideo} style={btnGold}>SALVAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invoice modal */}
-      {invoiceModal&&invoiceEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setInvoiceModal(false),setInvoiceEdit(null))} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:500,padding:28,maxHeight:"90vh",overflowY:"auto"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>{invoiceEdit.id?"EDITAR NF":"NOVA NOTA FISCAL"}</div>
-              <button onClick={()=>{setInvoiceModal(false);setInvoiceEdit(null);}} style={btnGhost}>✕</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div style={{marginBottom:14}}><div style={lbl}>Cliente</div><select value={invoiceEdit.client_id||""} onChange={e=>setInvoiceEdit({...invoiceEdit,client_id:e.target.value})} style={inp}><option value="">Selecionar...</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Número NF</div><input value={invoiceEdit.number||""} onChange={e=>setInvoiceEdit({...invoiceEdit,number:e.target.value})} placeholder="NF-001" style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Valor (R$)</div><input type="number" value={invoiceEdit.amount||0} step="0.01" onChange={e=>setInvoiceEdit({...invoiceEdit,amount:parseFloat(e.target.value)||0})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Status</div><select value={invoiceEdit.status||"pendente"} onChange={e=>setInvoiceEdit({...invoiceEdit,status:e.target.value})} style={inp}><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="vencido">Vencido</option><option value="cancelado">Cancelado</option></select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Data emissão</div><input type="date" value={invoiceEdit.issued_date||""} onChange={e=>setInvoiceEdit({...invoiceEdit,issued_date:e.target.value})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Data vencimento</div><input type="date" value={invoiceEdit.due_date||""} onChange={e=>setInvoiceEdit({...invoiceEdit,due_date:e.target.value})} style={inp}/></div>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Descrição</div><input value={invoiceEdit.description||""} onChange={e=>setInvoiceEdit({...invoiceEdit,description:e.target.value})} placeholder="Produção de conteúdo - Abril 2026" style={inp}/></div>
-            <div style={{marginBottom:14}}><div style={lbl}>Notas</div><textarea value={invoiceEdit.notes||""} onChange={e=>setInvoiceEdit({...invoiceEdit,notes:e.target.value})} style={{...inp,minHeight:60}}/></div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setInvoiceModal(false);setInvoiceEdit(null);}} style={btnGhost}>Cancelar</button>
-              <button onClick={saveInvoice} style={btnGold}>SALVAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Library modal */}
-      {libModal&&libEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setLibModal(false),setLibEdit(null))} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:500,padding:28}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>{libEdit.id?"EDITAR ITEM":"NOVO ITEM"}</div>
-              <button onClick={()=>{setLibModal(false);setLibEdit(null);}} style={btnGhost}>✕</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div style={{marginBottom:14}}><div style={lbl}>Tipo</div><select value={libEdit.type||"hook"} onChange={e=>setLibEdit({...libEdit,type:e.target.value})} style={inp}>{["hook","titulo","cta","thumbnail","template"].map(t=><option key={t}>{t}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Nicho</div><select value={libEdit.niche||""} onChange={e=>setLibEdit({...libEdit,niche:e.target.value})} style={inp}><option value="">Geral</option>{NICHES.map(n=><option key={n}>{n}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Cliente</div><select value={libEdit.client_id||""} onChange={e=>setLibEdit({...libEdit,client_id:e.target.value||null})} style={inp}><option value="">Todos</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Views</div><input type="number" value={libEdit.views||0} onChange={e=>setLibEdit({...libEdit,views:parseInt(e.target.value)||0})} style={inp}/></div>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Conteúdo</div><textarea value={libEdit.content||""} onChange={e=>setLibEdit({...libEdit,content:e.target.value})} style={{...inp,minHeight:100}} placeholder="Hook, título, CTA ou descrição..."/></div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setLibModal(false);setLibEdit(null);}} style={btnGhost}>Cancelar</button>
-              <button onClick={saveLib} style={btnGold}>SALVAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Goal modal */}
-      {goalModal&&goalEdit&&(
-        <div onClick={e=>e.target===e.currentTarget&&(setGoalModal(false),setGoalEdit(null))} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:400,padding:28}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>META MENSAL</div>
-              <button onClick={()=>{setGoalModal(false);setGoalEdit(null);}} style={btnGhost}>✕</button>
-            </div>
-            <div style={{marginBottom:14}}><div style={lbl}>Mês (AAAA-MM)</div><input value={goalEdit.month||""} onChange={e=>setGoalEdit({...goalEdit,month:e.target.value})} placeholder="2026-04" style={inp}/></div>
-            <div style={{marginBottom:14}}><div style={lbl}>Cliente</div><select value={goalEdit.client_id||""} onChange={e=>setGoalEdit({...goalEdit,client_id:e.target.value||null})} style={inp}><option value="">Geral</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-              <div style={{marginBottom:14}}><div style={lbl}>Vídeos</div><input type="number" value={goalEdit.videos_target||0} onChange={e=>setGoalEdit({...goalEdit,videos_target:parseInt(e.target.value)||0})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Receita (R$)</div><input type="number" value={goalEdit.revenue_target||0} onChange={e=>setGoalEdit({...goalEdit,revenue_target:parseFloat(e.target.value)||0})} style={inp}/></div>
-              <div style={{marginBottom:14}}><div style={lbl}>Horas</div><input type="number" value={goalEdit.hours_target||0} onChange={e=>setGoalEdit({...goalEdit,hours_target:parseFloat(e.target.value)||0})} style={inp}/></div>
-            </div>
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setGoalModal(false);setGoalEdit(null);}} style={btnGhost}>Cancelar</button>
-              <button onClick={saveGoal} style={btnGold}>SALVAR</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Approval modal */}
-      {approvalModal&&(
-        <div onClick={e=>e.target===e.currentTarget&&setApprovalModal(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:BG2,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:480,padding:28}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>LINK DE APROVAÇÃO</div>
-              <button onClick={()=>setApprovalModal(null)} style={btnGhost}>✕</button>
-            </div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,marginBottom:12}}>Compartilhe com o cliente para aprovar o roteiro:</div>
-            <div style={{background:BG,border:`1px solid ${BORDER}`,borderRadius:8,padding:"12px 14px",fontFamily:"'IBM Plex Mono'",fontSize:12,color:ACCENT,wordBreak:"break-all",marginBottom:16}}>
-              {typeof window!=="undefined"?`${window.location.origin}/aprovacao/${approvalModal.approval_token}`:""}
-            </div>
-            <button onClick={()=>{navigator.clipboard.writeText(`${window.location.origin}/aprovacao/${approvalModal.approval_token}`);flash();}} style={{...btnGold,width:"100%"}}>📋 COPIAR LINK</button>
-          </div>
-        </div>
-      )}
-
-      {/* Script modal */}
-      {scriptModal&&scriptData&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.95)",zIndex:200,overflowY:"auto"}}>
-          <div style={{maxWidth:900,margin:"0 auto",padding:"32px 24px"}}>
-            <div style={{marginBottom:28}}>
-              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>ROTEIRO COMPLETO — FACELESS VIDEO</div>
-              <div style={{fontFamily:"'Bebas Neue'",fontSize:40,letterSpacing:-0.5,lineHeight:1,marginBottom:16}}>
-                {scriptData.title?.split(" ").map((w,i,arr)=><span key={i} style={{color:i===Math.floor(arr.length/2)?ACCENT:TEXT}}>{w} </span>)}
-              </div>
-              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                {["YouTube · 8–10 min","Reels · 60–75s","Faceless · Narração em off","Nano Banana 2 · Prompts incluídos"].map(t=>(
-                  <div key={t} style={{border:`1px solid ${BORDER}`,borderRadius:6,padding:"5px 12px",fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED}}>{t}</div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{display:"flex",gap:2,borderBottom:`1px solid ${BORDER}`,marginBottom:24}}>
-              {["youtube","reels"].map(t=>(
-                <button key={t} onClick={()=>setScriptTab(t)} style={{background:"transparent",border:"none",borderBottom:scriptTab===t?`2px solid ${ACCENT}`:"2px solid transparent",color:scriptTab===t?ACCENT:MUTED,padding:"10px 20px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>
-                  {t==="youtube"?"YOUTUBE":"REELS / SHORTS"}
-                </button>
-              ))}
-              <div style={{flex:1}}/>
-              <button onClick={saveScript} style={{...btnGold,marginBottom:4}}>💾 SALVAR</button>
-              <button onClick={()=>setScriptModal(false)} style={{...btnGhost,marginBottom:4,marginLeft:8}}>✕ FECHAR</button>
-            </div>
-
-            {/* Ângulos */}
-            <div style={{...card,marginBottom:24}}>
-              <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>ÂNGULOS DE CÂMERA</div>
-              <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
-                {CAMERA_ANGLES.map((a,i)=>(
-                  <div key={a} style={{display:"flex",alignItems:"center",gap:6,fontFamily:"'IBM Plex Mono'",fontSize:11,color:MUTED}}>
-                    <span style={{width:20,height:20,border:`1.5px solid ${[ACCENT,BLUE,RED,GREEN,PURP,ACCENT][i]}`,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:[ACCENT,BLUE,RED,GREEN,PURP,ACCENT][i],fontWeight:700}}>{a}</span>
-                    {ANGLE_LABELS[a]}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Takes por seção */}
-            {SCRIPT_SECTIONS.map(section=>{
-              const sectionTakes=scriptTakes.filter(t=>t.section===section);
-              return(
-                <div key={section} style={{marginBottom:36}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:-0.5,color:TEXT}}>{section}</div>
-                    {sectionTakes.length>0&&<div style={{fontFamily:"'IBM Plex Mono'",fontSize:11,color:MUTED}}>{sectionTakes[0]?.startTime} — {sectionTakes[sectionTakes.length-1]?.endTime}</div>}
-                  </div>
-                  <div style={{borderTop:`1px solid ${BORDER}`,marginBottom:16}}/>
-                  {sectionTakes.map(take=>(
-                    <div key={take.id} style={{display:"grid",gridTemplateColumns:"110px 1fr",marginBottom:12,border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden"}}>
-                      <div style={{background:BG,padding:"14px 10px",display:"flex",flexDirection:"column",gap:8,borderRight:`1px solid ${BORDER}`}}>
-                        <div style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:MUTED}}>T-{String(scriptTakes.indexOf(take)+1).padStart(2,"0")}</div>
-                        <input value={take.startTime||""} onChange={e=>updateTake(take.id,"startTime",e.target.value)} style={{...inp,background:"transparent",border:"none",color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:16,fontWeight:600,padding:0,width:"80px"}} placeholder="00:00"/>
-                        <input value={take.endTime||""} onChange={e=>updateTake(take.id,"endTime",e.target.value)} style={{...inp,background:"transparent",border:"none",color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:16,fontWeight:600,padding:0,width:"80px"}} placeholder="00:07"/>
-                        <select value={take.angle||"A"} onChange={e=>updateTake(take.id,"angle",e.target.value)} style={{...inp,background:BG,padding:"3px 4px",fontSize:10,fontFamily:"'IBM Plex Mono'",width:65}}>
-                          {CAMERA_ANGLES.map(a=><option key={a}>ANG-{a}</option>)}
-                        </select>
-                        <button onClick={()=>deleteTake(take.id)} style={{...btnGhost,padding:"2px 6px",fontSize:10,color:RED,borderColor:`${RED}44`,marginTop:"auto"}}>✕</button>
+            <div style={{display:"grid",gap:8}}>
+              {sortedEpisodes.map(ep=>{
+                const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                const seConfig = STATUS_EDICAO_CONFIG[ep.status_edicao||"pendente"];
+                const checkDone = (ep.checklist||[]).length;
+                return (
+                  <div key={ep.id} className="epc" onClick={()=>openEp(ep)} style={{...card,cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"transform .15s, border-color .15s"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                        <div style={{fontSize:17,letterSpacing:1}}>{ep.title}</div>
+                        <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
+                        {ep.status_edicao&&ep.status_edicao!=="pendente" && <span style={{background:seConfig.bg,color:seConfig.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>✂️ {seConfig.label}</span>}
+                        {ep.retroativo && <span style={{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10}}>Retroativo</span>}
                       </div>
-                      <div style={{background:CARD,padding:"14px 18px"}}>
-                        <div style={{background:`${SECTION_COLORS[section]}22`,border:`1px solid ${SECTION_COLORS[section]}44`,borderRadius:4,padding:"2px 8px",display:"inline-block",fontFamily:"'IBM Plex Mono'",fontSize:10,color:SECTION_COLORS[section],marginBottom:12,letterSpacing:1}}>{section}</div>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>NARRAÇÃO</div>
-                        <textarea value={take.narration||""} onChange={e=>updateTake(take.id,"narration",e.target.value)} placeholder="Em 1999, Joan Murray saltou de um avião..." style={{...inp,background:"transparent",border:"none",borderLeft:`2px solid ${BORDER}`,borderRadius:0,padding:"5px 0 5px 12px",fontStyle:"italic",fontSize:14,minHeight:60,lineHeight:1.7}}/>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6,marginTop:12}}>VISUAL</div>
-                        <textarea value={take.visual||""} onChange={e=>updateTake(take.id,"visual",e.target.value)} placeholder="Céu aberto, fisheye de baixo pra cima..." style={{...inp,background:"transparent",border:"none",borderLeft:`2px solid ${BORDER}`,borderRadius:0,padding:"5px 0 5px 12px",fontSize:13,minHeight:50,lineHeight:1.7}}/>
-                        <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:8,padding:"10px 12px",marginTop:12}}>
-                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                            <span style={{width:7,height:7,borderRadius:"50%",background:GREEN,display:"inline-block"}}/>
-                            <span style={{fontFamily:"'IBM Plex Mono'",fontSize:10,color:GREEN,letterSpacing:1}}>PROMPT NANO BANANA 2</span>
-                          </div>
-                          <textarea value={take.prompt||""} onChange={e=>updateTake(take.id,"prompt",e.target.value)} placeholder="Fisheye POV shot looking straight up at open blue sky..." style={{...inp,background:"transparent",border:"none",color:GREEN,fontFamily:"'IBM Plex Mono'",fontSize:11,minHeight:60,lineHeight:1.6,padding:0}}/>
-                        </div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,display:"flex",gap:12,flexWrap:"wrap"}}>
+                        {ep.convidados?.length>0 && <span>👤 {ep.convidados.join(", ")}</span>}
+                        {ep.gravacao_data && <span>📅 {new Date(ep.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</span>}
+                        {ep.tier_list && <span>🏆 {ep.tier_list}</span>}
+                        {checkDone>0 && <span style={{color:checkDone===10?"#10B981":MUTED}}>✅ {checkDone}/10</span>}
                       </div>
                     </div>
-                  ))}
-                  <button onClick={()=>addTake(section)} style={{...btnGhost,fontSize:11,color:SECTION_COLORS[section],borderColor:`${SECTION_COLORS[section]}44`}}>+ Take em {section}</button>
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                      {copied===ep.id ? <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>✓ Copiado</span> : <button onClick={e=>{e.stopPropagation();copyLink(ep.id);}} style={{...btnGhost,fontSize:11,padding:"5px 10px"}}>🔗 Link</button>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: AGENDA */}
+        {activeTab===2 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>📅 AGENDA <span style={{color:BL}}>DO PROGRAMA</span></div>
+
+            {/* Navegação */}
+            <div style={{display:"flex",gap:8,marginBottom:24}}>
+              <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Anterior</button>
+              <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Hoje</button>
+              <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próxima →</button>
+            </div>
+
+            {getWeekDates(postagemWeekOffset).map(slot => {
+              const slotPostagens = getPostagens(slot.date);
+              const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
+              const isToday = slot.date === toLocalDate(new Date());
+              const hasContent = slotPostagens.length > 0 || gravacoes.length > 0;
+              const getTipoStyle = (tipo) => {
+                if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.5)"};
+                if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.5)"};
+                return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:`1px solid rgba(27,104,150,0.5)`};
+              };
+              return (
+                <div key={slot.date} style={{marginBottom:10}}>
+                  {/* Cabeçalho do dia */}
+                  <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:16,alignItems:"center",background:isToday?"rgba(27,104,150,0.12)":hasContent?"rgba(27,104,150,0.05)":"transparent",border:`1px solid ${isToday?"rgba(36,135,190,0.6)":hasContent?BORDER:"rgba(27,104,150,0.12)"}`,borderRadius:10,padding:"14px 18px"}}>
+                    {/* Data */}
+                    <div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:22,letterSpacing:2,color:isToday?ACCENT:hasContent?TEXT:"#1A3A50"}}>{slot.label}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:isToday?ACCENT:MUTED}}>{new Date(slot.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long"})}</div>
+                      {isToday && <span style={{background:ACCENT,color:BG,borderRadius:10,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600,letterSpacing:1}}>HOJE</span>}
+                    </div>
+
+                    {/* Conteúdo do dia */}
+                    {hasContent ? (
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {gravacoes.map(ep => {
+                          const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                          return (
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:14,padding:"14px 16px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
+                              {/* Hora lateral */}
+                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{ep.gravacao_horario||"10:00"}</div>
+                              </div>
+                              {/* Bloco vertical */}
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#E8F4FF",background:"rgba(232,244,255,0.12)",borderRadius:4,padding:"1px 8px",flexShrink:0}}>GRAVAÇÃO</span>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{ep.title}</span>
+                                </div>
+                                {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:TEXT,marginTop:2}}>{ep.convidados.join(" · ")}</div>}
+                                {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
+                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#94A3B8",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
+                              </div>
+                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:3}}>{sc.label}</span>
+                            </div>
+                          );
+                        })}
+                        {slotPostagens.map(p => {
+                          const ts = getTipoStyle(p.tipo);
+                          const statusColor = p.status==="postado"?"#E8F4FF":p.status==="agendado"?"#F59E0B":MUTED;
+                          const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
+                          const platIcon = plats.map(pl=>platCfg(pl).icon).join(" ");
+                          const platColor = platCfg(plats[0]).color;
+                          const platLabel = plats.join(" · ");
+                          const titulo = p.titulo_yt || p.notas?.trim() || null;
+                          return (
+                            <div key={p.id} style={{display:"flex",gap:14,padding:"14px 16px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
+                              {/* Hora lateral */}
+                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{p.horario||"18:00"}</div>
+                              </div>
+                              {/* Bloco vertical */}
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"1px 8px",flexShrink:0}}>{p.tipo.toUpperCase()}</span>
+                                  {p.episodio_title && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{p.episodio_title.toUpperCase()}</span>}
+                                </div>
+                                {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:2}}>{titulo.toUpperCase()}</div>}
+                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {platLabel.toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
+                                {p.responsavel && <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:MUTED,marginTop:2}}>{p.responsavel.toUpperCase()}</div>}
+                              </div>
+                              <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0,paddingTop:3}}>
+                                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase"}}>{p.status}</span>
+                                <div style={{display:"flex",gap:4}}>
+                                  <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(','):['YouTube']});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
+                                  <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px"}}>✕</button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:"#1A3A50"}}>Nenhuma atividade</div>
+                    )}
+
+                    {/* Botão add */}
+                    <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({data:slot.date,tipo:slot.tipo,status:"pendente",episodio_id:null,episodio_title:"",link:"",notas:"",plataforma:["YouTube"],horario:"18:00",views:0,drive_link:"",responsavel:"",titulo_yt:"",thumbnail_url:""});}} style={{...btnGhost,fontSize:11,padding:"5px 12px",flexShrink:0}}>+ Post</button>
+                  </div>
                 </div>
               );
             })}
 
-            <div style={{display:"flex",gap:10,marginTop:20,paddingTop:20,borderTop:`1px solid ${BORDER}`}}>
-              <button onClick={()=>addTake()} style={btnGhost}>+ Novo Take</button>
-              <button onClick={saveScript} style={btnGold}>💾 SALVAR ROTEIRO</button>
-              <button onClick={()=>setScriptModal(false)} style={{...btnGhost,marginLeft:"auto"}}>✕ FECHAR</button>
+            {/* Resumo semana */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:20}}>
+              {["postado","agendado","pendente"].map(s => {
+                const count = getWeekDates(postagemWeekOffset).flatMap(slot=>getPostagens(slot.date)).filter(p=>p.status===s).length;
+                const color = s==="postado"?"#10B981":s==="agendado"?"#F59E0B":MUTED;
+                return (
+                  <div key={s} style={{...card,padding:"14px 16px",textAlign:"center",marginBottom:0}}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{s}</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color}}>{count}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: PRODUÇÃO */}
+        {activeTab===3 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🎬 PRODUÇÃO <span style={{color:BL}}>DE CONTEÚDO</span></div>
+
+            {/* KANBAN EPISÓDIOS */}
+            {(() => {
+              const EP_COLS = [
+                {key:"tema",       label:"Tema",       color:"#7EC8F0"},
+                {key:"convidados", label:"Convidados", color:"#60A5FA"},
+                {key:"tema_tier",  label:"Tier List",  color:"#F59E0B"},
+                {key:"pauta",      label:"Pauta",      color:"#A78BFA"},
+                {key:"gravar",     label:"Gravação",   color:"#E8F4FF"},
+                {key:"editar",     label:"Edição",     color:"#8B5CF6"},
+                {key:"thumbnail",  label:"Thumbnail",  color:"#EC4899"},
+                {key:"postar",     label:"Postagem",   color:"#34D399"},
+              ];
+              const getColIdx = (ep) => {
+                const cl = ep.checklist||[];
+                let idx = 0;
+                for (let i=0;i<EP_COLS.length;i++) { if (cl.includes(EP_COLS[i].key)) idx=i+1; }
+                return Math.min(idx,EP_COLS.length-1);
+              };
+              const moveEp = async (ep,toIdx) => {
+                const newCl = EP_COLS.slice(0,toIdx).map(c=>c.key);
+                await saveChecklist(ep.id,newCl);
+              };
+              const eps = episodes.filter(e=>e.status!=="publicado");
+              return (
+                <div style={{marginBottom:28}}>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📺 Episódios</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:8}}>
+                    {EP_COLS.map((col,ci)=>{
+                      const items = eps.filter(ep=>getColIdx(ep)===ci);
+                      return (
+                        <div key={col.key} onDragOver={e=>e.preventDefault()} onDrop={async e=>{e.preventDefault();const id=parseInt(e.dataTransfer.getData("text/plain"));const ep=eps.find(e=>e.id===id);if(ep)await moveEp(ep,ci);}} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160}}>
+                          <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
+                            <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length}</div>
+                          </div>
+                          <div style={{padding:6,display:"flex",flexDirection:"column",gap:5}}>
+                            {items.map(ep=>{
+                              const dData=[...postagens].filter(p=>p.episodio_id===ep.id&&p.status!=="postado"&&p.data).sort((a,b)=>a.data.localeCompare(b.data))[0]?.data;
+                              const dias=dData?Math.ceil((new Date(dData+"T12:00:00")-new Date())/(1000*60*60*24)):null;
+                              const diasCor=dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
+                              const diasTxt=dias===null?null:dias<0?"atr.":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
+                              return (
+                                <div key={ep.id} draggable onDragStart={e=>e.dataTransfer.setData("text/plain",String(ep.id))} onClick={()=>openEp(ep)} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:6,padding:"8px 9px",cursor:"grab",userSelect:"none"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.3)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                                    <span style={{background:"rgba(36,135,190,0.2)",color:"#7EC8F0",borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>EP</span>
+                                    {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"0px 4px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤{diasTxt}</span>}
+                                  </div>
+                                  <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:TEXT,lineHeight:1.3,wordBreak:"break-word"}}>{ep.title}</div>
+                                  <button onClick={e=>{e.stopPropagation();cronoStart(ep.id);setCronoOpen(true);}} style={{marginTop:5,width:"100%",background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.3)",color:"#EF4444",borderRadius:4,padding:"3px 0",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>🎙 GRAVAR</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* KANBAN CORTES */}
+            {(() => {
+              const CR_COLS = [
+                {key:"editar",    label:"Edição",    color:"#8B5CF6"},
+                {key:"thumbnail", label:"Thumbnail", color:"#EC4899"},
+                {key:"postar",    label:"Postagem",  color:"#34D399"},
+              ];
+              const getCRColIdx = (p) => {
+                const clItems = getCorteChecklist(p.tipo,p.plataforma);
+                const done = (()=>{try{return JSON.parse(p.notas_checklist||"[]");}catch(e){return [];}})();
+                let idx=0;
+                for(let i=0;i<clItems.length;i++){if(done.includes(clItems[i].key))idx=i+1;}
+                return Math.min(idx,CR_COLS.length-1);
+              };
+              const moveCR = async (p,toIdx) => {
+                const clItems=getCorteChecklist(p.tipo,p.plataforma);
+                const newDone=clItems.slice(0,toIdx).map(i=>i.key);
+                await saveCorteChecklist(p.id,newDone);
+              };
+              const cortes=postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List"));
+              if (!cortes.length) return null;
+              return (
+                <div style={{marginBottom:28}}>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>✂️ Cortes & Posts</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,maxWidth:600}}>
+                    {CR_COLS.map((col,ci)=>{
+                      const items=cortes.filter(p=>getCRColIdx(p)===ci);
+                      return (
+                        <div key={col.key} onDragOver={e=>e.preventDefault()} onDrop={async e=>{e.preventDefault();const id=parseInt(e.dataTransfer.getData("text/plain"));const p=cortes.find(p=>p.id===id);if(p)await moveCR(p,ci);}} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160}}>
+                          <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
+                            <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length}</div>
+                          </div>
+                          <div style={{padding:6,display:"flex",flexDirection:"column",gap:5}}>
+                            {items.map(p=>{
+                              const tipoColor=p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                              const dias=p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
+                              const diasCor=dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
+                              const diasTxt=dias===null?null:dias<0?"atr.":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
+                              const titulo=p.titulo_yt||p.notas||"Sem título";
+                              const plats=p.plataforma?p.plataforma.split(","):["YouTube"];
+                              const platIcons=plats.map(pl=>platCfg(pl).icon).join(" ");
+                              return (
+                                <div key={p.id} draggable onDragStart={e=>e.dataTransfer.setData("text/plain",String(p.id))} style={{background:CARD,border:`1px solid ${tipoColor}44`,borderRadius:6,padding:"8px 9px",cursor:"grab",userSelect:"none"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.3)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                                    <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>{p.tipo}</span>
+                                    {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"0px 4px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤{diasTxt}</span>}
+                                  </div>
+                                  <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:TEXT,lineHeight:1.3,wordBreak:"break-word"}}>{titulo}</div>
+                                  <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:2}}>{platIcons} {p.episodio_title||""}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* CORTES DO CRONOGRAMA */}
+            {(() => {
+              const cortesPendentes = postagens.filter(p => {
+                if (p.status === "postado") return false;
+                if (p.tipo !== "Corte" && p.tipo !== "Full" && p.tipo !== "Tier List") return false;
+                const cl = getCorteChecklist(p.tipo, p.plataforma);
+                const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
+                return done.length < cl.length;
+              }).sort((a,b)=>(a.data||"").localeCompare(b.data||""));
+              if (!cortesPendentes.length) return null;
+              return (
+                <div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,marginTop:8,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Conteúdo Pendente</div>
+                  {cortesPendentes.map(p => {
+                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                    const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
+                    const platIcons = plats.map(pl=>platCfg(pl).icon).join(" ");
+                    const dias = p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
+                    const cor = dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
+                    const txt = dias===null?"sem data":dias<0?"atrasado":dias===0?"hoje":dias===1?"amanhã":`${dias} dias`;
+                    const clItems = getCorteChecklist(p.tipo, p.plataforma);
+                    const doneCl = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
+                    const pct = Math.round((doneCl.length/clItems.length)*100);
+                    return (
+                      <div key={p.id} style={{...card,padding:"16px 18px",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:pct<100?10:0,flexWrap:"wrap"}}>
+                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"2px 10px",fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,flexShrink:0}}>{p.tipo}</span>
+                          <span style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title||"Sem episódio"}{(p.titulo_yt||p.notas)?` · ${p.titulo_yt||p.notas}`:""}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{platIcons} {plats.join(" · ")}</span>
+                          <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:11,color:pct===100?"#10B981":MUTED,flexShrink:0}}>{doneCl.length}/{clItems.length}</span>
+                          <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:plats});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}}>✏️</button>
+                        </div>
+                        <div style={{background:"#0A1F30",borderRadius:4,height:4,overflow:"hidden",marginBottom:8}}>
+                          <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:5}}>
+                          {clItems.map(item => {
+                            const isDone = doneCl.includes(item.key);
+                            return (
+                              <div key={item.key} onClick={()=>{
+                                const next = isDone?doneCl.filter(c=>c!==item.key):[...doneCl,item.key];
+                                saveCorteChecklist(p.id, next);
+                              }} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",background:isDone?"rgba(16,185,129,0.08)":"rgba(27,104,150,0.05)",borderRadius:5,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.2)":BORDER}`}}>
+                                <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${isDone?"#10B981":BORDER}`,background:isDone?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                  {isDone && <span style={{color:"#fff",fontSize:8}}>✓</span>}
+                                </div>
+                                <span style={{fontFamily:"'DM Sans'",fontSize:11,color:isDone?MUTED:TEXT,textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+          </div>
+        )}
+
+        {/* TAB 4: ESTATÍSTICAS */}
+        {activeTab===4 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
+            {(() => {
+              const allEpLinks = episodes.flatMap(e=>(e.links||[]));
+              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
+              const socialViews = allEpLinks.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts"||l.plataforma==="YT Shorts").reduce((s,l)=>s+(l.views||0),0);
+              const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
+              return (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:12,marginBottom:28}}>
+                  {[
+                    {key:"gravados",   label:"Episódios Gravados",    value:gravados,                                                                    color:ACCENT},
+                    {key:"publicados", label:"Episódios Publicados",  value:publishedEps.length,                                                         color:"#10B981"},
+                    {key:"cortes",     label:"Cortes Publicados",     value:postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length,           color:ACCENT},
+                    {key:"tierlists",  label:"Tier Lists Publicadas", value:postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length,       color:"#F59E0B"},
+                  ].map(item=>(
+                    <div key={item.key} onClick={()=>setStatsModal(item.key)} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=item.color} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{item.label}</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:item.color}}>{item.value}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:4}}>clique para ver</div>
+                    </div>
+                  ))}
+                  <div onClick={()=>setViewsModal("yt")} style={{background:CARD,border:"1px solid rgba(255,0,0,0.3)",borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#FF0000"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,0,0,0.3)"}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Views YouTube</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:"#FF0000"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:4}}>clique para detalhar</div>
+                  </div>
+                  <div onClick={()=>setViewsModal("social")} style={{background:CARD,border:"1px solid rgba(193,53,132,0.3)",borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#C13584"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(193,53,132,0.3)"}>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Views Redes Sociais</div>
+                    <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:"#C13584"}}>{socialViews>0?socialViews.toLocaleString("pt-BR"):"0"}</div>
+                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,marginTop:4}}>clique para detalhar</div>
+                  </div>
+                  <StatCard label="Investimento Total" value={totalInvestido>0?`R$ ${totalInvestido.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"R$ 0"} color="#F59E0B" />
+                </div>
+              );
+            })()}
+            {(() => {
+              const PLATS5 = Object.entries(PLAT_CONFIG).map(([key,v])=>({key,color:v.color,icon:v.icon}));
+              const epData = [...episodes].filter(e=>(e.links||[]).some(l=>l.views>0)).map(ep => {
+                const links = ep.links || [];
+                const byPlat = {};
+                PLATS5.forEach(p => { byPlat[p.key] = links.filter(l=>l.plataforma===p.key).reduce((s,l)=>s+(l.views||0),0); });
+                const total = Object.values(byPlat).reduce((s,v)=>s+v,0);
+                return { id:ep.id, title:ep.title, byPlat, total };
+              }).filter(e=>e.total>0).sort((a,b)=>epNum(a.title)-epNum(b.title));
+              if (!epData.length) return null;
+              const maxPerPlat = {};
+              PLATS5.forEach(p=>{ maxPerPlat[p.key] = Math.max(...epData.map(e=>e.byPlat[p.key]||0), 1); });
+              const globalMax = Math.max(...epData.flatMap(e=>PLATS5.map(p=>e.byPlat[p.key]||0)), 1);
+              return (
+                <div style={{...card,padding:20,marginBottom:20}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                    <div style={{fontSize:16,letterSpacing:2}}>📊 VIEWS POR EPISÓDIO</div>
+                  </div>
+                  <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+                    {PLATS5.map(p=>(
+                      <div key={p.key} style={{display:"flex",alignItems:"center",gap:5,fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:p.color}}/>{p.key}
+                      </div>
+                    ))}
+                  </div>
+                  {epData.map(ep=>(
+                    <div key={ep.id} style={{marginBottom:18}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,color:TEXT}}>{ep.title}</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} views</div>
+                      </div>
+                      {PLATS5.filter(p=>ep.byPlat[p.key]>0).map(p=>{
+                        const pct = Math.round((ep.byPlat[p.key]/Math.max(...PLATS5.map(p2=>ep.byPlat[p2.key]||0),1))*100);
+                        return (
+                          <div key={p.key} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,flexShrink:0}}>{p.icon} {p.key}</div>
+                            <div style={{flex:1,background:"#0A1F30",borderRadius:3,height:7,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,transition:"width .4s"}}/>
+                            </div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,textAlign:"right",flexShrink:0,fontWeight:600}}>{ep.byPlat[p.key].toLocaleString("pt-BR")}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+              <div style={{...card,padding:20,marginBottom:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontSize:15,letterSpacing:2}}>👥 CONVIDADOS</div>
+                  {convidadoRanking.length>5 && <button onClick={()=>setShowAllConvidados(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllConvidados?"▲":"▼ todos"}</button>}
+                </div>
+                {convidadoRanking.length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum convidado ainda</div>
+                  : (showAllConvidados?convidadoRanking:convidadoRanking.slice(0,5)).map(([nome,count],i)=>(
+                    <div key={nome} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <span style={{color:MUTED,fontSize:10,width:16}}>{i+1}.</span>
+                        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}}>{nome}</span>
+                      </div>
+                      <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:600}}>{count}x</span>
+                    </div>
+                  ))}
+              </div>
+              <div style={{...card,padding:20,marginBottom:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div style={{fontSize:15,letterSpacing:2}}>📊 VIEWS</div>
+                  {postagens.filter(p=>p.views>0).length>5 && <button onClick={()=>setShowAllViews(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllViews?"▲":"▼ todos"}</button>}
+                </div>
+                {postagens.filter(p=>p.views>0).length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda</div>
+                  : (showAllViews?[...postagens]:[...postagens].slice(0,5)).filter(p=>p.views>0).sort((a,b)=>b.views-a.views).map((p,i)=>{
+                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                    const icon = p.link?.includes("youtu")?"▶":p.link?.includes("instagram")?"📸":"🎵";
+                    return (
+                      <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
+                        <div style={{display:"flex",gap:8,alignItems:"center",flex:1,minWidth:0}}>
+                          <span style={{color:MUTED,fontSize:10,width:16,flexShrink:0}}>{i+1}.</span>
+                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{p.episodio_title||"—"}</span>
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                          <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{p.views.toLocaleString("pt-BR")}</span>
+                          {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{icon}</a>}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            <div style={{...card,padding:16,marginBottom:20}}>
+              <div style={{fontSize:14,letterSpacing:2,marginBottom:12}}>🎮 GAMES USADOS</div>
+              {Object.entries(gameCount).length===0
+                ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum game usado ainda</div>
+                : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{Object.entries(gameCount).sort((a,b)=>b[1]-a[1]).map(([nome,count])=>(
+                  <span key={nome} style={{background:"rgba(27,104,150,0.15)",border:`1px solid ${BORDER}`,borderRadius:6,padding:"4px 10px",fontFamily:"'DM Sans'",fontSize:12}}>{nome} <span style={{color:ACCENT,fontWeight:600}}>{count}x</span></span>
+                ))}</div>}
+            </div>
+            <div style={{fontSize:16,letterSpacing:2,marginBottom:8}}>📈 PERFORMANCE POR EPISÓDIO</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginBottom:14}}>Clica para adicionar investimento e links</div>
+            {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=>(
+              <div key={ep.id} className="stat-ep" onClick={()=>openStats(ep)} style={{...card,display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:16,alignItems:"center"}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                    <div style={{fontSize:15,letterSpacing:1}}>{ep.title}</div>
+                    {ep.drive_link && <a href={ep.drive_link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981",textDecoration:"none"}} onClick={e=>e.stopPropagation()}>📁 Drive</a>}
+                  </div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>Investimento</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.investimento>0?"#F59E0B":MUTED}}>{ep.investimento>0?`R$ ${ep.investimento.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"—"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>ROI</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:ep.roi>0?"#10B981":MUTED}}>{ep.roi>0?`${ep.roi}%`:"—"}</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={lbl}>Posts</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:14,color:postagens.filter(p=>p.episodio_id===ep.id).length>0?ACCENT:MUTED}}>{postagens.filter(p=>p.episodio_id===ep.id).length}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        )}
+
+        {/* TAB 5: BANCO DE IDEIAS */}
+        {activeTab===5 && (
+          <div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>💡 BANCO DE IDEIAS</div>
+            {/* EQUIPE */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>👥 EQUIPE <span style={{color:BL}}>({equipe.length})</span></div>
+                <button style={{...btnGhost,fontSize:11,padding:"5px 12px"}} onClick={()=>setAddingMembro(!addingMembro)}>+ Membro</button>
+              </div>
+              {addingMembro && (
+                <div style={{display:"flex",gap:8,marginBottom:12}}>
+                  <input value={newMembro.nome} onChange={e=>setNewMembro({...newMembro,nome:e.target.value})} placeholder="Nome *" style={{...inp,flex:1}} />
+                  <input value={newMembro.funcao} onChange={e=>setNewMembro({...newMembro,funcao:e.target.value})} placeholder="Função (ex: Editor)" style={{...inp,flex:1}} />
+                  <button style={btnBlue} onClick={addMembro}>+ ADD</button>
+                  <button style={btnGhost} onClick={()=>setAddingMembro(false)}>✕</button>
+                </div>
+              )}
+              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {equipe.map(m=>(
+                  <div key={m.id} className="bi" style={{background:"rgba(27,104,150,0.1)",border:`1px solid ${BORDER}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}>
+                    <div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{m.nome}</div>
+                      {m.funcao && <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{m.funcao}</div>}
+                    </div>
+                    <button className="xb" onClick={()=>removeMembro(m.id)} style={{...btnGhost,padding:"2px 6px",fontSize:10,color:BL}}>✕</button>
+                  </div>
+                ))}
+                {equipe.length===0 && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum membro cadastrado ainda</div>}
+              </div>
+            </div>
+            {/* CONVIDADOS */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>🎤 CONVIDADOS <span style={{color:BL}}>({convidados.length})</span></div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={convSearch} onChange={e=>setConvSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
+                  <button style={btnBlue} onClick={addConvidado}>+ ADD</button>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <input value={newConvidado} onChange={e=>setNewConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidado()} placeholder="Nome do convidado..." style={{...inp,flex:1}} />
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
+                {sortedConvidados.map(c=>(
+                  <div key={c.id} className="bi" style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BORDER}`,borderRadius:7,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontFamily:"'DM Sans'",fontSize:12}}>👤 {c.nome}</span>
+                    <button className="xb" onClick={()=>removeConvidado(c.id)} style={{...btnGhost,padding:"2px 7px",fontSize:11,color:BL}}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* TIER LISTS */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>🏆 TIER LISTS <span style={{color:BL}}>({tierLists.length})</span></div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={tierSearch} onChange={e=>setTierSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
+                  <select value={tierSort} onChange={e=>setTierSort(e.target.value)} style={{...inp,width:"auto"}}>
+                    <option value="az">A → Z</option><option value="za">Z → A</option><option value="stars_desc">★ Top</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <input value={newTierList} onChange={e=>setNewTierList(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTierList()} placeholder="Nova tier list..." style={{...inp,flex:1}} />
+                <button style={btnBlue} onClick={addTierList}>+ ADD</button>
+              </div>
+              {sortedTierLists.map(tl=>(
+                <div key={tl.id} className="bi" style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BORDER}`,borderRadius:7,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:6}}>
+                  <span style={{fontFamily:"'DM Sans'",fontSize:13,flex:1}}>🏆 {tl.nome}</span>
+                  <Stars value={tl.estrelas||0} onChange={v=>updateTierStars(tl.id,v)} />
+                  <button className="xb" onClick={()=>removeTierList(tl.id)} style={{...btnGhost,padding:"3px 9px",fontSize:11,color:BL}}>✕</button>
+                </div>
+              ))}
+            </div>
+            {/* PAUTAS */}
+            <div style={{...card,padding:20,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>💬 PAUTAS & DEBATES <span style={{color:BL}}>({pautas.length})</span></div>
+              </div>
+              <div style={{display:"grid",gap:8,marginBottom:12}}>
+                <input value={newPauta.titulo} onChange={e=>setNewPauta({...newPauta,titulo:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addPauta()} placeholder="Tema do debate..." style={inp} />
+                <div style={{display:"flex",gap:8}}>
+                  <input value={newPauta.descricao} onChange={e=>setNewPauta({...newPauta,descricao:e.target.value})} placeholder="Descrição (opcional)..." style={{...inp,flex:1}} />
+                  <button style={btnBlue} onClick={addPauta}>+ ADD</button>
+                </div>
+              </div>
+              {pautas.map(p=>(
+                <div key={p.id} style={{background:p.usado?"rgba(16,185,129,0.06)":"rgba(27,104,150,0.08)",border:`1px solid ${p.usado?"rgba(16,185,129,0.2)":BORDER}`,borderRadius:7,padding:"10px 14px",marginBottom:6}}>
+                  {editingPauta?.id===p.id ? (
+                    <div style={{display:"grid",gap:8}}>
+                      <input value={editingPauta.titulo} onChange={e=>setEditingPauta({...editingPauta,titulo:e.target.value})} style={inp} />
+                      <input value={editingPauta.descricao} onChange={e=>setEditingPauta({...editingPauta,descricao:e.target.value})} placeholder="Descrição..." style={inp} />
+                      <div style={{display:"flex",gap:8}}>
+                        <button style={btnBlue} onClick={savePauta}>💾 SALVAR</button>
+                        <button style={btnGhost} onClick={()=>setEditingPauta(null)}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:13,color:p.usado?MUTED:TEXT,textDecoration:p.usado?"line-through":"none"}}>{p.titulo}</div>
+                        {p.descricao && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{p.descricao}</div>}
+                      </div>
+                      <Stars value={p.estrelas||0} onChange={v=>updatePautaStars(p.id,v)} />
+                      <button onClick={()=>setEditingPauta({...p})} style={{...btnGhost,padding:"2px 8px",fontSize:10}}>✏️</button>
+                      <button onClick={()=>togglePautaUsado(p.id,!p.usado)} style={{...btnGhost,padding:"2px 8px",fontSize:10,color:p.usado?"#10B981":MUTED}}>{p.usado?"✓ usado":"usar"}</button>
+                      <button onClick={()=>removePauta(p.id)} style={{...btnGhost,padding:"2px 7px",fontSize:10,color:BL}}>✕</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* GAMES */}
+            <div style={{...card,padding:20}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:16,letterSpacing:2}}>🎮 GAMES <span style={{color:BL}}>({games.length})</span></div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={gameSearch} onChange={e=>setGameSearch(e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:160}} />
+                  <select value={gameSort} onChange={e=>setGameSort(e.target.value)} style={{...inp,width:"auto"}}>
+                    <option value="az">A → Z</option><option value="za">Z → A</option><option value="stars_desc">★ Top</option>
+                  </select>
+                  <button style={btnBlue} onClick={()=>setAddingGame(!addingGame)}>+ ADD</button>
+                </div>
+              </div>
+              {addingGame && (
+                <div style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${BL}`,borderRadius:8,padding:16,marginBottom:14}}>
+                  <div style={{display:"grid",gap:10}}>
+                    <input value={newGame.nome} onChange={e=>setNewGame({...newGame,nome:e.target.value})} placeholder="Nome *" style={inp} />
+                    <textarea value={newGame.descricao} onChange={e=>setNewGame({...newGame,descricao:e.target.value})} placeholder="Como funciona..." style={{...inp,minHeight:60,resize:"vertical"}} />
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                      <input value={newGame.jogadores} onChange={e=>setNewGame({...newGame,jogadores:e.target.value})} placeholder="Jogadores" style={inp} />
+                      <input value={newGame.duracao} onChange={e=>setNewGame({...newGame,duracao:e.target.value})} placeholder="Duração" style={inp} />
+                      <select value={newGame.dificuldade} onChange={e=>setNewGame({...newGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
+                    </div>
+                    <textarea value={newGame.ideias} onChange={e=>setNewGame({...newGame,ideias:e.target.value})} placeholder="Ideias de variações..." style={{...inp,minHeight:50,resize:"vertical"}} />
+                    <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{...lbl,margin:0}}>Estrelas</span><Stars value={newGame.estrelas} onChange={v=>setNewGame({...newGame,estrelas:v})} /></div>
+                    <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={addGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setAddingGame(false)}>Cancelar</button></div>
+                  </div>
+                </div>
+              )}
+              {sortedGames.map(g=>{
+                const dc={Fácil:"#10B981",Médio:"#F59E0B",Difícil:"#EF4444"};
+                const isOpen=expandedGame===g.id, isEditing=editingGame?.id===g.id;
+                return (
+                  <div key={g.id} style={{background:"rgba(27,104,150,0.08)",border:`1px solid ${isOpen?BL:BORDER}`,borderRadius:8,overflow:"hidden",marginBottom:6}}>
+                    <div onClick={()=>!isEditing&&setExpandedGame(isOpen?null:g.id)} style={{padding:"11px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:18}}>🎮</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,letterSpacing:1}}>{g.nome}</div>
+                        {!isOpen && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>{g.descricao?.slice(0,60)}…</div>}
+                      </div>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <Stars value={g.estrelas||0} onChange={v=>updateGameStars(g.id,v)} readonly={!isOpen} />
+                        {g.jogadores && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>👥{g.jogadores}</span>}
+                        <span style={{background:`${dc[g.dificuldade]||"#888"}22`,color:dc[g.dificuldade]||"#888",borderRadius:4,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{g.dificuldade}</span>
+                        <span style={{color:MUTED,fontSize:10}}>{isOpen?"▲":"▼"}</span>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div style={{padding:"0 14px 14px",borderTop:`1px solid ${BORDER}`}}>
+                        {isEditing ? (
+                          <div style={{paddingTop:10,display:"grid",gap:8}}>
+                            <input value={editingGame.nome} onChange={e=>setEditingGame({...editingGame,nome:e.target.value})} style={inp} />
+                            <textarea value={editingGame.descricao} onChange={e=>setEditingGame({...editingGame,descricao:e.target.value})} style={{...inp,minHeight:60,resize:"vertical"}} />
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                              <input value={editingGame.jogadores} onChange={e=>setEditingGame({...editingGame,jogadores:e.target.value})} placeholder="Jogadores" style={inp} />
+                              <input value={editingGame.duracao} onChange={e=>setEditingGame({...editingGame,duracao:e.target.value})} placeholder="Duração" style={inp} />
+                              <select value={editingGame.dificuldade} onChange={e=>setEditingGame({...editingGame,dificuldade:e.target.value})} style={inp}><option>Fácil</option><option>Médio</option><option>Difícil</option></select>
+                            </div>
+                            <textarea value={editingGame.ideias} onChange={e=>setEditingGame({...editingGame,ideias:e.target.value})} style={{...inp,minHeight:50,resize:"vertical"}} />
+                            <div style={{display:"flex",gap:8}}><button style={btnBlue} onClick={saveGame}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setEditingGame(null)}>Cancelar</button></div>
+                          </div>
+                        ) : (
+                          <div style={{paddingTop:10,display:"grid",gap:10}}>
+                            <div><div style={lbl}>Como funciona</div><div style={{...val,fontSize:12,lineHeight:1.6}}>{g.descricao}</div></div>
+                            {g.ideias && <div><div style={lbl}>💡 Variações</div><div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,lineHeight:1.6}}>{g.ideias}</div></div>}
+                            <div style={{display:"flex",gap:8}}>
+                              <button style={{...btnBlue,fontSize:11}} onClick={()=>setEditingGame({...g})}>✏️ EDITAR</button>
+                              <button onClick={()=>removeGame(g.id)} style={{...btnGhost,fontSize:11}}>🗑 Remover</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+
+      {/* MODAL STATS DETALHE */}
+      {statsModal && (
+        <div onClick={e=>e.target===e.currentTarget&&setStatsModal(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:560,maxHeight:"85vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:20,letterSpacing:2}}>
+                {statsModal==="gravados"&&"🎙 EPISÓDIOS GRAVADOS"}
+                {statsModal==="publicados"&&"✅ EPISÓDIOS PUBLICADOS"}
+                {statsModal==="cortes"&&"✂️ CORTES PUBLICADOS"}
+                {statsModal==="tierlists"&&"🏆 TIER LISTS PUBLICADAS"}
+              </div>
+              <button onClick={()=>setStatsModal(null)} style={btnGhost}>✕</button>
+            </div>
+            {(statsModal==="gravados"||statsModal==="publicados") && (
+              <div>
+                {[...episodes].filter(e=>statsModal==="gravados"?(["gravado","editado","publicado"].includes(e.status)||e.retroativo):e.status==="publicado").sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=>{
+                  const sc=STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
+                  return (
+                    <div key={ep.id} onClick={()=>{openEp(ep);setStatsModal(null);setActiveTab(1);}} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:TEXT}}>{ep.title}</div>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{ep.convidados?.join(", ")||"Sem convidados"}</div>
+                      </div>
+                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600}}>{sc.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {(statsModal==="cortes"||statsModal==="tierlists") && (
+              <div>
+                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).sort((a,b)=>(a.data||"").localeCompare(b.data||"")).map(p=>{
+                  const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
+                  const platIcons = plats.map(pl=>platCfg(pl).icon).join(" ");
+                  return (
+                    <div key={p.id} style={{padding:"10px 0",borderBottom:`1px solid ${BORDER}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:3}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,flex:1}}>{p.titulo_yt||p.notas||"Sem título"}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{platIcons}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{p.data?new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):""}</span>
+                      </div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginBottom:3}}>{p.episodio_title||""}</div>
+                      {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none"}}>{p.link}</a>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VIEWS DETALHE */}
+      {viewsModal && (
+        <div onClick={e=>e.target===e.currentTarget&&setViewsModal(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:540,maxHeight:"85vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:20,letterSpacing:2}}>{viewsModal==="yt"?"▶ VIEWS YOUTUBE":"📱 VIEWS REDES SOCIAIS"}</div>
+              <button onClick={()=>setViewsModal(null)} style={btnGhost}>✕</button>
+            </div>
+            {(() => {
+              const platFilter = viewsModal==="yt" ? l=>l.plataforma==="YouTube" : l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts";
+              const epData = episodes.map(ep=>({ep,links:(ep.links||[]).filter(platFilter).filter(l=>l.views>0)})).filter(d=>d.links.length>0).sort((a,b)=>b.links.reduce((s,l)=>s+(l.views||0),0)-a.links.reduce((s,l)=>s+(l.views||0),0));
+              if (!epData.length) return <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum view registrado ainda.</div>;
+              return epData.map(({ep,links})=>{
+                const total = links.reduce((s,l)=>s+(l.views||0),0);
+                return (
+                  <div key={ep.id} style={{marginBottom:16,paddingBottom:16,borderBottom:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT}}>{ep.title}</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:16,color:viewsModal==="yt"?"#FF0000":"#C13584"}}>{total.toLocaleString("pt-BR")}</div>
+                    </div>
+                    {links.map((l,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid rgba(27,104,150,0.1)`}}>
+                        <span style={{color:platCfg(l.plataforma).color,fontSize:14,flexShrink:0}}>{platCfg(l.plataforma).icon}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0,minWidth:70}}>{l.plataforma}</span>
+                        <a href={l.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.url||"Sem link"}</a>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,fontWeight:600,flexShrink:0}}>{(l.views||0).toLocaleString("pt-BR")}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* CRONÔMETRO FLUTUANTE */}
+      {cronoOpen && cronoEpId && (()=>{const cronoEp=episodes.find(e=>e.id===cronoEpId)||{id:cronoEpId,title:"Episódio",cortes_gravacao:[]};return (
+        <div
+          ref={widgetRef}
+          style={{
+            position:"fixed",
+            right: cronoPos.x !== null ? "auto" : 24,
+            bottom: cronoPos.y !== null ? "auto" : 24,
+            left: cronoPos.x !== null ? cronoPos.x : "auto",
+            top: cronoPos.y !== null ? cronoPos.y : "auto",
+            width:420,
+            height: cronoHeight ? cronoHeight : "auto",
+            background:"#0A1F30",
+            border:`1px solid ${BORDER2}`,
+            borderRadius:12,
+            boxShadow:"0 8px 32px rgba(0,0,0,0.6)",
+            zIndex:200,
+            overflow:"hidden",
+            display:"flex",
+            flexDirection:"column",
+          }}>
+          {/* Header arrastável */}
+          <div
+            onMouseDown={e=>{
+              const el = widgetRef.current;
+              const rect = el.getBoundingClientRect();
+              const offX = e.clientX - rect.left;
+              const offY = e.clientY - rect.top;
+              const onMove = mv => setCronoPos({x: mv.clientX - offX, y: mv.clientY - offY});
+              const onUp = () => { document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); };
+              document.addEventListener("mousemove",onMove);
+              document.addEventListener("mouseup",onUp);
+            }}
+            style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(27,104,150,0.2)",cursor:"grab",borderBottom:`1px solid ${BORDER}`}}>
+            <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:ACCENT}}>🎙 {cronoEp.title}</div>
+            <button onClick={()=>{setCronoOpen(false);cronoPause();setCronoPos({x:null,y:null});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16}}>✕</button>
+          </div>
+          {/* Cronômetro */}
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontFamily:"'Bebas Neue'",fontSize:40,letterSpacing:3,color:cronoEpId===cronoEp.id?ACCENT:MUTED}}>
+                {cronoFmt(cronoEpId===cronoEp.id?cronoTime:0)}
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                {cronoEpId===cronoEp.id&&cronoRunning
+                  ? <button onClick={cronoPause} style={{...btnGhost,padding:"5px 10px",fontSize:11}}>⏸</button>
+                  : <button onClick={()=>cronoStart(cronoEp.id)} style={{...btnBlue,padding:"5px 10px",fontSize:11}}>▶</button>
+                }
+                <button onClick={()=>cronoReset(cronoEp.id)} style={{...btnGhost,padding:"5px 8px",fontSize:11}}>↺</button>
+              </div>
+            </div>
+            <button onClick={()=>marcarCorte(cronoEp)} disabled={cronoEpId!==cronoEp.id||cronoTime===0} style={{width:"100%",background:cronoEpId===cronoEp.id&&cronoTime>0?"#EF4444":"#1A3A50",color:"#fff",border:"none",borderRadius:6,padding:"8px 0",cursor:cronoEpId===cronoEp.id&&cronoTime>0?"pointer":"not-allowed",fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,marginBottom:10}}>
+              ✂️ MARCAR CORTE
+            </button>
+            {cronoNotaAtiva&&cronoEpId===cronoEp.id && (
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10}}>
+                <div style={{background:"#EF444422",border:"1px solid #EF4444",borderRadius:4,padding:"2px 8px",fontFamily:"'Bebas Neue'",fontSize:12,color:"#EF4444",flexShrink:0}}>{cronoNotaAtiva.timeStr}</div>
+                <input value={cronoNotaAtiva.nota} onChange={e=>setCronoNotaAtiva({...cronoNotaAtiva,nota:e.target.value})} onKeyDown={e=>e.key==="Enter"&&salvarCorte(cronoEp)} placeholder="Nome do corte... (Enter)" style={{...inp,flex:1,fontSize:12,padding:"5px 8px"}} autoFocus />
+                <button onClick={()=>salvarCorte(cronoEp)} style={{...btnBlue,padding:"5px 8px",fontSize:11}}>💾</button>
+                <button onClick={()=>setCronoNotaAtiva(null)} style={{...btnGhost,padding:"5px 6px",fontSize:11}}>✕</button>
+              </div>
+            )}
+            {/* Lista cortes */}
+            {(cronoEp.cortes_gravacao||[]).length>0 && (
+              <div style={{flex:1,overflowY:cronoHeight?"auto":"visible",minHeight:0}}>
+                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes ({cronoEp.cortes_gravacao.length})</div>
+                {[...cronoEp.cortes_gravacao].reverse().map(c=>(
+                  <div key={c.id} style={{padding:"7px 0",borderBottom:`1px solid ${BORDER}`}}>
+                    {editingCorteId===c.id ? (
+                      <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0,minWidth:52}}>{c.timeStr}</span>
+                        <input value={editingCorteNota} onChange={e=>setEditingCorteNota(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){editarCorte(cronoEp,c.id,editingCorteNota);setEditingCorteId(null);}if(e.key==="Escape")setEditingCorteId(null);}} style={{...inp,flex:1,fontSize:13,padding:"4px 8px"}} autoFocus />
+                        <button onClick={()=>{editarCorte(cronoEp,c.id,editingCorteNota);setEditingCorteId(null);}} style={{...btnBlue,padding:"4px 8px",fontSize:11}}>✓</button>
+                        <button onClick={()=>setEditingCorteId(null)} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0,minWidth:52}}>{c.timeStr}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,flex:1,cursor:"pointer",lineHeight:1.4}} onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}}>{c.nota||<span style={{color:MUTED}}>clique para nomear</span>}</span>
+                        <button onClick={()=>{setEditingCorteId(c.id);setEditingCorteNota(c.nota||"");}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,flexShrink:0}}>✏️</button>
+                        <button onClick={()=>deletarCorte(cronoEp,c.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:13,flexShrink:0}}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:8,textAlign:"center",paddingBottom:4}}>Espaço = pausar · C = corte · arraste para mover</div>
+          </div>
+          {/* Resize handle - arrasta para redimensionar altura */}
+          <div
+            onMouseDown={e=>{
+              e.preventDefault();
+              const startY = e.clientY;
+              const startH = widgetRef.current?.getBoundingClientRect().height || 400;
+              const onMove = mv => setCronoHeight(Math.max(300, startH + (mv.clientY - startY)));
+              const onUp = () => { document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); };
+              document.addEventListener("mousemove",onMove);
+              document.addEventListener("mouseup",onUp);
+            }}
+            style={{height:8,background:"rgba(27,104,150,0.3)",cursor:"ns-resize",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}
+          >
+            <div style={{width:32,height:3,borderRadius:2,background:"rgba(27,104,150,0.6)"}}/>
+          </div>
+        </div>
+      );})()}
+
+      {/* MODAL EPISÓDIO */}
+      {selectedEp&&editData&&(
+        <div onClick={e=>e.target===e.currentTarget&&(setSelectedEp(null),setEditMode(false))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:660,maxHeight:"90vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              {editMode?<input value={editData.title} onChange={e=>setEditData({...editData,title:e.target.value})} style={{...inp,fontSize:19,letterSpacing:2,background:"transparent",border:"none",borderBottom:`1px solid ${BL}`,borderRadius:0,padding:"3px 0",fontFamily:"'Bebas Neue'",width:"60%"}}/>:<div style={{fontSize:21,letterSpacing:2}}>{selectedEp.title}</div>}
+              <div style={{display:"flex",gap:8}}>
+                {!editMode&&<button style={btnBlue} onClick={()=>setEditMode(true)}>✏️ EDITAR</button>}
+                {editMode&&<><button style={btnBlue} onClick={saveEp}>💾 SALVAR</button><button style={btnGhost} onClick={()=>{setEditData({...selectedEp,convidados:selectedEp.convidados||[]});setEditMode(false);}}>Cancelar</button></>}
+                <button style={btnGhost} onClick={()=>{setSelectedEp(null);setEditMode(false);}}>✕</button>
+              </div>
+            </div>
+            {/* Status gravação */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Status de Gravação</div>
+              {editMode?<select value={editData.status||"planejado"} onChange={e=>setEditData({...editData,status:e.target.value})} style={inp}>{Object.entries(STATUS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>:<span style={{background:STATUS_CONFIG[selectedEp.status]?.bg,color:STATUS_CONFIG[selectedEp.status]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_CONFIG[selectedEp.status||"planejado"]?.label}</span>}
+            </div>
+            {/* Convidados */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Convidados</div>
+              {editMode?(
+                <div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+                    {(editData.convidados||[]).map((c,i)=><span key={i} className="tag">{c} <span onClick={()=>setEditData({...editData,convidados:editData.convidados.filter((_,j)=>j!==i)})} style={{cursor:"pointer",marginLeft:4}}>✕</span></span>)}
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <select onChange={e=>{if(e.target.value){setEditData({...editData,convidados:[...(editData.convidados||[]),e.target.value]});e.target.value="";}}} style={{...inp,flex:1}}>
+                      <option value="">Selecionar do banco...</option>
+                      {convidados.filter(c=>!(editData.convidados||[]).includes(c.nome)).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    <input value={newEpConvidado} onChange={e=>setNewEpConvidado(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addConvidadoInEp()} placeholder="Ou digita novo convidado..." style={{...inp,flex:1}} />
+                    <button style={btnBlue} onClick={addConvidadoInEp}>+ ADD</button>
+                  </div>
+                </div>
+              ):<div style={val}>{selectedEp.convidados?.join(", ")||<span style={{color:"#1A3A50"}}>Sem convidados</span>}</div>}
+            </div>
+            {/* Tier List */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Tema Tier List</div>
+              {editMode?(
+                <div>
+                  <div style={{display:"flex",gap:8,marginBottom:8}}>
+                    <select onChange={e=>{if(e.target.value){setEditData({...editData,tier_list:e.target.value});e.target.value="";}}} style={{...inp,flex:1}}>
+                      <option value="">Selecionar do banco...</option>
+                      {tierLists.map(t=><option key={t.id} value={t.nome}>{t.nome}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <input value={editData.tier_list||""} onChange={e=>setEditData({...editData,tier_list:e.target.value})} placeholder="Ou digita manualmente..." style={{...inp,flex:1}} />
+                    <button style={btnBlue} onClick={addTierInEp}>+ ADD</button>
+                  </div>
+                </div>
+              ):<div style={val}>{selectedEp.tier_list||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+            </div>
+            {/* Debate */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Tema do Debate</div>
+              {editMode ? (
+                <div>
+                  {pautas.filter(p=>!p.usado).length>0 && (
+                    <select onChange={e=>{if(e.target.value){setEditData({...editData,debate:e.target.value});e.target.value="";}}} style={{...inp,marginBottom:8}}>
+                      <option value="">Selecionar do banco de ideias...</option>
+                      {pautas.filter(p=>!p.usado).sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).map(p=><option key={p.id} value={p.titulo}>{p.estrelas?"★".repeat(p.estrelas)+" ":""}{p.titulo}</option>)}
+                    </select>
+                  )}
+                  <input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={inp} placeholder="Ou digita o tema..."/>
+                </div>
+              ) : <div style={val}>{selectedEp.debate||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+            </div>
+            {/* Game */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Game</div>
+              {editMode?<select value={editData.game||""} onChange={e=>setEditData({...editData,game:e.target.value})} style={inp}><option value="">Selecionar game...</option>{games.map(g=><option key={g.id} value={g.nome}>{g.nome}</option>)}</select>:<div style={val}>{selectedEp.game||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
+            </div>
+            {/* Gravação */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Gravação</div>
+              {editMode?(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <input type="date" value={editData.gravacao_data||""} onChange={e=>setEditData({...editData,gravacao_data:e.target.value})} style={inp} />
+                  <input type="time" value={editData.gravacao_horario||""} onChange={e=>setEditData({...editData,gravacao_horario:e.target.value})} style={inp} />
+                  <input value={editData.gravacao_duracao||""} onChange={e=>setEditData({...editData,gravacao_duracao:e.target.value})} style={inp} placeholder="Duração" />
+                </div>
+              ):<div style={val}>{selectedEp.gravacao_data?`${new Date(selectedEp.gravacao_data+"T12:00:00").toLocaleDateString("pt-BR")} ${selectedEp.gravacao_horario||""}`:""}{selectedEp.gravacao_duracao?` · ${selectedEp.gravacao_duracao}`:""}</div>}
+            </div>
+            {/* Retroativo */}
+            {editMode && (
+              <div style={{marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+                <input type="checkbox" id="retro" checked={editData.retroativo||false} onChange={e=>setEditData({...editData,retroativo:e.target.checked})} />
+                <label htmlFor="retro" style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,cursor:"pointer"}}>Episódio Retroativo</label>
+              </div>
+            )}
+            {/* Pauta */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>📋 Pauta do Episódio</div>
+              {editMode ? (
+                <textarea value={editData.pauta||""} onChange={e=>setEditData({...editData,pauta:e.target.value})} style={{...inp,minHeight:200,resize:"vertical",lineHeight:1.7}} placeholder="Cole a pauta aqui... parágrafos serão preservados."/>
+              ) : selectedEp.pauta
+                ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,lineHeight:1.8,whiteSpace:"pre-wrap",background:"rgba(27,104,150,0.06)",borderRadius:8,padding:"14px 16px",border:`1px solid ${BORDER}`}}>{selectedEp.pauta}</div>
+                : <span style={{color:"#1A3A50",fontFamily:"'DM Sans'",fontSize:13}}>Sem pauta</span>}
+            </div>
+            {/* Notas */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>Notas</div>
+              {editMode?<textarea value={editData.notas||""} onChange={e=>setEditData({...editData,notas:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}} placeholder="Observações..."/>:<div style={val}>{selectedEp.notas||<span style={{color:"#1A3A50"}}>Sem notas</span>}</div>}
+            </div>
+            {/* Drive */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>📁 Link Google Drive</div>
+              {editMode?<input value={editData.drive_link||""} onChange={e=>setEditData({...editData,drive_link:e.target.value})} style={inp} placeholder="https://drive.google.com/..."/>:<div style={val}>{selectedEp.drive_link?<a href={selectedEp.drive_link} target="_blank" rel="noreferrer" style={{color:"#10B981"}}>📁 Abrir no Drive</a>:<span style={{color:"#1A3A50"}}>Sem link</span>}</div>}
+            </div>
+            {/* Status Edição */}
+            <div style={{marginBottom:16}}>
+              <div style={lbl}>🎬 Status de Edição</div>
+              {editMode?<select value={editData.status_edicao||"pendente"} onChange={e=>setEditData({...editData,status_edicao:e.target.value})} style={inp}>{Object.entries(STATUS_EDICAO_CONFIG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>:<span style={{background:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.bg,color:STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.color,borderRadius:4,padding:"3px 10px",fontFamily:"'DM Sans'",fontSize:12,fontWeight:600}}>{STATUS_EDICAO_CONFIG[selectedEp.status_edicao||"pendente"]?.label}</span>}
+            </div>
+            {/* Checklist */}
+            {!editMode && (
+              <div style={{marginBottom:16}}>
+                <div style={lbl}>✅ Checklist de Produção</div>
+                {CHECKLIST_ITEMS.map(item=>{
+                  const checklist = selectedEp.checklist||[];
+                  const done = checklist.includes(item.key);
+                  return (
+                    <div key={item.key} onClick={()=>{const nl=done?checklist.filter(c=>c!==item.key):[...checklist,item.key];saveChecklist(selectedEp.id,nl);}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:13}}>
+                      <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10B981":BORDER}`,background:done?"#10B981":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        {done && <span style={{color:"#fff",fontSize:11}}>✓</span>}
+                      </div>
+                      <span style={{color:done?MUTED:TEXT,textDecoration:done?"line-through":"none"}}>{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* Comentários */}
+            {!editMode && (
+              <div style={{marginBottom:16}}>
+                <div style={lbl}>💬 Comentários Internos</div>
+                <div style={{maxHeight:200,overflowY:"auto",marginBottom:10}}>
+                  {comentarios.length===0?<div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum comentário ainda</div>:comentarios.map(c=>(
+                    <div key={c.id} style={{background:"rgba(27,104,150,0.08)",borderRadius:7,padding:"8px 12px",marginBottom:6}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,color:ACCENT}}>{c.autor}</span>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{new Date(c.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                          <button onClick={()=>deleteComentario(c.id)} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:10}}>✕</button>
+                        </div>
+                      </div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,lineHeight:1.5}}>{c.texto}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <select value={comentarioAutor} onChange={e=>setComentarioAutor(e.target.value)} style={{...inp,width:"auto",flex:"0 0 140px"}}>
+                    <option value="">Seu nome...</option>
+                    {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                  </select>
+                  <input value={newComentario} onChange={e=>setNewComentario(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addComentario(selectedEp.id)} placeholder="Escrever comentário..." style={{...inp,flex:1}} />
+                  <button style={btnBlue} onClick={()=>addComentario(selectedEp.id)}>Enviar</button>
+                </div>
+              </div>
+            )}
+            {!editMode && <button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ESTATÍSTICAS */}
+      {statsEp&&(
+        <div onClick={e=>e.target===e.currentTarget&&setStatsEp(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div>
+                <div style={{fontSize:19,letterSpacing:2}}>{statsEp.title}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Performance & Financeiro</div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {!statsEditMode&&<button style={{...btnBlue,fontSize:12}} onClick={()=>{setStatsEdit({...statsEp,links:statsEp.links||[]});setStatsEditMode(true);}}>✏️ EDITAR</button>}
+                {statsEditMode&&<><button style={btnBlue} onClick={saveStats}>💾 SALVAR</button><button style={btnGhost} onClick={()=>setStatsEditMode(false)}>Cancelar</button></>}
+                <button style={btnGhost} onClick={()=>setStatsEp(null)}>✕</button>
+              </div>
+            </div>
+            {statsEditMode&&statsEdit?(
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                  <div><div style={lbl}>💰 Investimento (R$)</div><input type="number" value={statsEdit.investimento||0} onChange={e=>setStatsEdit({...statsEdit,investimento:parseFloat(e.target.value)||0})} style={inp} /></div>
+                  <div><div style={lbl}>📈 ROI (%)</div><input type="number" value={statsEdit.roi||0} onChange={e=>setStatsEdit({...statsEdit,roi:parseFloat(e.target.value)||0})} style={inp} /></div>
+                </div>
+                <div style={lbl}>🎬 Links de Cortes</div>
+                {(statsEdit.links||[]).map((link,i)=>(
+                  <div key={i} style={{background:"rgba(27,104,150,0.06)",borderRadius:8,padding:"10px 12px",marginBottom:8,border:`1px solid ${BORDER}`}}>
+                    <div style={{display:"flex",gap:8,marginBottom:6}}>
+                      <select value={link.plataforma||"YT Full"} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],plataforma:e.target.value};setStatsEdit({...statsEdit,links:l});}} style={{...inp,flex:"0 0 130px"}}>
+                        <option>YT Full</option>
+                        <option>YT Corte</option>
+                        <option>YT Tier List</option>
+                        <option>YT Shorts</option>
+                        <option>Instagram</option>
+                        <option>TikTok</option>
+                        <option>Spotify</option>
+                      </select>
+                      <input value={link.titulo||""} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],titulo:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="Título do conteúdo..." style={{...inp,flex:1}} />
+                      <button onClick={()=>{const l=statsEdit.links.filter((_,j)=>j!==i);setStatsEdit({...statsEdit,links:l});}} style={{...btnGhost,padding:"4px 8px",fontSize:11}}>✕</button>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <input value={link.url||""} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],url:e.target.value};setStatsEdit({...statsEdit,links:l});}} placeholder="URL..." style={{...inp,flex:1}} />
+                      <input type="number" value={link.views||0} onChange={e=>{const l=[...statsEdit.links];l[i]={...l[i],views:parseInt(e.target.value)||0};setStatsEdit({...statsEdit,links:l});}} placeholder="Views" style={{...inp,width:110,flex:"0 0 110px"}} />
+                    </div>
+                  </div>
+                ))}
+                <button onClick={()=>setStatsEdit({...statsEdit,links:[...(statsEdit.links||[]),{url:"",plataforma:"YT Full",titulo:"",views:0}]})} style={{...btnGhost,fontSize:11,marginTop:4}}>+ Adicionar link</button>
+              </div>
+            ):(
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+                  <div><div style={lbl}>💰 Investimento (R$)</div><div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:statsEp.investimento>0?"#F59E0B":MUTED}}>{statsEp.investimento>0?`R$ ${statsEp.investimento.toLocaleString("pt-BR",{minimumFractionDigits:0})}`:"—"}</div></div>
+                  <div><div style={lbl}>📈 ROI (%)</div><div style={{fontFamily:"'Bebas Neue'",fontSize:22,color:statsEp.roi>0?"#10B981":MUTED}}>{statsEp.roi>0?`${statsEp.roi}%`:"—"}</div></div>
+                </div>
+                <div style={lbl}>🎬 Links de Cortes</div>
+                {(statsEp.links||[]).map((link,i)=>{
+                  const cfg = platCfg(link.plataforma);
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
+                      <span style={{background:cfg.bg,color:cfg.color,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{cfg.icon} {link.plataforma||"YT"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        {link.url
+                          ? <a href={link.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,textDecoration:"none",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}} onMouseEnter={e=>e.currentTarget.style.color=ACCENT} onMouseLeave={e=>e.currentTarget.style.color=TEXT}>{link.titulo||link.url.slice(0,50)}</a>
+                          : <span style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,fontWeight:600}}>{link.titulo||"Sem título"}</span>
+                        }
+                      </div>
+                      <span style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,fontWeight:600,flexShrink:0}}>{(link.views||0).toLocaleString("pt-BR")}</span>
+                    </div>
+                  );
+                })}
+                <div style={{marginTop:16,padding:14,background:"rgba(27,104,150,0.1)",borderRadius:8}}>
+                  <div style={lbl}>Total de Views</div>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:ACCENT}}>{(statsEp.links||[]).reduce((s,l)=>s+(l.views||0),0).toLocaleString("pt-BR")}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SEARCH MODAL */}
+      {searchOpen && (
+        <div onClick={e=>e.target===e.currentTarget&&setSearchOpen(false)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.85)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:80}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:560,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 18px",borderBottom:`1px solid ${BORDER}`}}>
+              <span style={{fontSize:16}}>🔍</span>
+              <input autoFocus value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Buscar episódios, convidados, pautas, posts..." style={{...inp,border:"none",background:"transparent",fontSize:15,padding:0}} />
+              <kbd style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,background:"rgba(27,104,150,0.2)",padding:"2px 6px",borderRadius:3}}>ESC</kbd>
+            </div>
+            {searchResults.length>0 && (
+              <div>
+                {searchResults.map((r,i)=>(
+                  <div key={i} onClick={r.action} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 18px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`}} onMouseEnter={e=>e.currentTarget.style.background="rgba(27,104,150,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <span style={{background:"rgba(27,104,150,0.2)",color:ACCENT,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{r.type}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT}}>{r.label}</div>
+                      {r.sub && <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.sub}</div>}
+                    </div>
+                    <span style={{color:MUTED,fontSize:12}}>→</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {searchQuery.trim().length>1&&searchResults.length===0 && <div style={{padding:"20px 18px",fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center"}}>Nenhum resultado para "{searchQuery}"</div>}
+            {searchQuery.trim().length <= 1 && <div style={{padding:"16px 18px",fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Digite para buscar...</div>}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL POSTAGEM */}
+      {postagemModal&&postagemEdit&&(
+        <div onClick={e=>e.target===e.currentTarget&&(setPostagemModal(null),setPostagemEdit(null))} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:500,maxHeight:"90vh",overflowY:"auto",padding:26}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div>
+                <div style={{fontSize:20,letterSpacing:2}}>{postagemModal.label?.toUpperCase()}</div>
+                <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{new Date(postagemModal.date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})} · {postagemEdit.horario||"18h"}</div>
+              </div>
+              <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>✕</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              <div>
+                <div style={lbl}>Tipo</div>
+                <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}><option>Corte</option><option>Tier List</option><option>Full</option></select>
+              </div>
+              <div>
+                <div style={lbl}>Plataforma(s)</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
+                  {["YouTube","Shorts","Instagram","TikTok","Spotify"].map(plat => {
+                    const plats = Array.isArray(postagemEdit.plataforma) ? postagemEdit.plataforma : [postagemEdit.plataforma||"YouTube"];
+                    const active = plats.includes(plat);
+                    const platColor = platCfg(plat).color;
+                    return (
+                      <button key={plat} onClick={()=>{
+                        const cur = Array.isArray(postagemEdit.plataforma)?postagemEdit.plataforma:[postagemEdit.plataforma||"YouTube"];
+                        const next = active?(cur.length>1?cur.filter(p=>p!==plat):cur):[...cur,plat];
+                        setPostagemEdit({...postagemEdit,plataforma:next});
+                      }} style={{background:active?`${platColor}22`:"transparent",color:active?platColor:MUTED,border:`1px solid ${active?platColor:BORDER}`,borderRadius:6,padding:"5px 12px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:12,fontWeight:active?600:400,transition:"all .15s"}}>
+                        {platCfg(plat).icon} {plat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              <div>
+                <div style={lbl}>Status</div>
+                <select value={postagemEdit.status||"pendente"} onChange={e=>setPostagemEdit({...postagemEdit,status:e.target.value})} style={inp}><option value="pendente">Pendente</option><option value="agendado">Agendado</option><option value="postado">Postado</option></select>
+              </div>
+              <div>
+                <div style={lbl}>Data</div>
+                <input type="date" value={postagemEdit.data||""} onChange={e=>setPostagemEdit({...postagemEdit,data:e.target.value})} style={inp} />
+              </div>
+              <div>
+                <div style={lbl}>Horário</div>
+                <input type="time" value={postagemEdit.horario||"18:00"} onChange={e=>setPostagemEdit({...postagemEdit,horario:e.target.value})} style={inp} />
+              </div>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Episódio vinculado</div>
+              <select value={postagemEdit.episodio_id||""} onChange={e=>{const ep=episodes.find(ep=>String(ep.id)===e.target.value);setPostagemEdit({...postagemEdit,episodio_id:ep?.id||null,episodio_title:ep?.title||"",});}} style={inp}>
+                <option value="">Selecionar episódio...</option>
+                {[...episodes].sort((a,b)=>epNum(a.title)-epNum(b.title)).map(ep=><option key={ep.id} value={ep.id}>{ep.title}{ep.convidados?.length>0?` · ${ep.convidados.join(", ")}`:""}</option>)}
+              </select>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Link do post</div>
+              <input value={postagemEdit.link||""} onChange={e=>setPostagemEdit({...postagemEdit,link:e.target.value})} placeholder="https://youtube.com/..." style={inp} />
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>🎬 Título do conteúdo</div>
+              <input value={postagemEdit.titulo_yt||""} onChange={e=>setPostagemEdit({...postagemEdit,titulo_yt:e.target.value})} placeholder="Ex: CABO PEREIRA no Bulldog Show..." style={inp} />
+            </div>
+            {(postagemEdit.plataforma==="YouTube"||!postagemEdit.plataforma) && (
+              <div style={{marginBottom:14}}>
+                <div style={lbl}>🖼 Link da Thumbnail</div>
+                <input value={postagemEdit.thumbnail_url||""} onChange={e=>setPostagemEdit({...postagemEdit,thumbnail_url:e.target.value})} placeholder="https://drive.google.com/..." style={inp} />
+              </div>
+            )}
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>Views (Instagram/TikTok — YouTube busca automaticamente)</div>
+              <input type="number" value={postagemEdit.views||0} onChange={e=>setPostagemEdit({...postagemEdit,views:parseInt(e.target.value)||0})} style={inp} />
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>👤 Responsável</div>
+              <select value={postagemEdit.responsavel||""} onChange={e=>setPostagemEdit({...postagemEdit,responsavel:e.target.value})} style={inp}>
+                <option value="">Selecionar responsável...</option>
+                {equipe.map(m=><option key={m.id} value={m.nome}>{m.nome}{m.funcao?` · ${m.funcao}`:""}</option>)}
+              </select>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={lbl}>📁 Link do Material no Google Drive</div>
+              <input value={postagemEdit.drive_link||""} onChange={e=>setPostagemEdit({...postagemEdit,drive_link:e.target.value})} placeholder="https://drive.google.com/..." style={inp} />
+            </div>
+            <div style={{marginBottom:20}}>
+              <div style={lbl}>Notas</div>
+              <textarea value={postagemEdit.notas||""} onChange={e=>setPostagemEdit({...postagemEdit,notas:e.target.value})} style={{...inp,minHeight:60,resize:"vertical"}} placeholder="Observações sobre essa postagem..." />
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={btnBlue} onClick={savePostagem}>💾 SALVAR</button>
+              <button style={btnGhost} onClick={()=>{setPostagemModal(null);setPostagemEdit(null);}}>Cancelar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Confetti */}
-      {confetti&&(
-        <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9999}}>
-          {Array.from({length:24},(_,i)=>(
-            <div key={i} style={{position:"absolute",left:`${Math.random()*100}vw`,top:"-10px",width:8,height:8,borderRadius:2,background:[ACCENT,GREEN,BLUE,RED,PURP][i%5],animation:`conffall ${1+Math.random()}s ease-in ${Math.random()*.5}s forwards`}}/>
-          ))}
-          <style>{`@keyframes conffall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}`}</style>
-        </div>
-      )}
-
+      </div>
     </div>
   );
 }
