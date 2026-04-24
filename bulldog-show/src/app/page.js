@@ -99,6 +99,7 @@ export default function Home() {
   const [cronoPos, setCronoPos] = useState({x: null, y: null}); // floating position
   const [editingCorteId, setEditingCorteId] = useState(null);
   const [cronoHeight, setCronoHeight] = useState(null); // null = auto
+  const [cortesReviewEp, setCortesReviewEp] = useState(null); // ep being reviewed
   const [editingCorteNota, setEditingCorteNota] = useState("");
   const cronoRef = useRef(null);
   const [viewsModal, setViewsModal] = useState(null);
@@ -425,6 +426,68 @@ export default function Home() {
     await supabase.from("episodes").update({cortes_gravacao:novos}).eq("id",ep.id);
     setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_gravacao:novos}:e));
   };
+  const finalizarGravacao = async (ep) => {
+    // Moves cortes to cortes_finalizados field for review
+    if (!(ep.cortes_gravacao||[]).length) return;
+    const finalizados = (ep.cortes_finalizados||[]);
+    // Merge new cortes, avoid duplicates by id
+    const existingIds = new Set(finalizados.map(c=>c.id));
+    const novos = (ep.cortes_gravacao||[]).filter(c=>!existingIds.has(c.id)).map(c=>({...c,selecionado:false}));
+    const merged = [...finalizados, ...novos];
+    await supabase.from("episodes").update({cortes_finalizados:merged}).eq("id",ep.id);
+    setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_finalizados:merged}:e));
+    flash();
+  };
+
+  const exportPremiere = (ep) => {
+    const cortes = ep.cortes_finalizados||ep.cortes_gravacao||[];
+    if (!cortes.length) return;
+    const rows = [
+      ["Name","Description","In","Out","Duration","Marker Type"],
+      ...cortes.map(c=>[
+        c.nota||"Corte",
+        c.nota||"",
+        cronoFmt(c.time, true),
+        cronoFmt(c.time, true),
+        "00:00:00:00",
+        "Comment"
+      ])
+    ];
+    const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${ep.title.replace(/[^a-z0-9]/gi,"_")}_markers.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const criarPostsDosCortes = async (ep, cortesSelecionados) => {
+    for (const c of cortesSelecionados) {
+      const payload = {
+        episodio_id: ep.id,
+        episodio_title: ep.title,
+        tipo: "Corte",
+        status: "pendente",
+        data: "",
+        plataforma: "YT Corte",
+        horario: "18:00",
+        link: "",
+        notas: c.nota||"",
+        views: 0,
+        drive_link: "",
+        responsavel: "",
+        titulo_yt: c.nota||"",
+        thumbnail_url: "",
+        notas_checklist: "[]"
+      };
+      await supabase.from("postagens").insert(payload);
+    }
+    await loadPostagens();
+    flash();
+  };
+
   const saveChecklist = async (epId, checklist) => {
     await supabase.from("episodes").update({checklist}).eq("id",epId);
     setEpisodes(prev=>prev.map(e=>e.id===epId?{...e,checklist}:e));
@@ -471,6 +534,23 @@ export default function Home() {
         const filtered = prev.filter(p=>p.id!==data.id);
         return [...filtered,data].sort((a,b)=>a.data.localeCompare(b.data)||a.id-b.id);
       });
+
+      // Se status = postado, tem link e episodio_id → sincroniza com episodes.links
+      if (data.status==="postado" && data.link && data.link.trim() && data.episodio_id) {
+        const ep = episodes.find(e=>e.id===data.episodio_id);
+        if (ep) {
+          const plats = data.plataforma?data.plataforma.split(","):["YT Full"];
+          const existingLinks = ep.links||[];
+          const alreadyExists = existingLinks.some(l=>l.url===data.link.trim());
+          if (!alreadyExists) {
+            const newLink = {url:data.link.trim(),plataforma:plats[0],titulo:data.titulo_yt||data.notas||"",views:data.views||0};
+            const updatedLinks = [...existingLinks, newLink];
+            await supabase.from("episodes").update({links:updatedLinks}).eq("id",ep.id);
+            setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,links:updatedLinks}:e));
+          }
+        }
+      }
+
       setPostagemModal(null); setPostagemEdit(null); flash();
     }
   };
@@ -624,8 +704,8 @@ export default function Home() {
   if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
 
   if (!user) return (
-    <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:14,padding:40,width:"100%",maxWidth:400}}>
+    <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",overflowX:"hidden",maxWidth:"100vw"}}>
+      <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:14,overflowX:"hidden",width:"100%",maxWidth:"100vw",padding:40,width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:TEXT}}>BULLDOG SHOW</div>
           <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,letterSpacing:2}}>PRODUCTION MANAGER · INTERNO</div>
@@ -673,7 +753,7 @@ export default function Home() {
       </div>
 
       {/* CONTENT */}
-      <div style={{maxWidth:1400,margin:"0 auto",padding:"24px 24px"}}>
+      <div style={{maxWidth:"100%",width:"100%",margin:"0 auto",padding:"24px 16px",boxSizing:"border-box"}}>
 
         {/* TAB 0: DASHBOARD */}
         {activeTab===0 && (
@@ -1093,6 +1173,7 @@ export default function Home() {
                           <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
                           <span style={{fontFamily:"'DM Sans'",fontSize:11,color:pct===100?"#10B981":MUTED,flexShrink:0}}>{doneCl.length}/{clItems.length}</span>
                           <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:plats});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}}>✏️</button>
+                          <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,id:null,plataforma:plats,data:"",link:"",views:0});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}} title="Duplicar">⧉</button>
                         </div>
                         <div style={{background:"#0A1F30",borderRadius:4,height:4,overflow:"hidden",marginBottom:8}}>
                           <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
@@ -1495,6 +1576,77 @@ export default function Home() {
         )}
 
 
+      {/* MODAL REVISÃO DE CORTES */}
+      {cortesReviewEp && (()=>{
+        const ep = episodes.find(e=>e.id===cortesReviewEp.id)||cortesReviewEp;
+        const cortes = ep.cortes_finalizados||[];
+        const toggleSelect = async (id) => {
+          const novos = cortes.map(c=>c.id===id?{...c,selecionado:!c.selecionado}:c);
+          await supabase.from("episodes").update({cortes_finalizados:novos}).eq("id",ep.id);
+          setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_finalizados:novos}:e));
+          setCortesReviewEp(prev=>({...prev,cortes_finalizados:novos}));
+        };
+        const updateNota = async (id, nota) => {
+          const novos = cortes.map(c=>c.id===id?{...c,nota}:c);
+          await supabase.from("episodes").update({cortes_finalizados:novos}).eq("id",ep.id);
+          setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_finalizados:novos}:e));
+          setCortesReviewEp(prev=>({...prev,cortes_finalizados:novos}));
+        };
+        const selecionados = cortes.filter(c=>c.selecionado);
+        return (
+          <div onClick={e=>e.target===e.currentTarget&&setCortesReviewEp(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.95)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:12,width:"100%",maxWidth:640,maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+              {/* Header */}
+              <div style={{padding:"18px 24px",borderBottom:`1px solid ${BORDER}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+                <div>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2}}>✂️ CORTES — {ep.title}</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{cortes.length} cortes · {selecionados.length} selecionados</div>
+                </div>
+                <button onClick={()=>setCortesReviewEp(null)} style={btnGhost}>✕</button>
+              </div>
+              {/* Lista */}
+              <div style={{flex:1,overflowY:"auto",padding:"16px 24px"}}>
+                {cortes.length===0
+                  ? <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:40}}>Nenhum corte finalizado ainda.</div>
+                  : cortes.map(c=>(
+                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${BORDER}`}}>
+                      <input type="checkbox" checked={c.selecionado||false} onChange={()=>toggleSelect(c.id)} style={{width:18,height:18,cursor:"pointer",flexShrink:0,accentColor:ACCENT}} />
+                      <span style={{fontFamily:"'Bebas Neue'",fontSize:14,color:"#EF4444",flexShrink:0,minWidth:80,letterSpacing:1}}>{cronoFmt(c.time,true)}</span>
+                      <input
+                        value={c.nota||""}
+                        onChange={e=>updateNota(c.id,e.target.value)}
+                        style={{...inp,flex:1,fontSize:13,padding:"5px 8px"}}
+                        placeholder="Nome do corte..."
+                      />
+                    </div>
+                  ))
+                }
+              </div>
+              {/* Footer */}
+              <div style={{padding:"14px 24px",borderTop:`1px solid ${BORDER}`,display:"flex",gap:10,flexShrink:0,flexWrap:"wrap"}}>
+                <button onClick={()=>exportPremiere(ep)} style={{...btnGhost,fontSize:12}}>🎬 Exportar Premiere CSV</button>
+                <button
+                  onClick={async()=>{
+                    if (!selecionados.length) return;
+                    await criarPostsDosCortes(ep,selecionados);
+                    setCortesReviewEp(null);
+                  }}
+                  disabled={!selecionados.length}
+                  style={{...btnBlue,fontSize:12,opacity:selecionados.length?1:0.5}}>
+                  📅 Criar {selecionados.length} post{selecionados.length!==1?"s":""} na Agenda
+                </button>
+                <button onClick={()=>{
+                  const todos = cortes.map(c=>({...c,selecionado:true}));
+                  supabase.from("episodes").update({cortes_finalizados:todos}).eq("id",ep.id);
+                  setEpisodes(prev=>prev.map(e=>e.id===ep.id?{...e,cortes_finalizados:todos}:e));
+                  setCortesReviewEp(prev=>({...prev,cortes_finalizados:todos}));
+                }} style={{...btnGhost,fontSize:12}}>Selecionar todos</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* MODAL STATS DETALHE */}
       {statsModal && (
         <div onClick={e=>e.target===e.currentTarget&&setStatsModal(null)} style={{position:"fixed",inset:0,background:"rgba(4,14,24,0.92)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -1618,13 +1770,16 @@ export default function Home() {
             }}
             style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(27,104,150,0.2)",cursor:"grab",borderBottom:`1px solid ${BORDER}`}}>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:ACCENT}}>🎙 {cronoEp.title}</div>
-            <button onClick={()=>{setCronoOpen(false);cronoPause();setCronoPos({x:null,y:null});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16}}>✕</button>
+            <div style={{display:"flex",gap:6}}>
+              {(cronoEp.cortes_gravacao||[]).length>0&&<button onClick={()=>{finalizarGravacao(cronoEp);setCortesReviewEp(cronoEp);setCronoOpen(false);cronoPause();setCronoPos({x:null,y:null});}} style={{...btnBlue,fontSize:10,padding:"3px 10px"}}>✅ Finalizar</button>}
+              <button onClick={()=>{setCronoOpen(false);cronoPause();setCronoPos({x:null,y:null});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:16}}>✕</button>
+            </div>
           </div>
           {/* Cronômetro */}
           <div style={{padding:"14px 16px"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:40,letterSpacing:3,color:cronoEpId===cronoEp.id?ACCENT:MUTED}}>
-                {cronoFmt(cronoEpId===cronoEp.id?cronoTime:0)}
+                {cronoFmt(cronoEpId===cronoEp.id?cronoTime:0, true)}
               </div>
               <div style={{display:"flex",gap:6}}>
                 {cronoEpId===cronoEp.id&&cronoRunning
