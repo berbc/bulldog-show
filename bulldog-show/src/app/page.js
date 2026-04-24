@@ -190,6 +190,20 @@ export default function Home() {
   };
   const logout = async () => { await supabase.auth.signOut(); };
 
+  const getYouTubeThumb = (url) => {
+    if (!url) return null;
+    const vid = getYouTubeVideoId(url);
+    return vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : null;
+  };
+  const getThumbForLink = (link, ep) => {
+    // If the link itself is YouTube, use it directly
+    if (link.url && (link.url.includes("youtu"))) return getYouTubeThumb(link.url);
+    // Otherwise find the YT Full link of the same episode
+    const ytFull = (ep.links||[]).find(l=>l.plataforma==="YT Full"&&l.url?.includes("youtu"));
+    if (ytFull) return getYouTubeThumb(ytFull.url);
+    return null;
+  };
+
   const getYouTubeVideoId = (url) => {
     const u = url || "";
     if (u.includes("v=")) return u.split("v=")[1]?.split("&")[0];
@@ -1217,25 +1231,38 @@ export default function Home() {
                   <div style={{fontSize:15,letterSpacing:2}}>📊 VIEWS</div>
                   {postagens.filter(p=>p.views>0).length>5 && <button onClick={()=>setShowAllViews(v=>!v)} style={{...btnGhost,fontSize:10,padding:"2px 8px"}}>{showAllViews?"▲":"▼ todos"}</button>}
                 </div>
-                {postagens.filter(p=>p.views>0).length===0
-                  ? <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda</div>
-                  : (showAllViews?[...postagens]:[...postagens].slice(0,5)).filter(p=>p.views>0).sort((a,b)=>b.views-a.views).map((p,i)=>{
-                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
-                    const icon = p.link?.includes("youtu")?"▶":p.link?.includes("instagram")?"📸":"🎵";
+                {(()=>{
+                  const allViews = episodes.flatMap(ep=>(ep.links||[]).filter(l=>l.views>0).map(l=>({
+                    id:`${ep.id}-${l.url}`, views:l.views,
+                    titulo:l.titulo||ep.title, epTitle:ep.title,
+                    plataforma:l.plataforma||"YT Full", url:l.url,
+                    thumb:getThumbForLink(l,ep)
+                  }))).sort((a,b)=>b.views-a.views);
+                  if (!allViews.length) return <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED}}>Nenhum view ainda — adicione links na Performance por Episódio</div>;
+                  return (showAllViews?allViews:allViews.slice(0,8)).map((item,i)=>{
+                    const cfg = platCfg(item.plataforma);
                     return (
-                      <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${BORDER}`,fontFamily:"'DM Sans'",fontSize:12,gap:8}}>
-                        <div style={{display:"flex",gap:8,alignItems:"center",flex:1,minWidth:0}}>
-                          <span style={{color:MUTED,fontSize:10,width:16,flexShrink:0}}>{i+1}.</span>
-                          <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"1px 6px",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{p.episodio_title||"—"}</span>
+                      <div key={item.id} style={{display:"flex",gap:10,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:16,color:MUTED,width:22,flexShrink:0}}>{i+1}</span>
+                        {item.thumb
+                          ? <img src={item.thumb} alt="" style={{width:64,height:48,borderRadius:4,objectFit:"cover",flexShrink:0}}/>
+                          : <div style={{width:64,height:48,borderRadius:4,background:"rgba(27,104,150,0.15)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{cfg.icon}</div>
+                        }
+                        <div style={{flex:1,minWidth:0}}>
+                          {item.url
+                            ? <a href={item.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:600,color:TEXT,textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.titulo}</a>
+                            : <div style={{fontFamily:"'DM Sans'",fontSize:13,fontWeight:600,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.titulo}</div>
+                          }
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:2}}>{item.epTitle}</div>
                         </div>
-                        <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                          <span style={{color:ACCENT,fontWeight:600,fontSize:11}}>{p.views.toLocaleString("pt-BR")}</span>
-                          {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={{color:MUTED,fontSize:13,textDecoration:"none"}} onClick={e=>e.stopPropagation()}>{icon}</a>}
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
+                          <span style={{background:cfg.bg,color:cfg.color,borderRadius:3,padding:"1px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{cfg.icon} {item.plataforma}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:12,color:ACCENT,fontWeight:600}}>{item.views.toLocaleString("pt-BR")}</span>
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                })()}
               </div>
             </div>
             <div style={{...card,padding:16,marginBottom:20}}>
@@ -1888,14 +1915,15 @@ export default function Home() {
                   const cfg = platCfg(link.plataforma);
                   return (
                     <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`}}>
-                      <span style={{background:cfg.bg,color:cfg.color,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{cfg.icon} {link.plataforma||"YT"}</span>
+                      {(()=>{const th=getThumbForLink(link,statsEp);return th?<img src={th} alt="" style={{width:72,height:54,borderRadius:4,objectFit:"cover",flexShrink:0}}/>:<div style={{width:72,height:54,borderRadius:4,background:cfg.bg,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{cfg.icon}</div>;})()}
                       <div style={{flex:1,minWidth:0}}>
+                        <span style={{background:cfg.bg,color:cfg.color,borderRadius:3,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>{cfg.icon} {link.plataforma||"YT"}</span>
                         {link.url
-                          ? <a href={link.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,textDecoration:"none",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}} onMouseEnter={e=>e.currentTarget.style.color=ACCENT} onMouseLeave={e=>e.currentTarget.style.color=TEXT}>{link.titulo||link.url.slice(0,50)}</a>
-                          : <span style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,fontWeight:600}}>{link.titulo||"Sem título"}</span>
+                          ? <a href={link.url} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,textDecoration:"none",fontWeight:600,display:"block",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} onMouseEnter={e=>e.currentTarget.style.color=ACCENT} onMouseLeave={e=>e.currentTarget.style.color=TEXT}>{link.titulo||link.url.slice(0,50)}</a>
+                          : <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,fontWeight:600,marginTop:2}}>{link.titulo||"Sem título"}</div>
                         }
                       </div>
-                      <span style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,fontWeight:600,flexShrink:0}}>{(link.views||0).toLocaleString("pt-BR")}</span>
+                      <span style={{fontFamily:"'DM Sans'",fontSize:14,color:ACCENT,fontWeight:700,flexShrink:0}}>{(link.views||0).toLocaleString("pt-BR")}</span>
                     </div>
                   );
                 })}
