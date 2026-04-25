@@ -465,12 +465,13 @@ export default function Home() {
 
   const criarPostsDosCortes = async (ep, cortesSelecionados) => {
     for (const c of cortesSelecionados) {
+      const today = toLocalDate(new Date());
       const payload = {
         episodio_id: ep.id,
         episodio_title: ep.title,
         tipo: "Corte",
         status: "pendente",
-        data: "",
+        data: today,
         plataforma: "YT Corte",
         horario: "18:00",
         link: "",
@@ -1745,8 +1746,7 @@ export default function Home() {
             bottom: cronoPos.y !== null ? "auto" : 24,
             left: cronoPos.x !== null ? cronoPos.x : "auto",
             top: cronoPos.y !== null ? cronoPos.y : "auto",
-            width:380,
-            height: cronoHeight || 320,
+            width:400,
             background:"#0A1F30",
             border:`1px solid ${BORDER2}`,
             borderRadius:12,
@@ -1755,6 +1755,7 @@ export default function Home() {
             overflow:"hidden",
             display:"flex",
             flexDirection:"column",
+            maxHeight:"70vh",
           }}>
           {/* Header arrastável */}
           <div
@@ -1809,7 +1810,7 @@ export default function Home() {
             )}
             {/* Lista cortes */}
             {(cronoEp.cortes_gravacao||[]).length>0 && (
-              <div style={{flex:1,overflowY:"auto",minHeight:0}}>
+              <div style={{maxHeight:280,overflowY:"auto",overflowX:"hidden"}}>
                 <div style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Cortes ({cronoEp.cortes_gravacao.length})</div>
                 {[...cronoEp.cortes_gravacao].reverse().map(c=>(
                   <div key={c.id} style={{padding:"7px 0",borderBottom:`1px solid ${BORDER}`}}>
@@ -1835,24 +1836,7 @@ export default function Home() {
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:8,textAlign:"center",paddingBottom:4}}>Espaço = pausar · C = corte · arraste para mover</div>
           </div>
           {/* Resize handle - arrasta para redimensionar altura */}
-          <div
-            onMouseDown={e=>{
-              e.preventDefault();
-              e.stopPropagation();
-              const startY = e.clientY;
-              const startH = cronoHeight || 320;
-              const onMove = mv => {
-                mv.preventDefault();
-                setCronoHeight(Math.max(260, Math.min(window.innerHeight-100, startH + (mv.clientY - startY))));
-              };
-              const onUp = () => { document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); };
-              document.addEventListener("mousemove",onMove);
-              document.addEventListener("mouseup",onUp);
-            }}
-            style={{height:10,background:"rgba(27,104,150,0.25)",cursor:"ns-resize",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none"}}
-          >
-            <div style={{width:40,height:3,borderRadius:2,background:"rgba(127,200,240,0.5)"}}/>
-          </div>
+
         </div>
       );})()}
 
