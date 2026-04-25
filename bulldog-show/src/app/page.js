@@ -705,7 +705,7 @@ export default function Home() {
   if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
 
   if (!user) return (
-    <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",overflowX:"hidden",maxWidth:"100vw"}}>
+    <div style={{background:BG,minHeight:"100vh",overflowX:"hidden",maxWidth:"100vw"}}>
       <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:14,overflowX:"hidden",width:"100%",maxWidth:"100vw",padding:40,width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:TEXT}}>BULLDOG SHOW</div>
@@ -933,22 +933,18 @@ export default function Home() {
                         {gravacoes.map(ep => {
                           const sc = STATUS_CONFIG[ep.status]||STATUS_CONFIG.planejado;
                           return (
-                            <div key={ep.id} onClick={()=>openEp(ep)} style={{display:"flex",gap:14,padding:"14px 16px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer",alignItems:"flex-start"}}>
-                              {/* Hora lateral */}
-                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{ep.gravacao_horario||"10:00"}</div>
+                            <div key={ep.id} onClick={()=>openEp(ep)} style={{padding:"12px 14px",background:"rgba(232,244,255,0.05)",border:"1px solid rgba(232,244,255,0.25)",borderRadius:8,cursor:"pointer"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:"#E8F4FF",background:"rgba(232,244,255,0.12)",borderRadius:4,padding:"1px 8px",flexShrink:0}}>🎙 GRAVAÇÃO</span>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:MUTED,flexShrink:0}}>{ep.gravacao_horario||"10:00"}</span>
+                                <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginLeft:"auto"}}>{sc.label}</span>
                               </div>
-                              {/* Bloco vertical */}
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:"#E8F4FF",background:"rgba(232,244,255,0.12)",borderRadius:4,padding:"1px 8px",flexShrink:0}}>GRAVAÇÃO</span>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{ep.title}</span>
-                                </div>
-                                {ep.convidados?.length>0 && <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:TEXT,marginTop:2}}>{ep.convidados.join(" · ")}</div>}
-                                {ep.tier_list && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#F59E0B",marginTop:2}}>TIER LIST · {ep.tier_list.toUpperCase()}</div>}
-                                {ep.game && <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:"#94A3B8",marginTop:2}}>GAME · {ep.game.toUpperCase()}</div>}
+                              <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:1,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ep.title}</div>
+                              {ep.convidados?.length>0 && <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ep.convidados.join(" · ")}</div>}
+                              <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
+                                {ep.tier_list && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#F59E0B"}}>🏆 {ep.tier_list}</span>}
+                                {ep.game && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#94A3B8"}}>🎮 {ep.game}</span>}
                               </div>
-                              <span style={{background:sc.bg,color:sc.color,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0,marginTop:3}}>{sc.label}</span>
                             </div>
                           );
                         })}
@@ -961,28 +957,17 @@ export default function Home() {
                           const platLabel = plats.join(" · ");
                           const titulo = p.titulo_yt || p.notas?.trim() || null;
                           return (
-                            <div key={p.id} style={{display:"flex",gap:14,padding:"14px 16px",background:ts.bg,border:ts.border,borderRadius:8,alignItems:"flex-start"}}>
-                              {/* Hora lateral */}
-                              <div style={{flexShrink:0,minWidth:50,paddingTop:3,textAlign:"center"}}>
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:1,color:MUTED,lineHeight:1,textAlign:"center"}}>{p.horario||"18:00"}</div>
+                            <div key={p.id} style={{padding:"12px 14px",background:ts.bg,border:ts.border,borderRadius:8}}>
+                              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"1px 8px",flexShrink:0}}>{p.tipo.toUpperCase()}</span>
+                                <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{p.horario||"18:00"}</span>
+                                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase",marginLeft:"auto",flexShrink:0}}>{p.status}</span>
+                                <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✏️</button>
+                                <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px",flexShrink:0}}>✕</button>
                               </div>
-                              {/* Bloco vertical */}
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                                  <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:ts.color,background:`${ts.color}22`,borderRadius:4,padding:"1px 8px",flexShrink:0}}>{p.tipo.toUpperCase()}</span>
-                                  {p.episodio_title && <span style={{fontFamily:"'Bebas Neue'",fontSize:20,letterSpacing:2,color:TEXT}}>{p.episodio_title.toUpperCase()}</span>}
-                                </div>
-                                {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:16,letterSpacing:1,color:TEXT,marginTop:2}}>{titulo.toUpperCase()}</div>}
-                                <div style={{fontFamily:"'Bebas Neue'",fontSize:15,letterSpacing:1,color:platColor,marginTop:2}}>{platIcon} {platLabel.toUpperCase()}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} VIEWS`:""}</div>
-                                {p.responsavel && <div style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:MUTED,marginTop:2}}>{p.responsavel.toUpperCase()}</div>}
-                              </div>
-                              <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end",flexShrink:0,paddingTop:3}}>
-                                <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase"}}>{p.status}</span>
-                                <div style={{display:"flex",gap:4}}>
-                                  <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(','):['YouTube']});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px"}}>✏️</button>
-                                  <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px"}}>✕</button>
-                                </div>
-                              </div>
+                              {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{titulo.toUpperCase()}</div>}
+                              {p.episodio_title && <div style={{fontFamily:"'DM Sans'",fontSize:12,color:MUTED,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.episodio_title}</div>}
+                              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:platColor,marginTop:3}}>{platIcon} {platLabel}{p.views>0?` · ${p.views.toLocaleString("pt-BR")} views`:""}{p.responsavel?` · ${p.responsavel}`:""}</div>
                             </div>
                           );
                         })}
@@ -1045,11 +1030,12 @@ export default function Home() {
               return (
                 <div style={{marginBottom:28}}>
                   <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📺 Episódios</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:8}}>
+                  <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",cursor:"grab",paddingBottom:8}} onMouseDown={e=>{const el=e.currentTarget;let startX=e.pageX-el.offsetLeft;let scrollLeft=el.scrollLeft;const onMove=mv=>{const x=mv.pageX-el.offsetLeft;el.scrollLeft=scrollLeft-(x-startX);};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);el.style.cursor="grab";};el.style.cursor="grabbing";document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}}>
+                <div style={{display:"flex",gap:8,minWidth:"max-content"}}>
                     {EP_COLS.map((col,ci)=>{
                       const items = eps.filter(ep=>getColIdx(ep)===ci);
                       return (
-                        <div key={col.key} onDragOver={e=>e.preventDefault()} onDrop={async e=>{e.preventDefault();const id=parseInt(e.dataTransfer.getData("text/plain"));const ep=eps.find(e=>e.id===id);if(ep)await moveEp(ep,ci);}} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160}}>
+                        <div key={col.key} onDragOver={e=>e.preventDefault()} onDrop={async e=>{e.preventDefault();const id=parseInt(e.dataTransfer.getData("text/plain"));const ep=eps.find(e=>e.id===id);if(ep)await moveEp(ep,ci);}} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160,width:200,flexShrink:0}}>
                           <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
                             <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
                             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length}</div>
@@ -1076,6 +1062,7 @@ export default function Home() {
                       );
                     })}
                   </div>
+                </div>
                 </div>
               );
             })()}
@@ -1104,11 +1091,11 @@ export default function Home() {
               return (
                 <div style={{marginBottom:28}}>
                   <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>✂️ Cortes & Posts</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,maxWidth:600}}>
+                  <div style={{display:"flex",gap:8,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:8}}>
                     {CR_COLS.map((col,ci)=>{
                       const items=cortes.filter(p=>getCRColIdx(p)===ci);
                       return (
-                        <div key={col.key} onDragOver={e=>e.preventDefault()} onDrop={async e=>{e.preventDefault();const id=parseInt(e.dataTransfer.getData("text/plain"));const p=cortes.find(p=>p.id===id);if(p)await moveCR(p,ci);}} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160}}>
+                        <div key={col.key} onDragOver={e=>e.preventDefault()} onDrop={async e=>{e.preventDefault();const id=parseInt(e.dataTransfer.getData("text/plain"));const p=cortes.find(p=>p.id===id);if(p)await moveCR(p,ci);}} style={{background:"rgba(27,104,150,0.06)",border:`1px solid ${BORDER}`,borderRadius:10,overflow:"hidden",minHeight:160,width:240,flexShrink:0}}>
                           <div style={{padding:"10px 10px 8px",borderBottom:`2px solid ${col.color}`,background:`${col.color}15`}}>
                             <div style={{fontFamily:"'Bebas Neue'",fontSize:13,letterSpacing:1,color:col.color}}>{col.label}</div>
                             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,marginTop:1}}>{items.length}</div>
