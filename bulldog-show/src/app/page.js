@@ -224,6 +224,26 @@ export default function Home() {
     } catch(e) { return null; }
   };
 
+  const refreshAllYouTubeViews = async () => {
+    const allEps = [...episodes];
+    for (const ep of allEps) {
+      const links = ep.links || [];
+      const ytLinks = links.filter(l => l.url && l.url.includes("youtu"));
+      if (!ytLinks.length) continue;
+      const updated = await Promise.all(links.map(async l => {
+        if (!l.url || !l.url.includes("youtu")) return l;
+        const views = await fetchYouTubeViews(l.url);
+        return views !== null ? {...l, views} : l;
+      }));
+      const changed = updated.some((l,i) => l.views !== links[i].views);
+      if (changed) {
+        await supabase.from("episodes").update({links: updated}).eq("id", ep.id);
+        setEpisodes(prev => prev.map(e => e.id === ep.id ? {...e, links: updated} : e));
+      }
+    }
+    flash();
+  };
+
   const fetchAndUpdateViews = async (ep) => {
     const links = ep.links || [];
     const updated = await Promise.all(links.map(async (l) => {
@@ -705,7 +725,7 @@ export default function Home() {
   if (checkingAuth) return <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:ACCENT,fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:3}}>CARREGANDO...</div></div>;
 
   if (!user) return (
-    <div style={{background:BG,minHeight:"100vh",overflowX:"hidden",maxWidth:"100vw"}}>
+    <div style={{background:BG,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",overflowX:"hidden"}}>
       <div style={{background:CARD,border:`1px solid ${BORDER2}`,borderRadius:14,overflowX:"hidden",width:"100%",maxWidth:"100vw",padding:40,width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{fontFamily:"'Bebas Neue'",fontSize:32,letterSpacing:4,color:TEXT}}>BULLDOG SHOW</div>
@@ -1161,7 +1181,7 @@ export default function Home() {
                           <span style={{background:`${cor}22`,color:cor,borderRadius:4,padding:"2px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>📤 {txt}</span>
                           <span style={{fontFamily:"'DM Sans'",fontSize:11,color:pct===100?"#10B981":MUTED,flexShrink:0}}>{doneCl.length}/{clItems.length}</span>
                           <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:plats});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}}>✏️</button>
-                          <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,id:null,plataforma:plats,data:"",link:"",views:0});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}} title="Duplicar">⧉</button>
+                          <button onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,id:null,plataforma:plats,link:"",views:0,status:"pendente"});}} style={{...btnGhost,fontSize:11,padding:"3px 8px",flexShrink:0}} title="Duplicar">⧉</button>
                         </div>
                         <div style={{background:"#0A1F30",borderRadius:4,height:4,overflow:"hidden",marginBottom:8}}>
                           <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#10B981":`linear-gradient(90deg,${B},${ACCENT})`,borderRadius:4,transition:"width .3s"}} />
