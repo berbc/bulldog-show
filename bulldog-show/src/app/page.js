@@ -166,6 +166,7 @@ export default function Home() {
   }, []);
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
+  useEffect(() => { if (user && activeTab===4) { refreshAllYouTubeViews(); } }, [activeTab]); // eslint-disable-line
   const loadEquipe = useCallback(async () => {
     const { data } = await supabase.from("equipe").select("*").order("nome");
     if (data) setEquipe(data);
@@ -983,6 +984,7 @@ export default function Home() {
                                 <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{p.horario||"18:00"}</span>
                                 <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,color:statusColor,textTransform:"uppercase",marginLeft:"auto",flexShrink:0}}>{p.status}</span>
                                 <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✏️</button>
+                                <button onClick={()=>{setPostagemModal(slot);setPostagemEdit({...p,id:null,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"],link:"",views:0,status:"pendente"});}} style={{background:"none",border:"none",color:MUTED,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}} title="Duplicar">⧉</button>
                                 <button onClick={()=>deletePostagem(p.id)} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:11,padding:"0 2px",flexShrink:0}}>✕</button>
                               </div>
                               {titulo && <div style={{fontFamily:"'Bebas Neue'",fontSize:17,letterSpacing:1,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{titulo.toUpperCase()}</div>}
@@ -1215,7 +1217,10 @@ export default function Home() {
         {/* TAB 4: ESTATÍSTICAS */}
         {activeTab===4 && (
           <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:20,letterSpacing:2}}>ESTATÍSTICAS <span style={{color:BL}}>DO PROGRAMA</span></div>
+              <button onClick={refreshAllYouTubeViews} style={{...btnGhost,fontSize:11,padding:"5px 12px",color:ACCENT,borderColor:`${ACCENT}44`}}>↻ Atualizar views YT</button>
+            </div>
             {(() => {
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
               const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
