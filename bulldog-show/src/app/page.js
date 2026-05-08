@@ -67,7 +67,6 @@ export default function Home() {
   const [tierLists, setTierLists] = useState([]);
   const [convidados, setConvidados] = useState([]);
   const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   const [selectedEp, setSelectedEp] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -98,10 +97,12 @@ export default function Home() {
   const [cronoOpen, setCronoOpen] = useState(false); // floating widget open
   const [cronoPos, setCronoPos] = useState({x: null, y: null}); // floating position
   const [editingCorteId, setEditingCorteId] = useState(null);
-  const [cronoHeight, setCronoHeight] = useState(null); // null = auto
   const [cortesReviewEp, setCortesReviewEp] = useState(null); // ep being reviewed
   const [editingCorteNota, setEditingCorteNota] = useState("");
   const cronoRef = useRef(null);
+  const cronoStartRef = useRef(null); // Date.now() when timer started
+  const cronoBaseRef = useRef(0);    // accumulated seconds before pause
+  const ytRefreshedRef = useRef(false); // throttle YouTube refresh
   const [viewsModal, setViewsModal] = useState(null);
   const [statsModal, setStatsModal] = useState(null);
   const [statsEdit, setStatsEdit] = useState(null);
@@ -124,7 +125,6 @@ export default function Home() {
   const [postagemEdit, setPostagemEdit] = useState(null);
   const [postagens, setPostagens] = useState([]);
   const widgetRef = useRef(null);
-  const [corteChecklists, setCorteChecklists] = useState({});
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
   const flashError = (msg) => { setErrorMsg(msg); setTimeout(() => setErrorMsg(""), 4000); };
@@ -166,7 +166,7 @@ export default function Home() {
   }, []);
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
-  useEffect(() => { if (user && activeTab===4) { refreshAllYouTubeViews(); } }, [activeTab]); // eslint-disable-line
+  useEffect(() => { if (user && activeTab===4 && !ytRefreshedRef.current) { ytRefreshedRef.current=true; refreshAllYouTubeViews(); } }, [activeTab]); // eslint-disable-line
   const loadEquipe = useCallback(async () => {
     const { data } = await supabase.from("equipe").select("*").order("nome");
     if (data) setEquipe(data);
@@ -260,8 +260,6 @@ export default function Home() {
     const dt = new Date(d);
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
   };
-  const fmt = (d) => new Date(d).toLocaleDateString("pt-BR", {weekday:"short",day:"2-digit",month:"short"});
-  const epsByDate = (ds) => episodes.filter(e => !e.retroativo && e.gravacao_data === ds);
   const getNextWednesdays = () => {
     const result = [], now = new Date();
     now.setHours(0,0,0,0);
@@ -288,7 +286,7 @@ export default function Home() {
       return { date: toLocalDate(d), label: days[i], tipo: tipos[i] };
     });
   };
-  const getPostagens = (date) => postagens.filter(p => p.data === date);
+  const getPostagens = (date) => postagens.filter(p => p.data === date).sort((a,b)=>(a.horario||'00:00').localeCompare(b.horario||'00:00'));
 
   const openEp = (ep) => {
     setSelectedEp(ep);
@@ -407,34 +405,37 @@ export default function Home() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [cronoEpId, cronoRunning, cronoTime, cronoNotaAtiva, episodes]);
+  }, [cronoEpId, cronoRunning, cronoNotaAtiva, episodes]); // eslint-disable-line
 
   useEffect(() => () => { if (cronoRef.current) clearInterval(cronoRef.current); }, []);
 
-  // CHANGE 1: Mobile - recover timer when tab becomes visible again
+  // Mobile: recover timer when tab becomes visible (refs are now correctly declared above)
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && cronoRunning && cronoStartRef.current) {
+      if (document.visibilityState === 'visible' && cronoStartRef.current) {
+        // Recalculate exact elapsed time from stored timestamp
         const elapsed = Math.floor((Date.now() - cronoStartRef.current) / 1000);
         setCronoTime(cronoBaseRef.current + elapsed);
       }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [cronoRunning]);
-
-  const cronoStartRef = useRef(null); // timestamp when started
-  const cronoBaseRef = useRef(0);    // accumulated seconds before pause
+  }, []); // eslint-disable-line — intentionally empty deps, uses refs not state
 
   const cronoStart = (epId) => {
-    if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); cronoBaseRef.current = 0; }
+    if (cronoEpId !== epId) {
+      setCronoTime(0); setCronoEpId(epId);
+      cronoBaseRef.current = 0;
+    }
     setCronoRunning(true);
     cronoStartRef.current = Date.now();
     if (cronoRef.current) clearInterval(cronoRef.current);
+    // 1s interval is enough for display — Date.now() ensures no drift
     cronoRef.current = setInterval(() => {
+      if (!cronoStartRef.current) return;
       const elapsed = Math.floor((Date.now() - cronoStartRef.current) / 1000);
       setCronoTime(cronoBaseRef.current + elapsed);
-    }, 500);
+    }, 1000);
   };
   const cronoPause = () => {
     setCronoRunning(false);
@@ -445,13 +446,14 @@ export default function Home() {
     }
   };
   const cronoReset = (epId) => {
-    cronoPause(); setCronoTime(0); setCronoEpId(epId);
+    cronoPause();
+    setCronoTime(0); setCronoEpId(epId);
     cronoBaseRef.current = 0; cronoStartRef.current = null;
   };
-  const cronoFmt = (s) => {
+  const cronoFmt = (s, withFrames=false) => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
-    if (h>0) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
-    return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    const base = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    return withFrames ? base + ":00" : (h>0 ? base : `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`);
   };
   const marcarCorte = (ep) => { setCronoNotaAtiva({time:cronoTime,timeStr:cronoFmt(cronoTime),nota:""}); };
   const salvarCorte = async (ep) => {
@@ -841,6 +843,11 @@ export default function Home() {
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#EF4444"}}>{ytViews>0?ytViews.toLocaleString("pt-BR"):"0"}</div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>views acumulados</div>
                     </div>
+                    <div onClick={()=>setActiveTab(4)} style={{...card,padding:20,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#C13584"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
+                      <div style={lbl}>📱 Views Redes Sociais</div>
+                      <div style={{fontFamily:"'Bebas Neue'",fontSize:24,letterSpacing:2,color:"#C13584"}}>{allEpLinks.filter(l=>["Instagram","TikTok","Shorts","YT Shorts","Spotify"].includes(l.plataforma)).reduce((s,l)=>s+(l.views||0),0).toLocaleString("pt-BR")||"0"}</div>
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:4}}>instagram · tiktok · shorts</div>
+                    </div>
                     <div onClick={()=>setActiveTab(3)} style={{...card,padding:20,border:epsSemChecklist.length>0?"1px solid rgba(245,158,11,0.4)":undefined,cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="#F59E0B"} onMouseLeave={e=>e.currentTarget.style.borderColor=epsSemChecklist.length>0?"rgba(245,158,11,0.4)":"rgba(27,104,150,0.3)"}>
                       <div style={lbl}>⚠️ Checklists Incompletos</div>
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:28,letterSpacing:2,color:epsSemChecklist.length>0?"#F59E0B":"#10B981"}}>{epsSemChecklist.length}</div>
@@ -850,15 +857,17 @@ export default function Home() {
                   {postsSemana.filter(p=>p.status!=="postado").length>0 && (
                     <div style={{...card,padding:20,marginBottom:16}}>
                       <div onClick={()=>setActiveTab(2)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:ACCENT}}>📆 POSTS PENDENTES ESTA SEMANA →</div>
-                      {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+                      {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)||(a.horario||"00:00").localeCompare(b.horario||"00:00")).map(p=>{
                         const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                        const epMatch = p.episodio_title?.match(/([0-9]+)/);
+                        const epNum = epMatch ? epMatch[1] : null;
                         return (
-                          <div key={p.id} onClick={()=>setActiveTab(2)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,width:80,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
-                            <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.titulo_yt?`${p.titulo_yt}${p.episodio_title?" · "+p.episodio_title:""}`:p.episodio_title||"Sem episódio"}</span>
-                            {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
-                            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
+                          <div key={p.id} onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,width:70,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
+                            <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
+                            {epNum&&<span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:BL,flexShrink:0,letterSpacing:1}}>EP{epNum}</span>}
+                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.episodio_title||"Sem título"}</span>
+                            {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"#10B981",flexShrink:0}}>👤 {p.responsavel}</span>}
                           </div>
                         );
                       })}
@@ -954,7 +963,7 @@ export default function Home() {
             </div>
 
             {getWeekDates(postagemWeekOffset).map(slot => {
-              const slotPostagens = getPostagens(slot.date).sort((a,b)=>(a.horario||'00:00').localeCompare(b.horario||'00:00'));
+              const slotPostagens = getPostagens(slot.date);
               const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
               const isToday = slot.date === toLocalDate(new Date());
               const hasContent = slotPostagens.length > 0 || gravacoes.length > 0;
@@ -1158,7 +1167,7 @@ export default function Home() {
                               const plats=p.plataforma?p.plataforma.split(","):["YouTube"];
                               const platIcons=plats.map(pl=>platCfg(pl).icon).join(" ");
                               return (
-                                <div key={p.id} draggable onDragStart={e=>e.dataTransfer.setData("text/plain",String(p.id))} style={{background:CARD,border:`1px solid ${tipoColor}44`,borderRadius:6,padding:"8px 9px",cursor:"grab",userSelect:"none"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.3)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                                <div key={p.id} draggable onDragStart={e=>e.dataTransfer.setData("text/plain",String(p.id))} onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{background:CARD,border:`1px solid ${tipoColor}44`,borderRadius:6,padding:"8px 9px",cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.3)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
                                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                                     <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:3,padding:"0px 5px",fontFamily:"'Bebas Neue'",fontSize:10}}>{p.tipo}</span>
                                     {diasTxt&&<span style={{background:`${diasCor}22`,color:diasCor,borderRadius:3,padding:"0px 4px",fontFamily:"'DM Sans'",fontSize:9,fontWeight:600}}>📤{diasTxt}</span>}
@@ -1752,7 +1761,10 @@ export default function Home() {
               const platFilter = viewsModal==="yt"
                 ? l=>["YouTube","YT Full","YT Corte","YT Tier List","YT Shorts"].includes(l.plataforma)
                 : l=>["Instagram","TikTok","Shorts","Spotify"].includes(l.plataforma);
-              const epData = episodes.map(ep=>({ep,links:(ep.links||[]).filter(platFilter).filter(l=>l.views>0)})).filter(d=>d.links.length>0).sort((a,b)=>b.links.reduce((s,l)=>s+(l.views||0),0)-a.links.reduce((s,l)=>s+(l.views||0),0));
+              const epData = episodes
+                .map(ep=>({ep, links:(ep.links||[]).filter(platFilter).filter(l=>l.views>0).sort((a,b)=>(b.views||0)-(a.views||0))}))
+                .filter(d=>d.links.length>0)
+                .sort((a,b)=>b.links.reduce((s,l)=>s+(l.views||0),0)-a.links.reduce((s,l)=>s+(l.views||0),0));
               if (!epData.length) return <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum view registrado ainda.</div>;
               return epData.map(({ep,links})=>{
                 const total = links.reduce((s,l)=>s+(l.views||0),0);
