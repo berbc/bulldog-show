@@ -122,6 +122,8 @@ export default function Home() {
   const [addingMembro, setAddingMembro] = useState(false);
   const [comentarioAutor, setComentarioAutor] = useState("");
   const [postagemWeekOffset, setPostagemWeekOffset] = useState(0);
+  const [agendaView, setAgendaView] = useState('semana'); // 'semana' | 'mes'
+  const [agendaMesOffset, setAgendaMesOffset] = useState(0);
   const [postagemModal, setPostagemModal] = useState(null);
   const [postagemEdit, setPostagemEdit] = useState(null);
   const [postagens, setPostagens] = useState([]);
@@ -453,10 +455,16 @@ export default function Home() {
     setCronoTime(0); setCronoEpId(epId);
     cronoBaseRef.current = 0; cronoStartRef.current = null;
   };
-  const cronoFmt = (s, withFrames=false) => {
+  const cronoFmt = (s, withCentesimos=false) => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
     const base = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
-    return withFrames ? base + ":00" : (h>0 ? base : `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`);
+    if (withCentesimos) {
+      // Get centesimos from actual elapsed time
+      const ms = cronoStartRef.current ? (Date.now() - cronoStartRef.current) % 1000 : 0;
+      const cs = String(Math.floor(ms / 10)).padStart(2,"0");
+      return base + "." + cs;
+    }
+    return h>0 ? base : `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
   };
   const marcarCorte = (ep) => { setCronoNotaAtiva({time:cronoTime,timeStr:cronoFmt(cronoTime),nota:""}); };
   const salvarCorte = async (ep) => {
@@ -959,13 +967,71 @@ export default function Home() {
             <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>📅 AGENDA <span style={{color:BL}}>DO PROGRAMA</span></div>
 
             {/* Navegação */}
-            <div style={{display:"flex",gap:8,marginBottom:24}}>
-              <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Anterior</button>
-              <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Hoje</button>
-              <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próxima →</button>
+            <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap",alignItems:"center"}}>
+              <div style={{display:"flex",gap:2,background:"rgba(27,104,150,0.1)",borderRadius:6,padding:2}}>
+                <button onClick={()=>setAgendaView('semana')} style={{fontFamily:"'DM Sans'",fontSize:12,padding:"5px 14px",border:"none",borderRadius:4,cursor:"pointer",background:agendaView==='semana'?B:"transparent",color:agendaView==='semana'?"#fff":MUTED,fontWeight:agendaView==='semana'?600:400}}>Semana</button>
+                <button onClick={()=>setAgendaView('mes')} style={{fontFamily:"'DM Sans'",fontSize:12,padding:"5px 14px",border:"none",borderRadius:4,cursor:"pointer",background:agendaView==='mes'?B:"transparent",color:agendaView==='mes'?"#fff":MUTED,fontWeight:agendaView==='mes'?600:400}}>Mês</button>
+              </div>
+              {agendaView==='semana'?(
+                <>
+                  <button onClick={()=>setPostagemWeekOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Anterior</button>
+                  <button onClick={()=>setPostagemWeekOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Hoje</button>
+                  <button onClick={()=>setPostagemWeekOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próxima →</button>
+                </>
+              ):(
+                <>
+                  <button onClick={()=>setAgendaMesOffset(o=>o-1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>← Anterior</button>
+                  <button onClick={()=>setAgendaMesOffset(0)} style={{...btnGhost,padding:"6px 14px",fontSize:12}}>Este mês</button>
+                  <button onClick={()=>setAgendaMesOffset(o=>o+1)} style={{...btnGhost,padding:"6px 14px",fontSize:13}}>Próximo →</button>
+                </>
+              )}
             </div>
 
-            {getWeekDates(postagemWeekOffset).map(slot => {
+            {agendaView==='mes' && (()=>{
+              const now = new Date();
+              const mes = new Date(now.getFullYear(), now.getMonth() + agendaMesOffset, 1);
+              const mesLabel = mes.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}).toUpperCase();
+              const diasNoMes = new Date(mes.getFullYear(), mes.getMonth()+1, 0).getDate();
+              const dias = Array.from({length:diasNoMes},(_,i)=>{
+                const d = new Date(mes.getFullYear(), mes.getMonth(), i+1);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                return {date:dateStr, day:i+1, weekday:["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][d.getDay()]};
+              });
+              const hoje = toLocalDate(new Date());
+              return (
+                <div>
+                  <div style={{fontFamily:"'Bebas Neue'",fontSize:18,letterSpacing:2,color:ACCENT,marginBottom:16}}>{mesLabel}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
+                    {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(d=>(
+                      <div key={d} style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,textAlign:"center",fontWeight:600,letterSpacing:1}}>{d}</div>
+                    ))}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+                    {/* Empty cells for first week offset */}
+                    {Array.from({length:["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].indexOf(dias[0].weekday)===0?6:["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].indexOf(dias[0].weekday)-1},(_,i)=><div key={`e${i}`}/>)}
+                    {dias.map(({date,day,weekday})=>{
+                      const dayPosts = getPostagens(date);
+                      const dayGrav = episodes.filter(e=>e.gravacao_data===date&&!e.retroativo);
+                      const isHoje = date===hoje;
+                      const hasContent = dayPosts.length>0||dayGrav.length>0;
+                      return (
+                        <div key={date} style={{minHeight:80,background:isHoje?"rgba(27,104,150,0.2)":hasContent?"rgba(27,104,150,0.06)":"transparent",border:`1px solid ${isHoje?"rgba(36,135,190,0.6)":hasContent?BORDER:"rgba(27,104,150,0.1)"}`,borderRadius:6,padding:"4px 6px"}}>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:isHoje?700:400,color:isHoje?ACCENT:hasContent?TEXT:MUTED,marginBottom:3}}>{day}</div>
+                          {dayGrav.length>0&&<div style={{background:"rgba(232,244,255,0.15)",borderRadius:3,padding:"1px 4px",marginBottom:2}}><div style={{fontFamily:"'DM Sans'",fontSize:9,color:"#E8F4FF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎙 {dayGrav[0].title}</div></div>}
+                          {dayPosts.slice(0,3).map(p=>{
+                            const tc=p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                            return <div key={p.id} onClick={()=>{setPostagemModal({date,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{background:`${tc}22`,borderRadius:3,padding:"1px 4px",marginBottom:2,cursor:"pointer"}}><div style={{fontFamily:"'DM Sans'",fontSize:9,color:tc,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.episodio_title||p.tipo}</div></div>;
+                          })}
+                          {dayPosts.length>3&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED}}>+{dayPosts.length-3}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {agendaView==='semana' && getWeekDates(postagemWeekOffset).map(slot => {
               const slotPostagens = getPostagens(slot.date);
               const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
               const isToday = slot.date === toLocalDate(new Date());
@@ -1043,8 +1109,7 @@ export default function Home() {
               );
             })}
 
-            {/* Resumo semana */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:20}}>
+            {agendaView==='semana' && <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginTop:20}}>
               {["postado","agendado","pendente"].map(s => {
                 const count = getWeekDates(postagemWeekOffset).flatMap(slot=>getPostagens(slot.date)).filter(p=>p.status===s).length;
                 const color = s==="postado"?"#10B981":s==="agendado"?"#F59E0B":MUTED;
@@ -1055,7 +1120,7 @@ export default function Home() {
                   </div>
                 );
               })}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -1317,26 +1382,54 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                  {epData.map(ep=>(
-                    <div key={ep.id} style={{marginBottom:18}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,color:TEXT}}>{ep.title}</div>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:TEXT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} views</div>
-                      </div>
-                      {PLATS5.filter(p=>ep.byPlat[p.key]>0).map(p=>{
-                        const pct = Math.round((ep.byPlat[p.key]/Math.max(...PLATS5.map(p2=>ep.byPlat[p2.key]||0),1))*100);
-                        return (
-                          <div key={p.key} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,flexShrink:0}}>{p.icon} {p.key}</div>
-                            <div style={{flex:1,background:"#0A1F30",borderRadius:3,height:7,overflow:"hidden"}}>
-                              <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,transition:"width .4s"}}/>
-                            </div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,textAlign:"right",flexShrink:0,fontWeight:600}}>{ep.byPlat[p.key].toLocaleString("pt-BR")}</div>
+                  {(()=>{
+                    // Global max across ALL episodes and ALL platforms for proportional bars
+                    const globalMax = Math.max(...epData.flatMap(e=>PLATS5.map(p=>e.byPlat[p.key]||0)), 1);
+                    // Nice round scale: ceil to nearest 100k, 500k, 1M etc
+                    const magnitude = Math.pow(10, Math.floor(Math.log10(globalMax)));
+                    const scaleMax = Math.ceil(globalMax / magnitude) * magnitude;
+                    const scaleLabels = [0, scaleMax/4, scaleMax/2, scaleMax*3/4, scaleMax].map(v =>
+                      v>=1000000 ? (v/1000000).toFixed(1)+"M" : v>=1000 ? (v/1000).toFixed(0)+"K" : v
+                    );
+                    return (
+                      <div>
+                        {/* Scale labels */}
+                        <div style={{display:"flex",justifyContent:"space-between",paddingLeft:80,paddingRight:74,marginBottom:6}}>
+                          {scaleLabels.map((l,i)=>(
+                            <div key={i} style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED,textAlign:"center"}}>{l}</div>
+                          ))}
+                        </div>
+                        {/* Scale lines */}
+                        <div style={{position:"relative",paddingLeft:80,paddingRight:74,marginBottom:16}}>
+                          <div style={{position:"absolute",left:80,right:74,top:0,bottom:0,display:"flex",justifyContent:"space-between",pointerEvents:"none"}}>
+                            {[0,1,2,3,4].map(i=>(
+                              <div key={i} style={{width:1,background:"rgba(27,104,150,0.2)",height:"100%",position:"absolute",left:`${i*25}%`}}/>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
-                  ))}
+                        </div>
+                        {epData.map(ep=>(
+                          <div key={ep.id} style={{marginBottom:20}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                              <div style={{fontFamily:"'DM Sans'",fontSize:12,fontWeight:600,color:TEXT}}>{ep.title}</div>
+                              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,fontWeight:600}}>{ep.total.toLocaleString("pt-BR")} views</div>
+                            </div>
+                            {PLATS5.filter(p=>ep.byPlat[p.key]>0).map(p=>{
+                              const pct = Math.round((ep.byPlat[p.key]/scaleMax)*100);
+                              return (
+                                <div key={p.key} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                                  <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:72,flexShrink:0,textAlign:"right"}}>{p.icon} {p.key}</div>
+                                  <div style={{flex:1,background:"#0A1F30",borderRadius:3,height:8,overflow:"hidden"}}>
+                                    <div style={{height:"100%",width:`${pct}%`,background:p.color,borderRadius:3,transition:"width .5s",minWidth:pct>0?2:0}}/>
+                                  </div>
+                                  <div style={{fontFamily:"'DM Sans'",fontSize:10,color:p.color,width:70,textAlign:"right",flexShrink:0,fontWeight:600}}>{ep.byPlat[p.key].toLocaleString("pt-BR")}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -1729,23 +1822,37 @@ export default function Home() {
             )}
             {(statsModal==="cortes"||statsModal==="tierlists") && (
               <div>
-                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).sort((a,b)=>(a.data||"").localeCompare(b.data||"")).map(p=>{
+                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).sort((a,b)=>(b.views||0)-(a.views||0)).map(p=>{
                   const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
-                  const platIcons = plats.map(pl=>platCfg(pl).icon).join(" ");
+                  const epLinks = episodes.find(e=>e.id===p.episodio_id)?.links||[];
+                  const matchLink = epLinks.find(l=>l.url===p.link);
+                  const views = matchLink?.views || p.views || 0;
+                  const thumb = p.link&&p.link.includes("youtu") ? (()=>{const vid=getYouTubeVideoId(p.link);return vid?`https://img.youtube.com/vi/${vid}/mqdefault.jpg`:null;})() : null;
                   return (
-                    <div key={p.id} style={{padding:"10px 0",borderBottom:`1px solid ${BORDER}`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
-                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.notas||"Sem título"}</span>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{p.data?new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):""}</span>
+                    <div key={p.id} style={{display:"flex",gap:10,alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${BORDER}`}}>
+                      {thumb
+                        ? <img src={thumb} alt="" style={{width:64,height:48,borderRadius:4,objectFit:"cover",flexShrink:0}}/>
+                        : <div style={{width:64,height:48,borderRadius:4,background:"rgba(27,104,150,0.15)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{platCfg(plats[0]).icon}</div>
+                      }
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",gap:5,marginBottom:3,flexWrap:"wrap"}}>
+                          {plats.map(pl=>{const cfg=platCfg(pl);return<span key={pl} style={{background:cfg.bg,color:cfg.color,borderRadius:3,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{cfg.icon} {pl}</span>;})}
+                          <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED}}>{p.data?new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):""}</span>
+                        </div>
+                        {p.link
+                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,textDecoration:"none",fontWeight:600,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.notas||"Sem título"}</a>
+                          : <div style={{fontFamily:"'DM Sans'",fontSize:13,color:TEXT,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.notas||"Sem título"}</div>
+                        }
+                        {p.episodio_title&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginTop:1}}>{p.episodio_title}</div>}
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-                        {plats.map(pl=>{const cfg=platCfg(pl);return<span key={pl} style={{background:cfg.bg,color:cfg.color,borderRadius:3,padding:"1px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{cfg.icon} {pl}</span>;})}
-                        {p.episodio_title&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>· {p.episodio_title}</span>}
+                      <div style={{flexShrink:0,textAlign:"right"}}>
+                        <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,fontWeight:700}}>{views>0?views.toLocaleString("pt-BR"):"—"}</div>
+                        {views>0&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED}}>views</div>}
                       </div>
-                      {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.link}</a>}
                     </div>
                   );
                 })}
+                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:32}}>Nenhum publicado ainda.</div>}
               </div>
             )}
           </div>
@@ -1844,7 +1951,11 @@ export default function Home() {
           <div style={{padding:"14px 16px"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div style={{fontFamily:"'Bebas Neue'",fontSize:40,letterSpacing:3,color:cronoEpId===cronoEp.id?ACCENT:MUTED}}>
-                {cronoFmt(cronoEpId===cronoEp.id?cronoTime:0, true)}
+                {(()=>{
+                const base = cronoFmt(cronoEpId===cronoEp.id?cronoTime:0);
+                const cs = cronoRunning&&cronoStartRef.current ? "."+String(Math.floor(((Date.now()-cronoStartRef.current)%1000)/10)).padStart(2,"0") : ".00";
+                return <>{base}<span style={{fontSize:24,opacity:0.6}}>{cs}</span></>;
+              })()}
               </div>
               <div style={{display:"flex",gap:6}}>
                 {cronoEpId===cronoEp.id&&cronoRunning
