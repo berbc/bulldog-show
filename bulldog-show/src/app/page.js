@@ -1722,7 +1722,7 @@ export default function Home() {
       {/* MODAL REVISÃO DE CORTES */}
       {cortesReviewEp && (()=>{
         const ep = episodes.find(e=>e.id===cortesReviewEp.id)||cortesReviewEp;
-        const cortes = ep.cortes_finalizados||[];
+        const cortes = (ep.cortes_finalizados||[]).length>0 ? ep.cortes_finalizados : (ep.cortes_gravacao||[]).map(c=>({...c,selecionado:false}));
         const toggleSelect = async (id) => {
           const novos = cortes.map(c=>c.id===id?{...c,selecionado:!c.selecionado}:c);
           await supabase.from("episodes").update({cortes_finalizados:novos}).eq("id",ep.id);
@@ -2178,7 +2178,16 @@ export default function Home() {
                 </div>
               </div>
             )}
-            {!editMode && <button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>}
+            {!editMode && (
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                {((selectedEp.cortes_finalizados||[]).length>0 || (selectedEp.cortes_gravacao||[]).length>0) && (
+                  <button onClick={()=>setCortesReviewEp(selectedEp)} style={{...btnGhost,fontSize:11,color:ACCENT,borderColor:`${ACCENT}44`}}>
+                    ✂️ Ver cortes ({(selectedEp.cortes_finalizados||selectedEp.cortes_gravacao||[]).length})
+                  </button>
+                )}
+                <button onClick={()=>deleteEp(selectedEp.id)} style={{...btnGhost,fontSize:11}}>🗑 Deletar episódio</button>
+              </div>
+            )}
           </div>
         </div>
       )}
