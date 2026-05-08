@@ -1824,7 +1824,10 @@ export default function Home() {
                 {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).sort((a,b)=>(b.views||0)-(a.views||0)).map(p=>{
                   const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
                   const epLinks = episodes.find(e=>e.id===p.episodio_id)?.links||[];
-                  const matchLink = epLinks.find(l=>l.url===p.link);
+                  // Match by exact URL first, then by plataforma type, then fallback to postagem views
+                  const matchLink = epLinks.find(l=>l.url&&p.link&&l.url===p.link)
+                    || epLinks.find(l=>l.plataforma==="YT Tier List"&&statsModal==="tierlists")
+                    || epLinks.find(l=>l.plataforma==="YT Corte"&&statsModal==="cortes");
                   const views = matchLink?.views || p.views || 0;
                   const thumb = p.link&&p.link.includes("youtu") ? (()=>{const vid=getYouTubeVideoId(p.link);return vid?`https://img.youtube.com/vi/${vid}/mqdefault.jpg`:null;})() : null;
                   return (
