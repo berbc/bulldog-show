@@ -411,17 +411,43 @@ export default function Home() {
 
   useEffect(() => () => { if (cronoRef.current) clearInterval(cronoRef.current); }, []);
 
+  // CHANGE 1: Mobile - recover timer when tab becomes visible again
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && cronoRunning && cronoStartRef.current) {
+        const elapsed = Math.floor((Date.now() - cronoStartRef.current) / 1000);
+        setCronoTime(cronoBaseRef.current + elapsed);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [cronoRunning]);
+
+  const cronoStartRef = useRef(null); // timestamp when started
+  const cronoBaseRef = useRef(0);    // accumulated seconds before pause
+
   const cronoStart = (epId) => {
-    if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); }
+    if (cronoEpId !== epId) { setCronoTime(0); setCronoEpId(epId); cronoBaseRef.current = 0; }
     setCronoRunning(true);
+    cronoStartRef.current = Date.now();
     if (cronoRef.current) clearInterval(cronoRef.current);
-    cronoRef.current = setInterval(() => setCronoTime(t => t+1), 1000);
+    cronoRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - cronoStartRef.current) / 1000);
+      setCronoTime(cronoBaseRef.current + elapsed);
+    }, 500);
   };
   const cronoPause = () => {
     setCronoRunning(false);
     if (cronoRef.current) { clearInterval(cronoRef.current); cronoRef.current = null; }
+    if (cronoStartRef.current) {
+      cronoBaseRef.current += Math.floor((Date.now() - cronoStartRef.current) / 1000);
+      cronoStartRef.current = null;
+    }
   };
-  const cronoReset = (epId) => { cronoPause(); setCronoTime(0); setCronoEpId(epId); };
+  const cronoReset = (epId) => {
+    cronoPause(); setCronoTime(0); setCronoEpId(epId);
+    cronoBaseRef.current = 0; cronoStartRef.current = null;
+  };
   const cronoFmt = (s) => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
     if (h>0) return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
@@ -830,7 +856,7 @@ export default function Home() {
                           <div key={p.id} onClick={()=>setActiveTab(2)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
                             <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,width:80,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
                             <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 8px",fontFamily:"'DM Sans'",fontSize:11,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.episodio_title||"Sem episódio"}</span>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1}}>{p.titulo_yt?`${p.titulo_yt}${p.episodio_title?" · "+p.episodio_title:""}`:p.episodio_title||"Sem episódio"}</span>
                             {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:11,color:"#10B981"}}>👤 {p.responsavel}</span>}
                             <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,fontWeight:600,textTransform:"uppercase"}}>{p.status}</span>
                           </div>
@@ -928,7 +954,7 @@ export default function Home() {
             </div>
 
             {getWeekDates(postagemWeekOffset).map(slot => {
-              const slotPostagens = getPostagens(slot.date);
+              const slotPostagens = getPostagens(slot.date).sort((a,b)=>(a.horario||'00:00').localeCompare(b.horario||'00:00'));
               const gravacoes = episodes.filter(e => e.gravacao_data === slot.date && !e.retroativo);
               const isToday = slot.date === toLocalDate(new Date());
               const hasContent = slotPostagens.length > 0 || gravacoes.length > 0;
@@ -1696,13 +1722,15 @@ export default function Home() {
                   const platIcons = plats.map(pl=>platCfg(pl).icon).join(" ");
                   return (
                     <div key={p.id} style={{padding:"10px 0",borderBottom:`1px solid ${BORDER}`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:3}}>
-                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,flex:1}}>{p.titulo_yt||p.notas||"Sem título"}</span>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{platIcons}</span>
-                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>{p.data?new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):""}</span>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:14,letterSpacing:1,color:TEXT,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.notas||"Sem título"}</span>
+                        <span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,flexShrink:0}}>{p.data?new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):""}</span>
                       </div>
-                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED,marginBottom:3}}>{p.episodio_title||""}</div>
-                      {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none"}}>{p.link}</a>}
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
+                        {plats.map(pl=>{const cfg=platCfg(pl);return<span key={pl} style={{background:cfg.bg,color:cfg.color,borderRadius:3,padding:"1px 7px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600}}>{cfg.icon} {pl}</span>;})}
+                        {p.episodio_title&&<span style={{fontFamily:"'DM Sans'",fontSize:11,color:MUTED}}>· {p.episodio_title}</span>}
+                      </div>
+                      {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{fontFamily:"'DM Sans'",fontSize:11,color:ACCENT,textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.link}</a>}
                     </div>
                   );
                 })}
@@ -1721,7 +1749,9 @@ export default function Home() {
               <button onClick={()=>setViewsModal(null)} style={btnGhost}>✕</button>
             </div>
             {(() => {
-              const platFilter = viewsModal==="yt" ? l=>l.plataforma==="YouTube" : l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts";
+              const platFilter = viewsModal==="yt"
+                ? l=>["YouTube","YT Full","YT Corte","YT Tier List","YT Shorts"].includes(l.plataforma)
+                : l=>["Instagram","TikTok","Shorts","Spotify"].includes(l.plataforma);
               const epData = episodes.map(ep=>({ep,links:(ep.links||[]).filter(platFilter).filter(l=>l.views>0)})).filter(d=>d.links.length>0).sort((a,b)=>b.links.reduce((s,l)=>s+(l.views||0),0)-a.links.reduce((s,l)=>s+(l.views||0),0));
               if (!epData.length) return <div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED}}>Nenhum view registrado ainda.</div>;
               return epData.map(({ep,links})=>{
@@ -1919,7 +1949,14 @@ export default function Home() {
                       {pautas.filter(p=>!p.usado).sort((a,b)=>(b.estrelas||0)-(a.estrelas||0)).map(p=><option key={p.id} value={p.titulo}>{p.estrelas?"★".repeat(p.estrelas)+" ":""}{p.titulo}</option>)}
                     </select>
                   )}
-                  <input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={inp} placeholder="Ou digita o tema..."/>
+                  <div style={{display:"flex",gap:8,marginTop:4}}>
+                    <input value={editData.debate||""} onChange={e=>setEditData({...editData,debate:e.target.value})} style={{...inp,flex:1}} placeholder="Ou digita o tema..."/>
+                    <button style={btnBlue} onClick={async()=>{
+                      if(!editData.debate?.trim())return;
+                      const{data}=await supabase.from("pautas").insert({titulo:editData.debate.trim(),descricao:"",estrelas:0}).select().single();
+                      if(data){setPautas(prev=>[...prev,data]);flash();}
+                    }}>+ ADD</button>
+                  </div>
                 </div>
               ) : <div style={val}>{selectedEp.debate||<span style={{color:"#1A3A50"}}>Não definido</span>}</div>}
             </div>
