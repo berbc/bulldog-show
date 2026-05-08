@@ -167,7 +167,6 @@ export default function Home() {
   }, []);
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
-  useEffect(() => { if (user && activeTab===4 && !ytRefreshedRef.current) { ytRefreshedRef.current=true; refreshAllYouTubeViews(); } }, [activeTab]); // eslint-disable-line
   const loadEquipe = useCallback(async () => {
     const { data } = await supabase.from("equipe").select("*").order("nome");
     if (data) setEquipe(data);
@@ -245,6 +244,9 @@ export default function Home() {
     }
     flash();
   };
+
+  // YouTube auto-refresh: once per session when tab 4 opens
+  useEffect(() => { if (user && activeTab===4 && !ytRefreshedRef.current) { ytRefreshedRef.current=true; refreshAllYouTubeViews(); } }, [activeTab]); // eslint-disable-line
 
   const fetchAndUpdateViews = async (ep) => {
     const links = ep.links || [];
@@ -861,12 +863,12 @@ export default function Home() {
                       {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)||(a.horario||"00:00").localeCompare(b.horario||"00:00")).map(p=>{
                         const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
                         const epMatch = p.episodio_title?.match(/([0-9]+)/);
-                        const epNum = epMatch ? epMatch[1] : null;
+                        const epNumStr = epMatch ? epMatch[1] : null;
                         return (
                           <div key={p.id} onClick={()=>{setPostagemModal({date:p.data,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${BORDER}`,cursor:"pointer"}}>
                             <span style={{fontFamily:"'DM Sans'",fontSize:10,color:MUTED,width:70,flexShrink:0}}>{new Date(p.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</span>
                             <span style={{background:`${tipoColor}22`,color:tipoColor,borderRadius:4,padding:"1px 6px",fontFamily:"'DM Sans'",fontSize:10,fontWeight:600,flexShrink:0}}>{p.tipo}</span>
-                            {epNum&&<span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:BL,flexShrink:0,letterSpacing:1}}>EP{epNum}</span>}
+                            {epNumStr&&<span style={{fontFamily:"'Bebas Neue'",fontSize:13,color:BL,flexShrink:0,letterSpacing:1}}>EP{epNumStr}</span>}
                             <span style={{fontFamily:"'DM Sans'",fontSize:12,color:TEXT,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.episodio_title||"Sem título"}</span>
                             {p.responsavel && <span style={{fontFamily:"'DM Sans'",fontSize:10,color:"#10B981",flexShrink:0}}>👤 {p.responsavel}</span>}
                           </div>
