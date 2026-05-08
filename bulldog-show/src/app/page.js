@@ -459,12 +459,11 @@ export default function Home() {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
     const base = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
     if (withCentesimos) {
-      // Get centesimos from actual elapsed time
       const ms = cronoStartRef.current ? (Date.now() - cronoStartRef.current) % 1000 : 0;
       const cs = String(Math.floor(ms / 10)).padStart(2,"0");
       return base + "." + cs;
     }
-    return h>0 ? base : `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    return base;
   };
   const marcarCorte = (ep) => { setCronoNotaAtiva({time:cronoTime,timeStr:cronoFmt(cronoTime),nota:""}); };
   const salvarCorte = async (ep) => {
