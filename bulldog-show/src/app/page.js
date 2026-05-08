@@ -71,6 +71,7 @@ export default function Home() {
   const [selectedEp, setSelectedEp] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [copied, setCopied] = useState(null);
