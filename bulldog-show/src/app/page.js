@@ -279,7 +279,7 @@ export default function Home() {
 
   const getWeekDates = (offset=0) => {
     const days = ["SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA","SÁBADO","DOMINGO"];
-    const tipos = ["Corte","Corte","Full","Corte","Tier List","Corte","Corte"];
+    const tipos = ["Cortes YT","Cortes YT","Full","Cortes YT","Tier List","Redes","Redes"];
     const now = new Date();
     const dow = now.getDay();
     const monday = new Date(now);
@@ -528,7 +528,7 @@ export default function Home() {
       const payload = {
         episodio_id: ep.id,
         episodio_title: ep.title,
-        tipo: "Corte",
+        tipo: "Cortes YT",
         status: "pendente",
         data: today,
         plataforma: "YT Corte",
@@ -875,7 +875,7 @@ export default function Home() {
                     <div style={{...card,padding:20,marginBottom:16}}>
                       <div onClick={()=>setActiveTab(2)} style={{fontSize:15,letterSpacing:2,marginBottom:14,cursor:"pointer",color:ACCENT}}>📆 POSTS PENDENTES ESTA SEMANA →</div>
                       {postsSemana.filter(p=>p.status!=="postado").sort((a,b)=>a.data.localeCompare(b.data)||(a.horario||"00:00").localeCompare(b.horario||"00:00")).map(p=>{
-                        const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                        const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":p.tipo==="Cortes YT"?"#FF4444":p.tipo==="Redes"?"#1B6896":p.tipo==="Spotify"?"#1DB954":ACCENT;
                         const epMatch = p.episodio_title?.match(/([0-9]+)/);
                         const epNumStr = epMatch ? epMatch[1] : null;
                         return (
@@ -1025,7 +1025,7 @@ export default function Home() {
                           <div style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:isHoje?700:400,color:isHoje?ACCENT:hasContent?TEXT:MUTED,marginBottom:3}}>{day}</div>
                           {dayGrav.length>0&&<div style={{background:"rgba(232,244,255,0.15)",borderRadius:3,padding:"1px 4px",marginBottom:2}}><div style={{fontFamily:"'DM Sans'",fontSize:9,color:"#E8F4FF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎙 {dayGrav[0].title}</div></div>}
                           {dayPosts.slice(0,3).map(p=>{
-                            const tc=p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                            const tc=p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":p.tipo==="Cortes YT"?"#FF4444":p.tipo==="Redes"?"#1B6896":p.tipo==="Spotify"?"#1DB954":ACCENT;
                             return <div key={p.id} onClick={()=>{setPostagemModal({date,label:"",tipo:p.tipo});setPostagemEdit({...p,plataforma:p.plataforma?p.plataforma.split(","):["YouTube"]});}} style={{background:`${tc}22`,borderRadius:3,padding:"1px 4px",marginBottom:2,cursor:"pointer"}}><div style={{fontFamily:"'DM Sans'",fontSize:9,color:tc,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.titulo_yt||p.episodio_title||p.tipo}</div></div>;
                           })}
                           {dayPosts.length>3&&<div style={{fontFamily:"'DM Sans'",fontSize:9,color:MUTED}}>+{dayPosts.length-3}</div>}
@@ -1045,6 +1045,9 @@ export default function Home() {
               const getTipoStyle = (tipo) => {
                 if (tipo==="Full") return {color:"#8B5CF6",bg:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.5)"};
                 if (tipo==="Tier List") return {color:"#F59E0B",bg:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.5)"};
+                if (tipo==="Cortes YT") return {color:"#FF4444",bg:"rgba(255,68,68,0.15)",border:"1px solid rgba(255,68,68,0.5)"};
+                if (tipo==="Redes") return {color:"#1B6896",bg:"rgba(27,104,150,0.18)",border:"1px solid rgba(27,104,150,0.5)"};
+                if (tipo==="Spotify") return {color:"#1DB954",bg:"rgba(29,185,84,0.15)",border:"1px solid rgba(29,185,84,0.5)"};
                 return {color:ACCENT,bg:"rgba(27,104,150,0.15)",border:`1px solid rgba(27,104,150,0.5)`};
               };
               return (
@@ -1217,7 +1220,7 @@ export default function Home() {
                 const newDone=clItems.slice(0,toIdx).map(i=>i.key);
                 await saveCorteChecklist(p.id,newDone);
               };
-              const cortes=postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Full"||p.tipo==="Tier List"));
+              const cortes=postagens.filter(p=>p.status!=="postado"&&(p.tipo==="Corte"||p.tipo==="Cortes YT"||p.tipo==="Full"||p.tipo==="Tier List"||p.tipo==="Redes"||p.tipo==="Spotify"));
               if (!cortes.length) return null;
               return (
                 <div style={{marginBottom:28}}>
@@ -1233,7 +1236,7 @@ export default function Home() {
                           </div>
                           <div style={{padding:6,display:"flex",flexDirection:"column",gap:5}}>
                             {items.map(p=>{
-                              const tipoColor=p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                              const tipoColor=p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":p.tipo==="Cortes YT"?"#FF4444":p.tipo==="Redes"?"#1B6896":p.tipo==="Spotify"?"#1DB954":ACCENT;
                               const dias=p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
                               const diasCor=dias===null?"#94A3B8":dias<0?"#EF4444":dias<=2?"#EF4444":dias<=5?"#F59E0B":"#10B981";
                               const diasTxt=dias===null?null:dias<0?"atr.":dias===0?"hoje":dias===1?"amanhã":`${dias}d`;
@@ -1264,7 +1267,7 @@ export default function Home() {
             {(() => {
               const cortesPendentes = postagens.filter(p => {
                 if (p.status === "postado") return false;
-                if (p.tipo !== "Corte" && p.tipo !== "Full" && p.tipo !== "Tier List") return false;
+                if (!["Corte","Cortes YT","Full","Tier List","Redes","Spotify"].includes(p.tipo)) return false;
                 const cl = getCorteChecklist(p.tipo, p.plataforma);
                 const done = (() => { try { return JSON.parse(p.notas_checklist||"[]"); } catch(e) { return []; } })();
                 return done.length < cl.length;
@@ -1274,7 +1277,7 @@ export default function Home() {
                 <div>
                   <div style={{fontFamily:"'DM Sans'",fontSize:13,color:ACCENT,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:12,marginTop:8,paddingBottom:8,borderBottom:`1px solid ${BORDER}`}}>📤 Conteúdo Pendente</div>
                   {cortesPendentes.map(p => {
-                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":ACCENT;
+                    const tipoColor = p.tipo==="Full"?"#8B5CF6":p.tipo==="Tier List"?"#F59E0B":p.tipo==="Cortes YT"?"#FF4444":p.tipo==="Redes"?"#1B6896":p.tipo==="Spotify"?"#1DB954":ACCENT;
                     const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
                     const platIcons = plats.map(pl=>platCfg(pl).icon).join(" ");
                     const dias = p.data?Math.ceil((new Date(p.data+"T12:00:00")-new Date())/(1000*60*60*24)):null;
@@ -1340,7 +1343,7 @@ export default function Home() {
                   {[
                     {key:"gravados",   label:"Episódios Gravados",    value:gravados,                                                                    color:ACCENT},
                     {key:"publicados", label:"Episódios Publicados",  value:publishedEps.length,                                                         color:"#10B981"},
-                    {key:"cortes",     label:"Cortes Publicados",     value:postagens.filter(p=>p.tipo==="Corte"&&p.status==="postado").length,           color:ACCENT},
+                    {key:"cortes",     label:"Cortes Publicados",     value:postagens.filter(p=>(p.tipo==="Corte"||p.tipo==="Cortes YT")&&p.status==="postado").length,           color:ACCENT},
                     {key:"tierlists",  label:"Tier Lists Publicadas", value:postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length,       color:"#F59E0B"},
                   ].map(item=>(
                     <div key={item.key} onClick={()=>setStatsModal(item.key)} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=item.color} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
@@ -1828,7 +1831,7 @@ export default function Home() {
             )}
             {(statsModal==="cortes"||statsModal==="tierlists") && (
               <div>
-                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).sort((a,b)=>(b.views||0)-(a.views||0)).map(p=>{
+                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":statsModal==="cortesyt"?"Cortes YT":"Tier List")||(statsModal==="cortes"&&p.tipo==="Cortes YT")).sort((a,b)=>(b.views||0)-(a.views||0)).map(p=>{
                   const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
                   const epLinks = episodes.find(e=>e.id===p.episodio_id)?.links||[];
                   // Match by exact URL first, then by plataforma type, then fallback to postagem views
@@ -1861,7 +1864,7 @@ export default function Home() {
                     </div>
                   );
                 })}
-                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":"Tier List")).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:32}}>Nenhum publicado ainda.</div>}
+                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":statsModal==="cortesyt"?"Cortes YT":"Tier List")||(statsModal==="cortes"&&p.tipo==="Cortes YT")).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:32}}>Nenhum publicado ainda.</div>}
               </div>
             )}
           </div>
@@ -2323,7 +2326,7 @@ export default function Home() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
                 <div style={lbl}>Tipo</div>
-                <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}><option>Corte</option><option>Tier List</option><option>Full</option></select>
+                <select value={postagemEdit.tipo} onChange={e=>setPostagemEdit({...postagemEdit,tipo:e.target.value})} style={inp}><option>Cortes YT</option><option>Full</option><option>Tier List</option><option>Redes</option><option>Spotify</option><option>Corte</option></select>
               </div>
               <div>
                 <div style={lbl}>Plataforma(s)</div>
