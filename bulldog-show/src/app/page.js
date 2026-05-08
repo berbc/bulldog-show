@@ -818,14 +818,14 @@ export default function Home() {
         {/* TAB 0: DASHBOARD */}
         {activeTab===0 && (
           <div>
-            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🏠 BOM DIA, <span style={{color:BL}}>BULLDOG SHOW</span></div>
+            <div style={{fontSize:20,letterSpacing:2,marginBottom:20}}>🏠 {(()=>{const h=new Date().getHours();return h<12?"BOM DIA,":h<18?"BOA TARDE,":"BOA NOITE,";})()}<span style={{color:BL}}> BULLDOG SHOW</span></div>
             {(() => {
               const proxima = [...episodes].filter(e=>e.gravacao_data&&!e.retroativo).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data)).find(e=>e.gravacao_data>=toLocalDate(new Date()));
               const hoje = toLocalDate(new Date());
               const postsSemana = postagens.filter(p=>{
                 const d = new Date(p.data+"T12:00:00"), now = new Date();
                 const diff = (d-now)/(1000*60*60*24);
-                return (diff >= -1) && (diff <= 7);
+                return (diff >= -7) && (diff <= 7);
               });
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
