@@ -169,6 +169,26 @@ export default function Home() {
   }, []);
   useEffect(() => { if (user) loadPostagens(); }, [user, loadPostagens]);
 
+  // One-time migration: "Corte" → "Cortes YT" or "Redes" based on plataforma
+  useEffect(() => {
+    if (!user || !postagens.length) return;
+    const migrar = async () => {
+      const ytPlats = ["YouTube","YT Corte","YT Full","YT Tier List","YT Shorts"];
+      const redesPlats = ["Instagram","TikTok","Shorts","Spotify"];
+      const toMigrate = postagens.filter(p => p.tipo === "Corte");
+      if (!toMigrate.length) return;
+      for (const p of toMigrate) {
+        const plats = p.plataforma ? p.plataforma.split(",") : [];
+        const isYT = plats.some(pl => ytPlats.includes(pl.trim()));
+        const isRedes = plats.some(pl => redesPlats.includes(pl.trim()));
+        const novoTipo = isYT ? "Cortes YT" : isRedes ? "Redes" : "Cortes YT";
+        await supabase.from("postagens").update({ tipo: novoTipo }).eq("id", p.id);
+      }
+      await loadPostagens();
+    };
+    migrar();
+  }, [user, postagens.length]); // eslint-disable-line
+
   const loadEquipe = useCallback(async () => {
     const { data } = await supabase.from("equipe").select("*").order("nome");
     if (data) setEquipe(data);
