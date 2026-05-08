@@ -822,11 +822,18 @@ export default function Home() {
             {(() => {
               const proxima = [...episodes].filter(e=>e.gravacao_data&&!e.retroativo).sort((a,b)=>a.gravacao_data.localeCompare(b.gravacao_data)).find(e=>e.gravacao_data>=toLocalDate(new Date()));
               const hoje = toLocalDate(new Date());
-              const postsSemana = postagens.filter(p=>{
-                const d = new Date(p.data+"T12:00:00"), now = new Date();
-                const diff = (d-now)/(1000*60*60*24);
-                return (diff >= -7) && (diff <= 7);
-              });
+              // Semana atual: segunda a domingo (igual à agenda)
+              const _now = new Date();
+              const _dow = _now.getDay();
+              const _mon = new Date(_now);
+              _mon.setDate(_now.getDate()-(_dow===0?6:_dow-1));
+              _mon.setHours(0,0,0,0);
+              const _sun = new Date(_mon);
+              _sun.setDate(_mon.getDate()+6);
+              _sun.setHours(23,59,59,999);
+              const semanaStart = toLocalDate(_mon);
+              const semanaEnd = toLocalDate(_sun);
+              const postsSemana = postagens.filter(p=>p.data>=semanaStart&&p.data<=semanaEnd);
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
               const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
