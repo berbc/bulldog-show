@@ -856,7 +856,7 @@ export default function Home() {
               const postsSemana = postagens.filter(p=>p.data>=semanaStart&&p.data<=semanaEnd);
               const epsSemChecklist = episodes.filter(e=>!e.retroativo&&(e.checklist||[]).length<10&&["planejado","confirmado","gravado","editado"].includes(e.status));
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
-              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
+              const ytViews = allEpLinks.filter(l=>["YouTube","YT Full","YT Corte","YT Cortes","YT Tier List","YT Shorts"].includes(l.plataforma)).reduce((s,l)=>s+(l.views||0),0);
               return (
                 <div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:24}}>
@@ -1355,7 +1355,7 @@ export default function Home() {
             </div>
             {(() => {
               const allEpLinks = episodes.flatMap(e=>(e.links||[]));
-              const ytViews = allEpLinks.filter(l=>l.plataforma==="YouTube"||l.plataforma==="YT Full"||l.plataforma==="YT Corte"||l.plataforma==="YT Tier List").reduce((s,l)=>s+(l.views||0),0);
+              const ytViews = allEpLinks.filter(l=>["YouTube","YT Full","YT Corte","YT Cortes","YT Tier List","YT Shorts"].includes(l.plataforma)).reduce((s,l)=>s+(l.views||0),0);
               const socialViews = allEpLinks.filter(l=>l.plataforma==="Instagram"||l.plataforma==="TikTok"||l.plataforma==="Shorts"||l.plataforma==="YT Shorts").reduce((s,l)=>s+(l.views||0),0);
               const gravados = episodes.filter(e=>["gravado","editado","publicado"].includes(e.status)||e.retroativo).length;
               return (
@@ -1363,7 +1363,7 @@ export default function Home() {
                   {[
                     {key:"gravados",   label:"Episódios Gravados",    value:gravados,                                                                    color:ACCENT},
                     {key:"publicados", label:"Episódios Publicados",  value:publishedEps.length,                                                         color:"#10B981"},
-                    {key:"cortes",     label:"Cortes Publicados",     value:postagens.filter(p=>(p.tipo==="Corte"||p.tipo==="Cortes YT")&&p.status==="postado").length,           color:ACCENT},
+                    {key:"cortes",     label:"Cortes Publicados",     value:postagens.filter(p=>(p.tipo==="Corte"||p.tipo==="Cortes YT"||p.tipo==="Redes")&&p.status==="postado").length,           color:ACCENT},
                     {key:"tierlists",  label:"Tier Lists Publicadas", value:postagens.filter(p=>p.tipo==="Tier List"&&p.status==="postado").length,       color:"#F59E0B"},
                   ].map(item=>(
                     <div key={item.key} onClick={()=>setStatsModal(item.key)} style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:10,padding:"16px 18px",cursor:"pointer",transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=item.color} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(27,104,150,0.3)"}>
@@ -1851,7 +1851,7 @@ export default function Home() {
             )}
             {(statsModal==="cortes"||statsModal==="tierlists") && (
               <div>
-                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":statsModal==="cortesyt"?"Cortes YT":"Tier List")||(statsModal==="cortes"&&p.tipo==="Cortes YT")).sort((a,b)=>(b.views||0)-(a.views||0)).map(p=>{
+                {postagens.filter(p=>p.status==="postado"&&(statsModal==="cortes"?(p.tipo==="Corte"||p.tipo==="Cortes YT"||p.tipo==="Redes"):p.tipo==="Tier List")).sort((a,b)=>(b.views||0)-(a.views||0)).map(p=>{
                   const plats = p.plataforma?p.plataforma.split(","):["YouTube"];
                   const epLinks = episodes.find(e=>e.id===p.episodio_id)?.links||[];
                   // Match by exact URL first, then by plataforma type, then fallback to postagem views
@@ -1884,7 +1884,7 @@ export default function Home() {
                     </div>
                   );
                 })}
-                {postagens.filter(p=>p.status==="postado"&&p.tipo===(statsModal==="cortes"?"Corte":statsModal==="cortesyt"?"Cortes YT":"Tier List")||(statsModal==="cortes"&&p.tipo==="Cortes YT")).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:32}}>Nenhum publicado ainda.</div>}
+                {postagens.filter(p=>p.status==="postado"&&(statsModal==="cortes"?(p.tipo==="Corte"||p.tipo==="Cortes YT"||p.tipo==="Redes"):p.tipo==="Tier List")).length===0&&<div style={{fontFamily:"'DM Sans'",fontSize:13,color:MUTED,textAlign:"center",padding:32}}>Nenhum publicado ainda.</div>}
               </div>
             )}
           </div>
@@ -1901,7 +1901,7 @@ export default function Home() {
             </div>
             {(() => {
               const platFilter = viewsModal==="yt"
-                ? l=>["YouTube","YT Full","YT Corte","YT Tier List","YT Shorts"].includes(l.plataforma)
+                ? l=>["YouTube","YT Full","YT Corte","YT Cortes","YT Tier List","YT Shorts"].includes(l.plataforma)
                 : l=>["Instagram","TikTok","Shorts","Spotify"].includes(l.plataforma);
               const epData = episodes
                 .map(ep=>({ep, links:(ep.links||[]).filter(platFilter).filter(l=>l.views>0).sort((a,b)=>(b.views||0)-(a.views||0))}))
